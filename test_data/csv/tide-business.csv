@@ -1,0 +1,11 @@
+Date,Description,Amount,Balance,Category
+15/01/2024,Stripe Payout,2500.00,12500.00,Income
+16/01/2024,AWS Services,-89.50,12410.50,Software
+17/01/2024,OpenAI Subscription,-20.00,12390.50,AI Tools
+18/01/2024,Notion Subscription,-15.00,12375.50,Software
+19/01/2024,Meta Ads,-350.00,12025.50,Advertising
+20/01/2024,Google Workspace,-12.99,12012.51,Software
+21/01/2024,Customer Payment,450.00,12462.51,Income
+22/01/2024,Slack Subscription,-8.75,12453.76,Software
+23/01/2024,Heroku Hosting,-25.00,12428.76,Cloud Infrastructure
+24/01/2024,Figma Subscription,-12.00,12416.76,Software

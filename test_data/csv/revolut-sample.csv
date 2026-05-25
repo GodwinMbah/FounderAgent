@@ -1,0 +1,8 @@
+Date started UTC,Date completed UTC,ID,Type,State,Description,Reference,Payer,Card number,Card label,Card state,Orig currency,Orig amount,Payment currency,Amount,Total amount,Exchange rate,Fee,Fee currency,Balance,Account,Beneficiary account number,Beneficiary sort code or routing number,Beneficiary IBAN,Beneficiary BIC,MCC,Related transaction id,Spend program
+2026-01-01 00:00:00,2026-01-01 00:00:01,tx-001,TOPUP,COMPLETED,Money added from STRIPE PAYMENTS UK LTD,Stripe payout,,,,,GBP,5000.00,GBP,5000.00,5000.00,,0.00,GBP,5000.00,Main GBP,,,,,,,
+2026-01-02 00:00:00,2026-01-02 00:00:01,tx-002,CARD_PAYMENT,COMPLETED,Eventsconnecter,Event ticket,1234,Virtual Card,active,USD,120.00,GBP,95.00,97.50,0.79,2.50,GBP,4902.50,Main GBP,,,,,5812,,default
+2026-01-03 00:00:00,2026-01-03 00:00:01,tx-003,CARD_PAYMENT,COMPLETED,Highlevel Inc,Software subscription,1234,Virtual Card,active,USD,297.00,GBP,235.00,238.00,0.79,3.00,GBP,4667.50,Main GBP,,,,,7372,,default
+2026-01-04 00:00:00,2026-01-04 00:00:01,tx-004,CARD_PAYMENT,COMPLETED,Amazon,Office supplies,1234,Virtual Card,active,GBP,45.00,GBP,45.00,45.00,,0.00,GBP,4622.50,Main GBP,,,,,5999,,default
+2026-01-05 00:00:00,2026-01-05 00:00:01,tx-005,TRANSFER,COMPLETED,To Savings Pot,Transfer to pot,,,,,GBP,1000.00,GBP,-1000.00,-1000.00,,0.00,GBP,3622.50,Main GBP,,,,,,tx-005b,default
+2026-01-06 00:00:00,2026-01-06 00:00:01,tx-006,CARD_PAYMENT,COMPLETED,Klarna Airbnb,Accommodation booking,1234,Virtual Card,active,GBP,320.00,GBP,320.00,320.00,,0.00,GBP,3302.50,Main GBP,,,,,7011,,default
+2026-01-07 00:00:00,2026-01-07 00:00:01,tx-007,CARD_PAYMENT,COMPLETED,OpenAI,API usage,1234,Virtual Card,active,USD,50.00,GBP,39.50,40.00,0.79,0.50,GBP,3262.50,Main GBP,,,,,7372,,default
