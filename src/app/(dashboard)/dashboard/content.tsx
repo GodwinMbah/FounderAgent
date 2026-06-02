@@ -1,13 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { ChartCard } from "@/components/ui/ChartCard";
 import { AgentBanner } from "@/components/features/dashboard/AgentBanner";
-import { formatCurrency } from "@/lib/utils/formatters";
-import type { DashboardMetrics, MonthlyMetric, Subscription, Alert } from "@/lib/types";
-import { Wallet, Flame, Clock, TrendingUp, TrendingDown, Zap, Heart, Repeat, Sun, Sunrise, Moon } from "lucide-react";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
+import type { DashboardMetrics, MonthlyMetric, Subscription, Alert, Transaction } from "@/lib/types";
+import { getDateRange, type DateRangePreset } from "@/lib/date-range";
+import { getEligibleKPIs, formatKPIValue, getKPIChange } from "@/lib/business-intelligence/kpi-eligibility";
+import type { CompanyBusinessProfile } from "@/lib/business-intelligence/types";
+import type { KPICardConfig } from "@/lib/business-intelligence/types";
+import KPIDrilldownDrawer from "@/components/features/dashboard/KPIDrilldownDrawer";
+import { Sun, Sunrise, Moon } from "lucide-react";
+import * as Icons from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -21,6 +28,15 @@ import {
 } from "recharts";
 
 const COLORS = ["#14B8A6", "#8B5CF6", "#38BDF8", "#FBBF24", "#F43F5E", "#22C55E"];
+
+function getKPIGridClass(count: number): string {
+  if (count <= 2) return "grid-cols-1 md:grid-cols-2";
+  if (count <= 3) return "grid-cols-1 md:grid-cols-3";
+  if (count <= 4) return "grid-cols-2 lg:grid-cols-4";
+  if (count <= 6) return "grid-cols-2 md:grid-cols-3";
+  if (count <= 8) return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+  return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4";
+}
 
 function getGreetingText(hour: number) {
   if (hour >= 5 && hour < 12) return "Good morning";
@@ -40,6 +56,11 @@ interface DashboardContentProps {
   subscriptions: Subscription[];
   alerts: Alert[];
   topExpenses: { name: string; amount: number }[];
+  transactions: Transaction[];
+  companyProfile: CompanyBusinessProfile;
+  initialPreset: DateRangePreset;
+  initialFrom: string;
+  initialTo: string;
 }
 
 export default function DashboardContent({
@@ -48,7 +69,14 @@ export default function DashboardContent({
   subscriptions,
   alerts,
   topExpenses,
+  transactions,
+  companyProfile,
+  initialPreset,
+  initialFrom,
+  initialTo,
 }: DashboardContentProps) {
+  const [selectedKPI, setSelectedKPI] = useState<KPICardConfig | null>(null);
+  const { currency } = useCompanyCurrency();
   const hour = new Date().getHours();
   const greetingText = getGreetingText(hour);
   const greetingIcon = getGreetingIcon(hour);
@@ -69,27 +97,8 @@ export default function DashboardContent({
   const expenseData = topExpenses.map((e) => ({ name: e.name, value: e.amount }));
   const totalExpenses = expenseData.reduce((sum, e) => sum + e.value, 0);
 
-  const formatValue = (val: number, fmt?: string) => {
-    if (fmt === "currency") return formatCurrency(val);
-    if (fmt === "runway") {
-      if (!Number.isFinite(val)) return "Infinite";
-      if (val < 1) return "< 1 mo";
-      if (val < 12) return `${Math.round(val)} mo`;
-      return `${(val / 12).toFixed(1)} yr`;
-    }
-    return `${val}`;
-  };
-
-  const kpis = [
-    { label: "Cash Balance", value: formatValue(metrics.cashBalance, "currency"), change: "+12.4%", changeType: "positive" as const, icon: <Wallet className="h-4 w-4" style={{ color: "#14B8A6" }} />, iconColor: "#14B8A6" },
-    { label: "Monthly Revenue", value: formatValue(metrics.monthlyRevenue, "currency"), change: "+12.5%", changeType: "positive" as const, icon: <TrendingUp className="h-4 w-4" style={{ color: "#22C55E" }} />, iconColor: "#22C55E" },
-    { label: "Monthly Expenses", value: formatValue(metrics.monthlyExpenses, "currency"), change: "+3.2%", changeType: "negative" as const, icon: <TrendingDown className="h-4 w-4" style={{ color: "#F43F5E" }} />, iconColor: "#F43F5E" },
-    { label: "Net Profit", value: formatValue(metrics.netProfit, "currency"), change: "+18.1%", changeType: "positive" as const, icon: <Zap className="h-4 w-4" style={{ color: "#14B8A6" }} />, iconColor: "#14B8A6" },
-    { label: "Monthly Burn", value: formatValue(metrics.monthlyBurn, "currency"), change: "-8.7%", changeType: "positive" as const, icon: <Flame className="h-4 w-4" style={{ color: "#F43F5E" }} />, iconColor: "#F43F5E" },
-    { label: "Runway", value: formatValue(metrics.runwayMonths, "runway"), change: "+1.2 mo", changeType: "positive" as const, icon: <Clock className="h-4 w-4" style={{ color: "#22D3EE" }} />, iconColor: "#22D3EE" },
-    { label: "MRR", value: formatValue(metrics.monthlySubscriptionSpend, "currency"), change: "+7.3%", changeType: "positive" as const, icon: <Repeat className="h-4 w-4" style={{ color: "#8B5CF6" }} />, iconColor: "#8B5CF6" },
-    { label: "Health Score", value: String(metrics.healthScore), change: "Strong", changeType: "positive" as const, icon: <Heart className="h-4 w-4" style={{ color: "#8B5CF6" }} />, iconColor: "#8B5CF6" },
-  ];
+  const eligibleKPIs = getEligibleKPIs(companyProfile, metrics);
+  const dateRangeLabel = getDateRange(initialPreset, initialFrom, initialTo).label;
 
   return (
     <div className="space-y-8">
@@ -107,11 +116,32 @@ export default function DashboardContent({
         <span className="text-xs text-[var(--muted-foreground)]">{formattedDate}</span>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi, i) => (
-          <MetricCard key={i} {...kpi} />
-        ))}
+      {/* Date Range Label + KPIs */}
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {getDateRange(initialPreset, initialFrom, initialTo).label}
+          </span>
+        </div>
+
+        <div className={`grid gap-5 ${getKPIGridClass(eligibleKPIs.length)}`}>
+          {eligibleKPIs.map((kpi) => {
+            const Icon = (Icons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[kpi.icon];
+            const value = formatKPIValue(kpi, metrics, currency);
+            const change = getKPIChange(kpi, monthlyMetrics, metrics);
+            return (
+              <MetricCard
+                key={kpi.id}
+                label={kpi.label}
+                value={value}
+                change={change?.text ?? "—"}
+                changeType={change?.type ?? "neutral"}
+                icon={Icon ? <Icon className="h-4 w-4" style={{ color: kpi.iconColor }} /> : null}
+                iconColor={kpi.iconColor}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Middle Section */}
@@ -120,7 +150,7 @@ export default function DashboardContent({
         <ChartCard title="Subscription Spend" subtitle="Monthly recurring software costs" height="h-80">
           <div className="flex flex-col h-full">
             <div className="mb-3 shrink-0">
-              <p className="text-2xl font-bold text-[var(--foreground)]">{formatCurrency(metrics.monthlySubscriptionSpend)}</p>
+              <p className="text-2xl font-bold text-[var(--foreground)]">{formatCurrency(metrics.monthlySubscriptionSpend, 0, currency)}</p>
               <p className="text-xs text-[var(--muted-foreground)]">{subscriptions.filter((s) => s.status === "active").length} active tools</p>
             </div>
             <div className="flex-1 space-y-1.5">
@@ -130,7 +160,7 @@ export default function DashboardContent({
                     <div className="h-2 w-2 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
                     <span className="text-xs text-[var(--foreground)] truncate">{sub.name}</span>
                   </div>
-                  <span className="text-xs font-medium text-[var(--muted-foreground)] shrink-0">{formatCurrency(sub.amount)}</span>
+                  <span className="text-xs font-medium text-[var(--muted-foreground)] shrink-0">{formatCurrency(sub.amount, 0, currency)}</span>
                 </div>
               ))}
             </div>
@@ -161,7 +191,7 @@ export default function DashboardContent({
                         <span className="text-xs font-medium text-[var(--foreground)] truncate">{item.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <span className="text-xs font-bold text-[var(--foreground)]">{formatCurrency(item.value)}</span>
+                        <span className="text-xs font-bold text-[var(--foreground)]">{formatCurrency(item.value, 0, currency)}</span>
                         <span className="text-[11px] text-[var(--muted-foreground)] w-8 text-right">{pct}%</span>
                       </div>
                     </div>
@@ -190,8 +220,6 @@ export default function DashboardContent({
                     className={`mt-0.5 h-1.5 w-1.5 rounded-full shrink-0 ${
                       alert.severity === "critical" || alert.severity === "warning"
                         ? "bg-[var(--danger)]"
-                        : alert.severity === "opportunity"
-                        ? "bg-[var(--success)]"
                         : "bg-[var(--sky-blue)]"
                     }`}
                   />
@@ -225,7 +253,7 @@ export default function DashboardContent({
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? `$${v / 1000}k` : ""} />
+                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? formatCurrencyCompact(Number(v), currency) : ""} />
                 <Tooltip
                   contentStyle={{
                     background: "#111827",
@@ -234,7 +262,7 @@ export default function DashboardContent({
                     fontSize: "12px",
                     color: "#f1f5f9",
                   }}
-                  formatter={(value) => value !== undefined ? formatCurrency(Number(value)) : ""}
+                  formatter={(value) => value !== undefined ? formatCurrency(Number(value), 0, currency) : ""}
                 />
                 <Area type="monotone" dataKey="inflow" stroke="#22C55E" strokeWidth={2} fillOpacity={1} fill="url(#colorInflow)" />
                 <Area type="monotone" dataKey="outflow" stroke="#F43F5E" strokeWidth={2} fillOpacity={1} fill="url(#colorOutflow)" />
@@ -250,7 +278,7 @@ export default function DashboardContent({
               <BarChart data={monthlyMetrics.map((m) => ({ month: m.month.slice(5), profit: m.profit, expenses: m.expenses }))} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? `$${v / 1000}k` : ""} />
+                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? formatCurrencyCompact(Number(v), currency) : ""} />
                 <Tooltip
                   contentStyle={{
                     background: "#111827",
@@ -259,7 +287,7 @@ export default function DashboardContent({
                     fontSize: "12px",
                     color: "#f1f5f9",
                   }}
-                  formatter={(value) => value !== undefined ? formatCurrency(Number(value)) : ""}
+                  formatter={(value) => value !== undefined ? formatCurrency(Number(value), 0, currency) : ""}
                 />
                 <Bar dataKey="profit" fill="#14B8A6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="expenses" fill="#F43F5E" radius={[4, 4, 0, 0]} />
@@ -271,6 +299,18 @@ export default function DashboardContent({
 
       {/* Agent Banner */}
       <AgentBanner />
+
+      {/* KPI Drilldown Drawer */}
+      {selectedKPI && (
+        <KPIDrilldownDrawer
+          kpi={selectedKPI}
+          metrics={metrics}
+          monthlyMetrics={monthlyMetrics}
+          transactions={transactions}
+          dateRangeLabel={dateRangeLabel}
+          onClose={() => setSelectedKPI(null)}
+        />
+      )}
     </div>
   );
 }

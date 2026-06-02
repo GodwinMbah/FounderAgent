@@ -4,9 +4,11 @@ import { Card } from "@/components/ui/Card";
 import { SectionHeader } from "../shared/SectionHeader";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 
 export function RunwayAnalysis() {
+  const { currency } = useCompanyCurrency();
   return (
     <Card padding="none" className="h-full overflow-hidden">
       <div className="p-5">
@@ -28,11 +30,11 @@ export function RunwayAnalysis() {
         <div className="mt-5 grid grid-cols-2 gap-4">
           <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
             <p className="text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">Monthly Burn</p>
-            <p className="mt-1 text-lg font-bold text-[var(--foreground)]">{formatCurrency(152000)}</p>
+            <p className="mt-1 text-lg font-bold text-[var(--foreground)]">{formatCurrency(152000, 0, currency)}</p>
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
             <p className="text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">Cash Balance</p>
-            <p className="mt-1 text-lg font-bold text-[var(--foreground)]">{formatCurrency(1420000)}</p>
+            <p className="mt-1 text-lg font-bold text-[var(--foreground)]">{formatCurrency(1420000, 0, currency)}</p>
           </div>
         </div>
 

@@ -2,6 +2,7 @@
 
 import { Sparkline } from "@/components/ui/Sparkline";
 import { formatCurrency, formatPercent, formatNumber } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import { Wallet, TrendingUp, TrendingDown, Zap, Percent, Flame, Clock, Heart, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 interface KpiItem {
@@ -27,10 +28,10 @@ const iconMap = {
   heart: Heart,
 };
 
-function formatValue(item: KpiItem): string {
+function formatValue(item: KpiItem, currency: string = "USD"): string {
   switch (item.format) {
     case "currency":
-      return formatCurrency(item.value);
+      return formatCurrency(item.value, 0, currency);
     case "percent":
       return formatPercent(item.value);
     case "runway":
@@ -44,6 +45,7 @@ function formatValue(item: KpiItem): string {
 }
 
 export function KpiGrid({ items }: { items: KpiItem[] }) {
+  const { currency } = useCompanyCurrency();
   return (
     <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
       {items.map((item, idx) => {
@@ -85,7 +87,7 @@ export function KpiGrid({ items }: { items: KpiItem[] }) {
                 {item.label}
               </p>
               <p className="mt-1 text-2xl font-bold text-[var(--foreground)] tracking-tight">
-                {formatValue(item)}
+                {formatValue(item, currency)}
               </p>
             </div>
 

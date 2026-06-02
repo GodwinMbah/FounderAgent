@@ -1,0 +1,45 @@
+import type { ProviderAdapter } from "../adapter-types";
+
+export const gocardlessAdapter: ProviderAdapter = {
+  id: "gocardless_csv",
+  displayName: "GoCardless",
+  type: "payment_processor",
+  detection: {
+    requiredHeaders: ["Charge Date", "Amount", "Currency", "Status"],
+    optionalHeaders: [
+      "Reference",
+      "Customer Name",
+      "Mandate ID",
+      "Transaction ID",
+      "Payout Date",
+      "Fee",
+    ],
+    minRequiredMatches: 3,
+    minScore: 40,
+  },
+  headerAliases: [
+    { field: "transactionDate", aliases: ["Charge Date", "Payout Date"], required: true },
+    { field: "description", aliases: ["Reference", "Customer Name"], required: true },
+    { field: "amount", aliases: ["Amount"], required: true },
+    { field: "feeAmount", aliases: ["Fee"] },
+    { field: "currency", aliases: ["Currency"] },
+    { field: "status", aliases: ["Status"] },
+    { field: "externalTransactionId", aliases: ["Transaction ID", "Mandate ID"] },
+    { field: "merchantName", aliases: ["Customer Name"] },
+    { field: "reference", aliases: ["Reference"] },
+  ],
+  signConvention: "accounting",
+  feeHandling: "separate_column",
+  hasSplitAmountColumns: false,
+  knownTransactionTypes: {
+    "Payment confirmed": { direction: "income", category: "Sales" },
+    "Paid out": { direction: "transfer", category: "Payout" },
+    "Chargeback": { direction: "expense", category: "Chargebacks" },
+    "Refund": { direction: "expense", category: "Refunds" },
+    "Fee": { direction: "fee", category: "Payment Processing Fees" },
+    "Payout": { direction: "transfer", category: "Payout" },
+  },
+  transferPatterns: ["Transfer", "Payout", "Withdrawal", "Paid out"],
+  dateFormatHints: ["DD/MM/YYYY", "YYYY-MM-DD"],
+  detectionWeight: 1.0,
+};

@@ -3,7 +3,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
-import type { Upload } from "@/lib/types";
+import type { Upload, UploadStatus } from "@/lib/types";
 
 function mapRow(row: Record<string, unknown>): Upload {
   return {
@@ -15,7 +15,7 @@ function mapRow(row: Record<string, unknown>): Upload {
     fileSize: row.file_size as number,
     mimeType: row.mime_type as string | undefined,
     source: row.source as string,
-    status: row.status as string,
+    status: row.status as import("@/lib/types").UploadStatus,
     transactionCount: row.transaction_count as number | undefined,
     errorMessage: row.error_message as string | undefined,
     metadata: row.metadata as Record<string, unknown> | undefined,
@@ -57,7 +57,7 @@ export async function createUpload(data: {
   fileSize: number;
   mimeType?: string;
   source?: string;
-  status?: string;
+  status?: UploadStatus;
   metadata?: Record<string, unknown>;
 }): Promise<Upload> {
   const admin = createAdminClient();
@@ -87,13 +87,15 @@ export async function updateUploadStatus(
   uploadId: string,
   companyId: string,
   updates: {
-    status?: string;
+    status?: UploadStatus;
     transactionCount?: number;
     processedRowCount?: number;
     failedRowCount?: number;
     errorMessage?: string | null;
     metadata?: Record<string, unknown>;
     processedAt?: string;
+    providerDetected?: string;
+    providerConfidence?: number;
   }
 ): Promise<Upload> {
   const admin = createAdminClient();
@@ -115,10 +117,23 @@ export async function updateUploadStatus(
     };
   }
   if (updates.errorMessage !== undefined) dbUpdates.error_message = updates.errorMessage;
-  if (updates.metadata !== undefined) dbUpdates.metadata = updates.metadata;
   if (updates.processedAt !== undefined) dbUpdates.processed_at = updates.processedAt;
 
-  const { data: row, error } = await admin
+  // Always merge provider info into metadata
+  const existingMeta = (await getUploadMetadata(uploadId)) ?? {};
+  const mergedMetadata: Record<string, unknown> = {
+    ...existingMeta,
+    ...(updates.metadata ?? {}),
+    ...(updates.providerDetected !== undefined && { provider_detected: updates.providerDetected }),
+    ...(updates.providerConfidence !== undefined && { provider_confidence: updates.providerConfidence }),
+  };
+  dbUpdates.metadata = mergedMetadata;
+
+  // Try to also set dedicated columns if they exist
+  if (updates.providerDetected !== undefined) dbUpdates.provider_detected = updates.providerDetected;
+  if (updates.providerConfidence !== undefined) dbUpdates.provider_confidence = updates.providerConfidence;
+
+  let result = await admin
     .from("uploads")
     .update(dbUpdates)
     .eq("id", uploadId)
@@ -126,8 +141,24 @@ export async function updateUploadStatus(
     .select("*")
     .single();
 
-  if (error || !row) throw new Error(`Failed to update upload: ${error?.message}`);
-  return mapRow(row as Record<string, unknown>);
+  if (result.error) {
+    const errMsg = result.error.message || "";
+    if (errMsg.includes("column") || errMsg.includes("schema")) {
+      // Retry without dedicated provider columns
+      delete dbUpdates.provider_detected;
+      delete dbUpdates.provider_confidence;
+      result = await admin
+        .from("uploads")
+        .update(dbUpdates)
+        .eq("id", uploadId)
+        .eq("company_id", companyId)
+        .select("*")
+        .single();
+    }
+  }
+
+  if (result.error || !result.data) throw new Error(`Failed to update upload: ${result.error?.message}`);
+  return mapRow(result.data as Record<string, unknown>);
 }
 
 async function getUploadMetadata(uploadId: string): Promise<Record<string, unknown> | null> {

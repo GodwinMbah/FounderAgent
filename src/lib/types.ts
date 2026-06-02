@@ -118,7 +118,7 @@ export interface Upload {
   fileSize: number;
   mimeType?: string;
   source: string;
-  status: string;
+  status: UploadStatus;
   transactionCount?: number;
   errorMessage?: string;
   metadata?: Record<string, unknown>;
@@ -129,17 +129,20 @@ export interface Upload {
 
 /* ============ Alerts ============ */
 
+export type AlertSeverity = "critical" | "warning" | "info" | "resolved";
+
 export interface Alert {
   id: string;
   companyId: string;
   title: string;
   description: string;
-  severity: string;
+  severity: AlertSeverity;
   category: string;
   resourceType?: string;
   resourceId?: string;
   isRead: boolean;
   isDismissed: boolean;
+  status?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt?: string;
@@ -213,28 +216,8 @@ export interface AgentActivityLog {
 
 /* ============ Legacy Types (used by calculations.ts, categorisation.ts) ============ */
 
-export type TransactionCategoryType =
-  | "Revenue"
-  | "Advertising"
-  | "Software"
-  | "Subscriptions"
-  | "Payroll"
-  | "Contractors"
-  | "Refunds"
-  | "Tax"
-  | "Bank Fees"
-  | "Payment Processor Fees"
-  | "Office"
-  | "Travel"
-  | "Training"
-  | "Professional Services"
-  | "Owner Drawings"
-  | "Cloud Infrastructure"
-  | "Marketing Tools"
-  | "AI Tools"
-  | "One Time Purchases"
-  | "Transfer"
-  | "Unknown";
+import type { CategoryType } from "./categories";
+export type TransactionCategoryType = CategoryType;
 
 export type TransactionStatus =
   | "Categorised"
@@ -364,11 +347,8 @@ export interface AuditLog {
 export type UploadSource =
   | "bank_statement_csv"
   | "bank_statement_pdf"
-  | "stripe"
-  | "paypal"
-  | "quickbooks"
-  | "xero"
-  | "revolut_business_csv"
+  | "payment_processor_csv"
+  | "accounting_export_csv"
   | "manual_csv";
 
 export type UploadStatus = "pending" | "processing" | "completed" | "failed";
@@ -507,4 +487,9 @@ export interface DashboardMetrics {
   potentialSavings: number;
   totalTransactions: number;
   uncategorizedTransactions: number;
+  arr: number;
+  grossMargin: number;
+  netNewARR: number;
+  burnMultiple: number;
+  ruleOf40: number;
 }

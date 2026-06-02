@@ -3,6 +3,8 @@
  * Checks type, size, emptiness, readability, and required columns
  */
 
+import { parseCsvLine, detectDelimiter, detectHeaderLine, cleanHeader } from "@/lib/parser/csv-core";
+
 export interface FileValidationResult {
   valid: boolean;
   error?: string;
@@ -21,57 +23,9 @@ const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 const MAX_PREVIEW_ROWS = 5;
 
 const ALLOWED_EXTENSIONS = ["csv", "txt", "tsv", "xlsx", "xls"];
-const ALLOWED_MIME_TYPES = [
-  "text/csv",
-  "text/plain",
-  "text/tab-separated-values",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
-
 function getExtension(filename: string): string {
   const parts = filename.split(".");
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
-}
-
-function detectDelimiter(firstLine: string): string {
-  // Count occurrences of common delimiters
-  const tabCount = (firstLine.match(/\t/g) || []).length;
-  const commaCount = (firstLine.match(/,/g) || []).length;
-  const semiCount = (firstLine.match(/;/g) || []).length;
-
-  if (tabCount > commaCount && tabCount > semiCount) return "\t";
-  if (semiCount > commaCount && semiCount > tabCount) return ";";
-  return ",";
-}
-
-function parseCsvLine(line: string, delimiter: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === delimiter && !inQuotes) {
-      result.push(current.trim());
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  result.push(current.trim());
-  return result;
-}
-
-function cleanHeader(header: string): string {
-  return header.toLowerCase().trim().replace(/^["']|["']$/g, "").replace(/\s+/g, " ");
 }
 
 const DATE_COLUMN_PATTERNS = [
@@ -106,15 +60,6 @@ const DEBIT_COLUMN_PATTERNS = [
 const CREDIT_COLUMN_PATTERNS = [
   "credit", "money in", "paid in", "deposit", "inflow",
   "money_in", "paid_in", "credit amount", "credit_amount", "in",
-];
-
-const CURRENCY_COLUMN_PATTERNS = [
-  "currency", "currency code", "ccy", "curr", "currency_code",
-];
-
-const BALANCE_COLUMN_PATTERNS = [
-  "balance", "running balance", "closing balance", "available balance",
-  "running_balance", "closing_balance", "available_balance",
 ];
 
 export function findColumnIndex(headers: string[], patterns: string[]): number {
@@ -192,9 +137,11 @@ export async function validateFile(file: File): Promise<FileValidationResult> {
       return { valid: false, error: "File has no data rows. At least a header and one data row are required." };
     }
 
-    // 7. Detect delimiter and parse headers
-    delimiter = detectDelimiter(lines[0]);
-    headers = parseCsvLine(lines[0], delimiter);
+    // 7. Detect delimiter and find header line using smart detection
+    delimiter = detectDelimiter(text);
+    const headerDetection = detectHeaderLine(lines, delimiter);
+    headers = headerDetection.cells.map((h) => h.replace(/^["']|["']$/g, "").trim());
+
     if (headers.length < 2) {
       return { valid: false, error: `File has only ${headers.length} column(s). At least 2 columns are required.` };
     }
@@ -243,14 +190,22 @@ export async function validateFile(file: File): Promise<FileValidationResult> {
     };
   }
 
-  // 9. Preview rows
-  const previewRows = lines.slice(1, 1 + MAX_PREVIEW_ROWS).map((line) => parseCsvLine(line, delimiter));
+  // 9. Preview rows (skip preamble lines for CSV)
+  let previewLines: string[];
+  if (!isXlsx) {
+    const headerDetection = detectHeaderLine(lines, delimiter);
+    previewLines = lines.slice(headerDetection.index + 1);
+  } else {
+    previewLines = lines;
+  }
+
+  const previewRows = previewLines.slice(0, MAX_PREVIEW_ROWS).map((line) => parseCsvLine(line, delimiter));
 
   return {
     valid: true,
     mimeType: file.type || "text/csv",
     extension,
-    rowCount: lines.length - 1,
+    rowCount: previewLines.length,
     columnCount: headers.length,
     hasDateColumn,
     hasAmountColumn,

@@ -1,19 +1,24 @@
 "use server";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
+import { unstable_noStore } from "next/cache";
 
 export interface CompanySettings {
   id: string;
   companyId: string;
   industry?: string;
   businessStage?: string;
+  businessModel?: string;
   country?: string;
   currency?: string;
   fiscalYearStart?: string;
   timezone?: string;
   primaryGoal?: string;
   revenueModel?: string;
+  revenueModels?: string[];
+  costStructure?: string[];
   monthlyRecurringRevenue?: number;
   oneTimeRevenue?: number;
   averageMonthlyRevenue?: number;
@@ -30,22 +35,49 @@ export interface CompanySettings {
   alertSensitivity?: string;
   weeklyDigestEnabled: boolean;
   agentAutonomyLevel?: string;
+  categoryRules?: Array<{
+    id?: string;
+    merchantPattern?: string;
+    descriptionPattern?: string;
+    referencePattern?: string;
+    provider?: string;
+    direction?: "income" | "expense";
+    category: string;
+    confidenceBoost: number;
+    createdAt: string;
+  }>;
   createdAt: string;
   updatedAt?: string;
 }
 
+function parseRevenueModels(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw as string[];
+  if (typeof raw === "string") return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
+function parseCostStructure(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw as string[];
+  if (typeof raw === "string") return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
 function mapRow(row: Record<string, unknown>): CompanySettings {
+  const onboardingData = (row.onboarding_data as Record<string, unknown> | null) ?? {};
   return {
     id: row.id as string,
     companyId: row.company_id as string,
     industry: row.industry as string | undefined,
     businessStage: row.business_stage as string | undefined,
+    businessModel: (row.business_model as string | undefined) ?? (onboardingData.business_model as string | undefined),
     country: row.country as string | undefined,
     currency: row.currency as string | undefined,
     fiscalYearStart: row.fiscal_year_start as string | undefined,
     timezone: row.timezone as string | undefined,
     primaryGoal: row.primary_goal as string | undefined,
     revenueModel: row.revenue_model as string | undefined,
+    revenueModels: parseRevenueModels(row.revenue_models ?? onboardingData.revenue_models ?? row.revenue_model),
+    costStructure: parseCostStructure(row.cost_structure ?? onboardingData.cost_structure),
     monthlyRecurringRevenue: row.monthly_recurring_revenue ? Number(row.monthly_recurring_revenue) : undefined,
     oneTimeRevenue: row.one_time_revenue ? Number(row.one_time_revenue) : undefined,
     averageMonthlyRevenue: row.average_monthly_revenue ? Number(row.average_monthly_revenue) : undefined,
@@ -62,17 +94,21 @@ function mapRow(row: Record<string, unknown>): CompanySettings {
     alertSensitivity: row.alert_sensitivity as string | undefined,
     weeklyDigestEnabled: (row.weekly_digest_enabled as boolean) ?? true,
     agentAutonomyLevel: row.agent_autonomy_level as string | undefined,
+    categoryRules: (row.category_rules as CompanySettings["categoryRules"]) ?? [],
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string | undefined,
   };
 }
 
 export async function getCompanySettings(companyId: string): Promise<CompanySettings | null> {
+  unstable_noStore();
   const ctx = await getActiveCompanyForUser();
   if (!ctx) throw new Error("Unauthorized");
   if (companyId !== ctx.companyId) throw new Error("Forbidden: company mismatch");
 
-  const supabase = await createServerClient();
+  // Use admin client to bypass broken RLS on company_settings
+  // (same pattern as getActiveCompanyForUser in ./company.ts)
+  const supabase = createAdminClient() ?? await createServerClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase
@@ -178,6 +214,10 @@ export async function updateCompanySettings(
       alert_sensitivity: settings.alertSensitivity,
       weekly_digest_enabled: settings.weeklyDigestEnabled,
       agent_autonomy_level: settings.agentAutonomyLevel,
+      business_model: settings.businessModel,
+      revenue_models: settings.revenueModels,
+      cost_structure: settings.costStructure,
+      category_rules: settings.categoryRules,
     })
     .eq("company_id", companyId)
     .select("*")

@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Eye } from "lucide-react";
 
 interface MetricCardProps {
   label: string;
@@ -11,6 +11,7 @@ interface MetricCardProps {
   icon?: ReactNode;
   iconColor?: string;
   className?: string;
+  onDrillDown?: () => void;
 }
 
 export function MetricCard({
@@ -21,6 +22,7 @@ export function MetricCard({
   icon,
   iconColor = "var(--accent)",
   className = "",
+  onDrillDown,
 }: MetricCardProps) {
   const changeColor =
     changeType === "positive"
@@ -31,7 +33,7 @@ export function MetricCard({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl border border-[var(--border)] p-5 transition-all duration-300 hover:border-[var(--accent)]/15 ${className}`}
+      className={`group relative overflow-hidden rounded-xl border border-[var(--border)] p-5 transition-all duration-300 hover:border-[var(--accent)]/15 w-full ${className}`}
       style={{
         background: "linear-gradient(165deg, rgba(17,24,39,0.95) 0%, rgba(9,9,11,0.98) 50%, rgba(15,23,42,0.92) 100%)",
       }}
@@ -44,9 +46,23 @@ export function MetricCard({
 
       <div className="relative flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
-            {label}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
+              {label}
+            </p>
+            {onDrillDown && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDrillDown();
+                }}
+                className="p-1 rounded-md hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] hover:text-[var(--accent)] transition-colors"
+                title="View breakdown"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <p className="mt-3 text-[28px] font-bold text-[var(--foreground)] tracking-tight leading-none">
             {value}
           </p>

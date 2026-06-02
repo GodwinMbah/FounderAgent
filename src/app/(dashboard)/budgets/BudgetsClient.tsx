@@ -5,23 +5,14 @@ import { MetricCard } from "@/components/ui/MetricCard";
 import { ChartCard } from "@/components/ui/ChartCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
+import { getDateRange } from "@/lib/date-range";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import {
-  Wallet,
-  TrendingDown,
-  PiggyBank,
-  AlertTriangle,
-  Lightbulb,
+  Wallet, TrendingDown, PiggyBank, AlertTriangle,
 } from "lucide-react";
 
 const barColors = {
@@ -50,6 +41,9 @@ interface Props {
   percentUsed: number;
   categories: BudgetCategory[];
   alerts: BudgetAlert[];
+  initialPreset: Parameters<typeof getDateRange>[0];
+  initialFrom: string;
+  initialTo: string;
 }
 
 export default function BudgetsClient({
@@ -59,29 +53,37 @@ export default function BudgetsClient({
   percentUsed,
   categories,
   alerts,
+  initialPreset,
+  initialFrom,
+  initialTo,
 }: Props) {
+  const { currency } = useCompanyCurrency();
   const overBudgetCount = categories.filter((c) => c.actual > c.budget).length;
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Budgets"
-        subtitle="Compare planned budget against actual spend."
-      />
+      <PageHeader title="Budgets" subtitle="Compare planned budget against actual spend." />
+
+      {/* Date Range */}
+      <div className="flex items-center justify-end">
+        <span className="text-xs text-[var(--muted-foreground)] hidden sm:inline">
+          {getDateRange(initialPreset, initialFrom, initialTo).label}
+        </span>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <MetricCard
           label="Total Budget"
-          value={formatCurrency(totalBudget)}
+          value={formatCurrency(totalBudget, 0, currency)}
           change="Monthly"
           changeType="neutral"
           icon={<Wallet className="h-5 w-5" />}
           iconColor="#8B5CF6"
         />
         <MetricCard
-          label="Spent This Month"
-          value={formatCurrency(spent)}
+          label="Spent"
+          value={formatCurrency(spent, 0, currency)}
           change={`${percentUsed.toFixed(1)}% used`}
           changeType={percentUsed > 90 ? "negative" : "neutral"}
           icon={<TrendingDown className="h-5 w-5" />}
@@ -89,7 +91,7 @@ export default function BudgetsClient({
         />
         <MetricCard
           label="Remaining"
-          value={formatCurrency(remaining)}
+          value={formatCurrency(remaining, 0, currency)}
           change="Available"
           changeType="positive"
           icon={<PiggyBank className="h-5 w-5" />}
@@ -112,29 +114,15 @@ export default function BudgetsClient({
             <BarChart data={categories} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" />
               <XAxis dataKey="name" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis
-                tick={{ fill: "#94A3B8", fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => v !== undefined ? `$${v}` : ""}
-              />
+              <YAxis tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => v !== undefined ? formatCurrencyCompact(Number(v), currency) : ""} />
               <Tooltip
-                formatter={(value) => value !== undefined ? formatCurrency(Number(value)) : ""}
-                contentStyle={{
-                  background: "#111827",
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  color: "#f1f5f9",
-                }}
+                formatter={(value) => value !== undefined ? formatCurrency(Number(value), 0, currency) : ""}
+                contentStyle={{ background: "#111827", border: "1px solid rgba(148,163,184,0.16)", borderRadius: "8px", fontSize: "12px", color: "#f1f5f9" }}
               />
               <Bar dataKey="budget" fill={barColors.budget} radius={[6, 6, 0, 0]} />
               <Bar dataKey="actual" fill={barColors.actual} radius={[6, 6, 0, 0]}>
                 {categories.map((cat, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={cat.actual > cat.budget ? "#F43F5E" : barColors.actual}
-                  />
+                  <Cell key={`cell-${index}`} fill={cat.actual > cat.budget ? "#F43F5E" : barColors.actual} />
                 ))}
               </Bar>
             </BarChart>
@@ -147,35 +135,14 @@ export default function BudgetsClient({
         <SectionCard title="Budget Alerts" subtitle="Active warnings from your budget tracker">
           <div className="space-y-3">
             {alerts.map((alert, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-4 rounded-lg border border-[var(--border)] bg-[#09090B] px-5 py-4"
-              >
-                <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-                  style={{
-                    borderColor:
-                      alert.severity === "warning"
-                        ? "rgba(251,191,36,0.2)"
-                        : "rgba(20,184,166,0.2)",
-                    background:
-                      alert.severity === "warning"
-                        ? "linear-gradient(135deg, rgba(251,191,36,0.12) 0%, rgba(251,191,36,0.04) 100%)"
-                        : "linear-gradient(135deg, rgba(20,184,166,0.12) 0%, rgba(20,184,166,0.04) 100%)",
-                  }}
-                >
-                  <AlertTriangle
-                    className={`h-4 w-4 ${
-                      alert.severity === "warning" ? "text-[#FBBF24]" : "text-[#14B8A6]"
-                    }`}
-                  />
+              <div key={idx} className="flex items-start gap-4 rounded-lg border border-[var(--border)] bg-[#09090B] px-5 py-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border" style={{ borderColor: alert.severity === "warning" ? "rgba(251,191,36,0.2)" : "rgba(20,184,166,0.2)", background: alert.severity === "warning" ? "linear-gradient(135deg, rgba(251,191,36,0.12) 0%, rgba(251,191,36,0.04) 100%)" : "linear-gradient(135deg, rgba(20,184,166,0.12) 0%, rgba(20,184,166,0.04) 100%)" }}>
+                  <AlertTriangle className={`h-4 w-4 ${alert.severity === "warning" ? "text-[#FBBF24]" : "text-[#14B8A6]"}`} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-[#F1F5F9]">{alert.category}</p>
-                    <StatusBadge variant={alert.severity === "warning" ? "warning" : "info"}>
-                      {alert.severity}
-                    </StatusBadge>
+                    <StatusBadge variant={alert.severity === "warning" ? "warning" : "info"}>{alert.severity}</StatusBadge>
                   </div>
                   <p className="text-xs text-[#94A3B8] mt-0.5">{alert.message}</p>
                 </div>
@@ -189,49 +156,9 @@ export default function BudgetsClient({
 
         <SectionCard title="Recommended Adjustments" subtitle="FounderAgent suggestions">
           <div className="space-y-3">
-            {[
-              {
-                title: "Reallocate Advertising",
-                description:
-                  "You are $400 under budget in Advertising. Consider shifting $200 to Software to cover the HubSpot renewal.",
-                impact: "Balanced coverage",
-              },
-              {
-                title: "Reduce Misc Spending",
-                description:
-                  "Miscellaneous spend is only $1,080 of $2,000. Lock the remaining $920 into a team events reserve.",
-                impact: "+$920 buffer",
-              },
-              {
-                title: "Cloud Optimization",
-                description:
-                  "Cloud is $220 under budget. Review AWS reserved instances to convert savings into committed-use discounts.",
-                impact: "15% savings",
-              },
-            ].map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-4 rounded-lg border border-[var(--border)] bg-[#09090B] px-5 py-4"
-              >
-                <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
-                  style={{
-                    borderColor: "rgba(139,92,246,0.2)",
-                    background:
-                      "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(139,92,246,0.04) 100%)",
-                  }}
-                >
-                  <Lightbulb className="h-4 w-4 text-[#8B5CF6]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-[#F1F5F9]">{item.title}</p>
-                    <span className="text-xs font-bold text-[#22C55E]">{item.impact}</span>
-                  </div>
-                  <p className="text-xs text-[#94A3B8] mt-0.5">{item.description}</p>
-                </div>
-              </div>
-            ))}
+            <p className="text-sm text-[#94A3B8] text-center py-6">
+              Budget recommendations will appear when variance exceeds your alert threshold.
+            </p>
           </div>
         </SectionCard>
       </div>

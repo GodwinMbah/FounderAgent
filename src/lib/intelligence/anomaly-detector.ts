@@ -92,7 +92,7 @@ async function getHistoricalCategoryTotals(companyId: string): Promise<Map<strin
 
     const totals = new Map<string, number>();
     for (const row of data) {
-      const cat = row.category || "Unknown";
+      const cat = row.category || "Uncategorised Review";
       totals.set(cat, (totals.get(cat) || 0) + Number(row.amount));
     }
     return totals;
@@ -245,12 +245,12 @@ export async function detectAnomalies(
   // 5. Unknown vendor with high amount
   for (const row of rows) {
     if (row.type !== "expense") continue;
-    if (row.category === "Unknown" && row.amount >= config.singleTransactionWarning / 2) {
+    if (row.category === "Uncategorised Review" && row.amount >= config.singleTransactionWarning / 2) {
       findings.push({
-        title: "Unknown vendor with significant spend",
+        title: "Uncategorised vendor with significant spend",
         description: `${row.merchant}: ${formatCurrency(row.amount)} — category not recognised`,
         severity: "warning",
-        category: "Unknown",
+        category: "Uncategorised Review",
         transactionDate: row.date,
         merchant: row.merchant,
         amount: row.amount,

@@ -1,0 +1,7 @@
+Account: Main Business Account
+Statement Period: 01/01/2024 to 31/01/2024
+
+Date,Description,Amount,Balance
+02/01/2024,Opening Balance,1000.00,1000.00
+04/01/2024,Purchase at Amazon UK,-67.50,932.50
+09/01/2024,Client Payment Received,1500.00,2432.50

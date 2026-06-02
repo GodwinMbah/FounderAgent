@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/utils/formatters";
@@ -21,15 +22,24 @@ import {
   Database,
   Brain,
   AlertTriangle,
+  Tag,
+  ArrowLeftRight,
+  HelpCircle,
 } from "lucide-react";
 import {
   validateAndPreview,
   applyMappingOverrides,
   confirmAndProcess,
   getUploadStatus,
+  refreshSession,
   loadMappingProfiles,
   saveCurrentMappingProfile,
 } from "./wizard-actions";
+import MerchantLogo from "@/components/features/transaction/MerchantLogo";
+import { SuggestionsPanel } from "@/components/features/upload/SuggestionsPanel";
+import { usePatternSuggestions } from "@/components/features/upload/usePatternSuggestions";
+import { ApplyToSimilarConfirm } from "@/components/features/upload/ApplyToSimilarConfirm";
+import { FullScreenReview } from "@/components/features/upload/FullScreenReview";
 import type {
   WizardStep,
   SourceType,
@@ -41,13 +51,31 @@ import type {
 const SOURCE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "auto_detect", label: "Auto Detect" },
   { value: "bank_statement_csv", label: "Bank Statement CSV" },
-  { value: "revolut_business_csv", label: "Revolut Business" },
-  { value: "stripe", label: "Stripe Export" },
-  { value: "paypal", label: "PayPal Export" },
-  { value: "quickbooks", label: "QuickBooks Export" },
-  { value: "xero", label: "Xero Export" },
+  { value: "generic_bank", label: "Generic Bank" },
+  { value: "payment_processor_csv", label: "Payment Processor CSV" },
+  { value: "accounting_export_csv", label: "Accounting Export CSV" },
   { value: "manual_csv", label: "Manual CSV" },
 ];
+
+const DETECTED_PROVIDER_LABELS: Record<string, string> = {
+  revolut_business_csv: "Revolut Business",
+  tide: "Tide",
+  monzo: "Monzo",
+  starling: "Starling",
+  wise: "Wise",
+  barclays: "Barclays",
+  hsbc: "HSBC",
+  lloyds: "Lloyds",
+  natwest: "NatWest",
+  chase: "Chase",
+  stripe_csv: "Stripe",
+  paypal_csv: "PayPal",
+  square_csv: "Square",
+  gocardless_csv: "GoCardless",
+  shopify_payouts_csv: "Shopify Payouts",
+  generic_bank: "Generic Bank",
+  manual_csv: "Manual CSV",
+};
 
 const DATE_FORMAT_OPTIONS = [
   { value: "", label: "Auto-detected" },
@@ -79,10 +107,10 @@ const FIELD_OPTIONS = [
   { value: "category", label: "Category" },
 ];
 
-const REQUIRED_FIELDS = ["date", "amount"];
+const REQUIRED_FIELDS = ["date"];
 const EITHER_OR_GROUPS: string[][] = [
   ["description", "merchant"],
-  ["amount", "debit"],
+  ["amount", "debit", "credit"],
 ];
 
 type ErrorCategory = "parse" | "validation" | "system";
@@ -94,6 +122,9 @@ interface WizardError {
 }
 
 export default function UploadWizard() {
+  const searchParams = useSearchParams();
+  const isSetupMode = searchParams.get("setup") === "true";
+
   const [uploadId, setUploadId] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -120,29 +151,15 @@ export default function UploadWizard() {
   const [pipelineStage, setPipelineStage] = useState<string>("");
   const [pipelineProgress, setPipelineProgress] = useState<number>(0);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasResumedRef = useRef(false);
+  const isSubmittingRef = useRef(false);
   const [profiles, setProfiles] = useState<{ id: string; name: string; sourceType: string }[]>([]);
   const [showSaveProfile, setShowSaveProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileDefault, setProfileDefault] = useState(false);
-
-  // Resume polling from URL on mount
-  useEffect(() => {
-    if (hasResumedRef.current) return;
-    hasResumedRef.current = true;
-
-    if (uploadId) {
-      startPolling(uploadId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, []);
+  const [providerConfirmed, setProviderConfirmed] = useState(false);
+  const [editedCategories, setEditedCategories] = useState<Record<number, string>>({});
 
   function startPolling(id: string) {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -152,19 +169,26 @@ export default function UploadWizard() {
       if (status.pipelineStage) setPipelineStage(status.pipelineStage);
       if (status.pipelineProgress !== undefined) setPipelineProgress(status.pipelineProgress);
 
-      if (status.status === "completed" || status.status === "completed_with_warnings") {
+      if (status.status === "completed") {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         // We don't have the summary here, user will see generic completion
         setSummary({
           success: true,
           fileName: "",
           sourceType: "bank_statement_csv",
-          rowsProcessed: status.transactionCount ?? 0,
+          rowsInFile: status.transactionCount ?? 0,
+          rowsParsed: status.transactionCount ?? 0,
           rowsImported: status.transactionCount ?? 0,
           rowsSkipped: 0,
           rowsFailed: 0,
+          rowsNeedReview: 0,
+          rowsCategorised: 0,
+          rowsTransfer: 0,
+          rowsDuplicate: 0,
           incomeTotal: 0,
           expenseTotal: 0,
+          sourceCurrency: "",
+          baseCurrency: "",
           subscriptionsDetected: 0,
           unknownTransactions: 0,
           alertsCreated: 0,
@@ -185,6 +209,42 @@ export default function UploadWizard() {
       }
     }, 2000);
   }
+
+  // Resume polling from URL on mount
+  useEffect(() => {
+    if (hasResumedRef.current) return;
+    hasResumedRef.current = true;
+
+    if (uploadId) {
+      startPolling(uploadId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    };
+  }, []);
+
+  // Session heartbeat: refresh expiry every 5 minutes while on preview/mapping
+  useEffect(() => {
+    if ((step === "preview" || step === "mapping") && sessionId) {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      heartbeatRef.current = setInterval(async () => {
+        try {
+          await refreshSession(sessionId);
+        } catch (e) {
+          console.warn("[upload] Session heartbeat failed:", e);
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+      return () => {
+        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      };
+    }
+  }, [step, sessionId]);
 
   /* ─── Step 1: Upload ─── */
 
@@ -222,6 +282,16 @@ export default function UploadWizard() {
     if (result.preview && result.sessionId) {
       setPreview(result.preview);
       setSessionId(result.sessionId);
+      if (sourceType === "auto_detect" && result.preview.sourceType) {
+        const confidence = result.preview.providerConfidence ?? 0;
+        if (confidence >= 85) {
+          setSourceType(result.preview.sourceType);
+        } else if (confidence >= 50) {
+          setSourceType(result.preview.sourceType);
+        } else {
+          setSourceType("bank_statement_csv");
+        }
+      }
       // Initialise mapping overrides from detected mappings
       const overrides: MappingOverrides = {};
       for (const m of result.preview.columnMappings) {
@@ -306,6 +376,24 @@ export default function UploadWizard() {
     }
   };
 
+  const handleSourceTypeChange = async (newSourceType: SourceType) => {
+    setSourceType(newSourceType);
+    setProviderConfirmed(false);
+    if (!sessionId) return;
+    setIsLoading(true);
+    const result = await applyMappingOverrides(sessionId, mappingOverrides, newSourceType);
+    setIsLoading(false);
+    if (result.success && result.preview) {
+      setPreview(result.preview);
+    } else if (result.error) {
+      setError({
+        category: "validation",
+        title: "Source type error",
+        message: result.error,
+      });
+    }
+  };
+
   /* ─── Mapping Profiles ─── */
 
   const handleLoadProfiles = async () => {
@@ -368,37 +456,46 @@ export default function UploadWizard() {
 
   /* ─── Step 3: Preview → Step 4: Processing ─── */
 
-  const handleConfirmImport = async () => {
+  const handleConfirmImport = async (categoryOverrides?: Record<number, string>) => {
+    if (isSubmittingRef.current) return;
     if (!preview || !sessionId) return;
 
-    const { valid, missing } = isMappingValid();
-    if (!valid) {
-      setError({
-        category: "validation",
-        title: "Required fields missing",
-        message: `Please map the following fields before importing: ${missing.join(", ")}`,
-      });
-      return;
-    }
+    isSubmittingRef.current = true;
+    setIsLoading(true);
 
-    setStep("processing");
-    setError(null);
+    try {
+      const { valid, missing } = isMappingValid();
+      if (!valid) {
+        setError({
+          category: "validation",
+          title: "Required fields missing",
+          message: `Please map the following fields before importing: ${missing.join(", ")}`,
+        });
+        return;
+      }
 
-    const result = await confirmAndProcess(sessionId, mappingOverrides);
+      setStep("processing");
+      setError(null);
 
-    if (result.success && result.summary && result.uploadId) {
-      setUploadId(result.uploadId);
-      // Set URL for resumption
-      window.history.replaceState({}, "", `?upload=${result.uploadId}`);
-      startPolling(result.uploadId);
-    } else {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      setError({
-        category: "system",
-        title: "Import failed",
-        message: result.error ?? "Import failed",
-      });
-      setStep("preview");
+      const result = await confirmAndProcess(sessionId, mappingOverrides, categoryOverrides);
+
+      if (result.success && result.summary && result.uploadId) {
+        setUploadId(result.uploadId);
+        // Set URL for resumption
+        window.history.replaceState({}, "", `?upload=${result.uploadId}`);
+        startPolling(result.uploadId);
+      } else {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setError({
+          category: "system",
+          title: "Import failed",
+          message: result.error ?? "Import failed",
+        });
+        setStep("preview");
+      }
+    } finally {
+      setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -410,6 +507,7 @@ export default function UploadWizard() {
     setSummary(null);
     setError(null);
     setMappingOverrides({});
+    setEditedCategories({});
     setFileName("");
     setSessionId("");
     setUploadId("");
@@ -482,7 +580,33 @@ export default function UploadWizard() {
       )}
 
       {/* Step Content */}
-      {step === "upload" && (
+      {step === "upload" && isSetupMode && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-[var(--highlight)]/10 flex items-center justify-center">
+            <Upload className="w-10 h-10 text-[var(--highlight)]" />
+          </div>
+          <h2 className="text-2xl font-bold">Connect your first financial data source</h2>
+          <p className="text-[var(--muted-foreground)] max-w-md">
+            Upload your bank statement so FounderAgent can build your dashboard,
+            categorise your spending, calculate your runway, and generate insights.
+          </p>
+          <button
+            onClick={() => {
+              // Remove setup param from URL without reloading
+              const url = new URL(window.location.href);
+              url.searchParams.delete("setup");
+              window.history.replaceState({}, "", url.toString());
+              setStep("upload");
+            }}
+            className="btn-primary text-sm"
+          >
+            <Upload className="h-4 w-4" />
+            Upload Statement
+          </button>
+        </div>
+      )}
+
+      {step === "upload" && !isSetupMode && (
         <UploadStep
           dragActive={dragActive}
           isLoading={isLoading}
@@ -503,15 +627,19 @@ export default function UploadWizard() {
           showSaveProfile={showSaveProfile}
           profileName={profileName}
           profileDefault={profileDefault}
+          sourceType={sourceType}
+          currencySymbol={getCurrencySymbol()}
           onMappingChange={handleMappingChange}
           onDateFormatChange={handleDateFormatChange}
           onSignConventionChange={handleSignConventionChange}
+          onSourceTypeChange={handleSourceTypeChange}
           onLoadProfiles={handleLoadProfiles}
           onLoadProfile={handleLoadProfile}
           onToggleSaveProfile={() => setShowSaveProfile((v) => !v)}
           onProfileNameChange={setProfileName}
           onProfileDefaultChange={setProfileDefault}
           onSaveProfile={handleSaveProfile}
+          onConfirmProvider={() => setProviderConfirmed(true)}
           onContinue={() => {
             const { valid, missing } = isMappingValid();
             if (!valid) {
@@ -529,6 +657,7 @@ export default function UploadWizard() {
           isLoading={isLoading}
           isValid={isMappingValid().valid}
           missingFields={isMappingValid().missing}
+          providerConfirmed={providerConfirmed}
         />
       )}
 
@@ -537,9 +666,12 @@ export default function UploadWizard() {
           preview={preview}
           fileName={fileName}
           currencySymbol={getCurrencySymbol()}
-          onConfirm={handleConfirmImport}
+          onConfirm={() => handleConfirmImport(editedCategories)}
           onBack={() => setStep("mapping")}
+          editedCategories={editedCategories}
+          onEditCategory={setEditedCategories}
           isLoading={isLoading}
+
         />
       )}
 
@@ -651,7 +783,7 @@ function UploadStep({
           onDrop={onDrop}
         >
           <label
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-12 text-center transition-colors ${
               dragActive ? "border-[#14B8A6]/60" : ""
             } hover:border-[#14B8A6]/40`}
             style={{
@@ -720,20 +852,25 @@ function MappingStep({
   showSaveProfile,
   profileName,
   profileDefault,
+  sourceType,
+  currencySymbol,
   onMappingChange,
   onDateFormatChange,
   onSignConventionChange,
+  onSourceTypeChange,
   onLoadProfiles,
   onLoadProfile,
   onToggleSaveProfile,
   onProfileNameChange,
   onProfileDefaultChange,
   onSaveProfile,
+  onConfirmProvider,
   onContinue,
   onBack,
   isLoading,
   isValid,
   missingFields,
+  providerConfirmed,
 }: {
   preview: WizardPreview;
   fileName: string;
@@ -742,24 +879,31 @@ function MappingStep({
   showSaveProfile: boolean;
   profileName: string;
   profileDefault: boolean;
+  sourceType: SourceType;
+  currencySymbol: string;
   onMappingChange: (field: string, header: string) => void;
   onDateFormatChange: (format: string) => void;
   onSignConventionChange: (convention: string) => void;
+  onSourceTypeChange: (v: SourceType) => void;
   onLoadProfiles: () => void;
   onLoadProfile: (profileId: string) => void;
   onToggleSaveProfile: () => void;
   onProfileNameChange: (name: string) => void;
   onProfileDefaultChange: (v: boolean) => void;
   onSaveProfile: () => void;
+  onConfirmProvider: () => void;
   onContinue: () => void;
   onBack: () => void;
   isLoading: boolean;
   isValid: boolean;
   missingFields: string[];
+  providerConfirmed: boolean;
 }) {
-  const allHeaders = preview.previewRows[0]?.rawData
-    ? Object.keys(preview.previewRows[0].rawData)
-    : [];
+  const allHeaders = useMemo(() => {
+    return preview.previewRows[0]?.rawData
+      ? Object.keys(preview.previewRows[0].rawData)
+      : (preview.parsedHeaders ?? []);
+  }, [preview]);
 
   const getMappedHeader = (field: string): string => {
     const mapping = preview.columnMappings.find((m) => m.field === field);
@@ -777,6 +921,56 @@ function MappingStep({
     return sample?.samples ?? [];
   };
 
+  const autoMappedFieldsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const mappedFields = new Set(preview.columnMappings.map((m) => m.field));
+    const headers = allHeaders;
+
+    let field = "";
+    let header = "";
+
+    if (preview.detectedProvider === "revolut_business_csv") {
+      if (!mappedFields.has("amount") && !autoMappedFieldsRef.current.has("amount")) {
+        const candidates = ["Amount", "Total Amount", "Orig Amount"];
+        for (const c of candidates) {
+          if (headers.includes(c)) {
+            field = "amount";
+            header = c;
+            break;
+          }
+        }
+      }
+    } else {
+      if (!mappedFields.has("amount") && !autoMappedFieldsRef.current.has("amount") && !mappedFields.has("debit") && !mappedFields.has("credit")) {
+        const amountLike = headers.filter((h) => /amount|total|sum|value/i.test(h));
+        if (amountLike.length === 1) {
+          field = "amount";
+          header = amountLike[0];
+        }
+      }
+
+      if (!field) {
+        const debitHeader = headers.find((h) => /^(debit|money out|out)$/i.test(h));
+        const creditHeader = headers.find((h) => /^(credit|money in|in)$/i.test(h));
+        if (debitHeader && creditHeader) {
+          if (!mappedFields.has("debit") && !autoMappedFieldsRef.current.has("debit")) {
+            field = "debit";
+            header = debitHeader;
+          } else if (!mappedFields.has("credit") && !autoMappedFieldsRef.current.has("credit")) {
+            field = "credit";
+            header = creditHeader;
+          }
+        }
+      }
+    }
+
+    if (field && header) {
+      onMappingChange(field, header);
+      autoMappedFieldsRef.current.add(field);
+    }
+  }, [preview, allHeaders, onMappingChange]);
+
   return (
     <div className="space-y-5">
       <div className="rounded-xl border p-5" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
@@ -785,6 +979,12 @@ function MappingStep({
             <h3 className="text-sm font-semibold text-[var(--foreground)]">Column Mapping</h3>
             <p className="text-xs text-[var(--muted-foreground)]">
               {fileName} · {preview.detectedDelimiter === "\t" ? "Tab" : preview.detectedDelimiter === ";" ? "Semicolon" : "Comma"} separated · {allHeaders.length} columns
+              {preview.detectedProvider && preview.providerConfidence !== undefined && (
+                <> · Provider: {DETECTED_PROVIDER_LABELS[preview.detectedProvider] || preview.detectedProvider} ({preview.providerConfidence}%)</>
+              )}
+              {preview.latestBalance !== undefined && (
+                <> · Balance: {currencySymbol}{preview.latestBalance.toFixed(2)}</>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -847,7 +1047,7 @@ function MappingStep({
                   onChange={(e) => onProfileDefaultChange(e.target.checked)}
                   className="rounded"
                 />
-                Set as default for {preview.sourceType.replace(/_/g, " ")}
+                Set as default for {(preview.detectedProvider || preview.sourceType).replace(/_/g, " ")}
               </label>
               <div className="flex items-center gap-2">
                 <button onClick={onSaveProfile} className="btn-primary text-xs px-2 py-1">
@@ -859,6 +1059,118 @@ function MappingStep({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Provider Detection Banner — 3-tier confidence UX */}
+        {preview.detectedProvider && preview.providerConfidence !== undefined && (
+          (() => {
+            const confidence = preview.providerConfidence;
+            const providerLabel = DETECTED_PROVIDER_LABELS[preview.detectedProvider] || preview.detectedProvider;
+            const matched = preview.matchedHeaders ?? [];
+            const missing = preview.missingHeaders ?? [];
+            const totalHeaders = preview.parsedHeaders?.length ?? 0;
+            const matchedCount = matched.length;
+
+            const headerDetails = (
+              <div className="space-y-1">
+                {matchedCount > 0 && (
+                  <p className="text-[11px] text-[var(--muted-foreground)]">
+                    Matched headers: {matched.join(", ")} ({matchedCount}/{totalHeaders})
+                  </p>
+                )}
+                {missing.length > 0 && (
+                  <p className="text-[11px] text-rose-300/80">
+                    Missing important headers: {missing.join(", ")}
+                  </p>
+                )}
+              </div>
+            );
+
+            if (confidence >= 85) {
+              // HIGH CONFIDENCE — auto-accept
+              return (
+                <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 flex items-start gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <p className="text-xs font-medium text-emerald-300">
+                      FounderAgent detected <span className="font-bold">{providerLabel}</span> with high confidence ({confidence}%).
+                    </p>
+                    {headerDetails}
+                    <select
+                      value={sourceType}
+                      onChange={(e) => onSourceTypeChange(e.target.value as SourceType)}
+                      className="input-field text-xs w-auto"
+                    >
+                      {SOURCE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            } else if (confidence >= 50) {
+              // MEDIUM CONFIDENCE — ask to confirm
+              return (
+                <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-start gap-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-xs font-medium text-amber-300">
+                        FounderAgent thinks this may be <span className="font-bold">{providerLabel}</span> ({confidence}% confidence). Please confirm before importing.
+                      </p>
+                      {!providerConfirmed && (
+                        <button
+                          onClick={onConfirmProvider}
+                          className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap shrink-0"
+                          type="button"
+                        >
+                          Confirm Provider
+                        </button>
+                      )}
+                      {providerConfirmed && (
+                        <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 whitespace-nowrap shrink-0">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Provider confirmed
+                        </span>
+                      )}
+                    </div>
+                    {headerDetails}
+                    <select
+                      value={sourceType}
+                      onChange={(e) => onSourceTypeChange(e.target.value as SourceType)}
+                      className="input-field text-xs w-auto border-amber-500/40"
+                    >
+                      {SOURCE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            } else {
+              // LOW CONFIDENCE — default to generic bank
+              return (
+                <div className="mb-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 flex items-start gap-3">
+                  <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <p className="text-xs font-medium text-rose-300">
+                      FounderAgent could not confidently identify this file. We will treat it as <span className="font-bold">Generic Bank CSV</span> unless you choose a provider.
+                    </p>
+                    {headerDetails}
+                    <select
+                      value={sourceType}
+                      onChange={(e) => onSourceTypeChange(e.target.value as SourceType)}
+                      className="input-field text-xs w-auto border-rose-500/40"
+                    >
+                      {SOURCE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            }
+          })()
         )}
 
         {/* Date format override */}
@@ -911,6 +1223,19 @@ function MappingStep({
           </div>
         </div>
 
+        {/* Diagnostic banner when parsing produced no rows but has failures */}
+        {preview.failedRows.length > 0 && preview.previewRows.length === 0 && (
+          <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-amber-300">Could not match columns</p>
+              <p className="text-[11px] text-amber-200/70 mt-0.5">
+                Try selecting a different source type or check your CSV headers.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Required fields warning */}
         {!isValid && missingFields.length > 0 && (
           <div className="mb-4 rounded-lg border border-orange-500/20 bg-orange-500/10 p-3 flex items-start gap-2">
@@ -933,8 +1258,30 @@ function MappingStep({
           </div>
         )}
 
-        <div className="space-y-3">
-          {FIELD_OPTIONS.filter((f) => f.value).map((fieldOpt) => {
+        {/* Smart field visibility: show only relevant mapping fields */}
+        {(() => {
+          const mappedFields = preview.columnMappings.map((m) => m.field);
+          const hasAmount = mappedFields.includes("amount") || !!overrides.amountColumn;
+          const hasDebitCredit =
+            mappedFields.includes("debit") ||
+            mappedFields.includes("credit") ||
+            !!overrides.debitColumn ||
+            !!overrides.creditColumn;
+
+          const visibleOptions = FIELD_OPTIONS.filter((f) => {
+            if (!f.value) return false; // Skip "not mapped" placeholder
+            if (f.value === "debit" || f.value === "credit") {
+              return hasDebitCredit || !hasAmount;
+            }
+            if (f.value === "amount") {
+              return hasAmount || !hasDebitCredit;
+            }
+            return true;
+          });
+
+          return (
+            <div className="space-y-3">
+              {visibleOptions.map((fieldOpt) => {
             const field = fieldOpt.value;
             const mapping = preview.columnMappings.find((m) => m.field === field);
             const isRequired = fieldOpt.required;
@@ -976,22 +1323,37 @@ function MappingStep({
               </div>
             );
           })}
-        </div>
+            </div>
+          );
+        })()}
 
         <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: "1px solid rgba(148,163,184,0.16)" }}>
           <button onClick={onBack} className="btn-secondary text-sm">
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
-          <button onClick={onContinue} className="btn-primary text-sm">
-            Preview Import
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          {(() => {
+            const confidence = preview.providerConfidence ?? 0;
+            const previewEnabled =
+              confidence >= 85 ? true : confidence >= 50 ? providerConfirmed : isValid;
+            return (
+              <button
+                onClick={onContinue}
+                disabled={!previewEnabled || isLoading}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                Preview Import
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>
   );
 }
+
+import { ALL_CATEGORIES } from "@/lib/categories";
 
 function PreviewStep({
   preview,
@@ -999,6 +1361,8 @@ function PreviewStep({
   currencySymbol,
   onConfirm,
   onBack,
+  editedCategories,
+  onEditCategory,
   isLoading,
 }: {
   preview: WizardPreview;
@@ -1006,11 +1370,153 @@ function PreviewStep({
   currencySymbol: string;
   onConfirm: () => void;
   onBack: () => void;
+  editedCategories: Record<number, string>;
+  onEditCategory: (updates: Record<number, string>) => void;
   isLoading: boolean;
 }) {
+  const [showFullScreenReview, setShowFullScreenReview] = useState(false);
+  const [appliedMessages, setAppliedMessages] = useState<Record<number, string>>({});
+  const [highlightedRows, setHighlightedRows] = useState<Set<number>>(new Set());
+  const [applyToSimilarState, setApplyToSimilarState] = useState<{
+    open: boolean;
+    sourceRow: typeof preview.previewRows[0] | null;
+    affectedRows: typeof preview.previewRows[0][];
+    matchType: "merchant" | "keyword";
+    matchValue: string;
+  }>({ open: false, sourceRow: null, affectedRows: [], matchType: "merchant", matchValue: "" });
+  const [handledSuggestions, setHandledSuggestions] = useState<Set<string>>(new Set());
+
+  const { suggestions: allSuggestions } = usePatternSuggestions(preview.previewRows);
+
   const readyCount = preview.previewRows.filter((r) => r.issues.length === 0).length;
   const warningCount = preview.previewRows.filter((r) => r.issues.length > 0).length;
   const hasCriticalErrors = preview.failedRows.length > 0 && preview.previewRows.length === 0;
+
+  const getRowCategory = (row: typeof preview.previewRows[0]) => {
+    return editedCategories[row.rowNumber] ?? row.category;
+  };
+
+  const handleCategoryChange = (rowNumber: number, newCategory: string) => {
+    onEditCategory({ ...editedCategories, [rowNumber]: newCategory });
+  };
+
+  const saveCategoryRule = async (merchant: string, category: string) => {
+    try {
+      await fetch("/api/settings/category-rule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ merchant, category }),
+      });
+    } catch (e) {
+      console.error("Failed to save category rule:", e);
+    }
+  };
+
+  const handleApplyToSimilar = (sourceRow: typeof preview.previewRows[0]) => {
+    const newCategory = editedCategories[sourceRow.rowNumber];
+    if (!newCategory) return;
+
+    const sourceMerchant = sourceRow.merchant?.toLowerCase().trim();
+    const sourceDesc = sourceRow.description?.toLowerCase().trim();
+    const firstWord = sourceDesc?.split(/\s+/)[0];
+
+    const affected: typeof preview.previewRows[0][] = [];
+    let matchType: "merchant" | "keyword" = "merchant";
+    let matchValue = sourceRow.merchant || "";
+
+    for (const row of preview.previewRows) {
+      if (row.rowNumber === sourceRow.rowNumber) continue;
+      const rowMerchant = row.merchant?.toLowerCase().trim();
+      const rowDesc = row.description?.toLowerCase().trim();
+
+      if (sourceMerchant && rowMerchant && rowMerchant === sourceMerchant) {
+        affected.push(row);
+      } else if (firstWord && rowDesc && rowDesc.startsWith(firstWord)) {
+        affected.push(row);
+        if (!sourceMerchant) {
+          matchType = "keyword";
+          matchValue = firstWord;
+        }
+      }
+    }
+
+    if (affected.length === 0) return;
+
+    setApplyToSimilarState({
+      open: true,
+      sourceRow,
+      affectedRows: affected,
+      matchType,
+      matchValue,
+    });
+  };
+
+  const handleConfirmApplyToSimilar = (saveAsRule: boolean) => {
+    const { sourceRow, affectedRows } = applyToSimilarState;
+    if (!sourceRow) return;
+    const newCategory = editedCategories[sourceRow.rowNumber];
+    if (!newCategory) return;
+
+    const updates: Record<number, string> = { ...editedCategories };
+    for (const row of affectedRows) {
+      updates[row.rowNumber] = newCategory;
+    }
+    onEditCategory(updates);
+
+    const highlighted = new Set<number>();
+    for (const row of affectedRows) {
+      highlighted.add(row.rowNumber);
+    }
+    setHighlightedRows(highlighted);
+    setTimeout(() => setHighlightedRows(new Set()), 2000);
+
+    if (saveAsRule && sourceRow.merchant) {
+      saveCategoryRule(sourceRow.merchant, newCategory);
+    }
+
+    setAppliedMessages((prev) => ({
+      ...prev,
+      [sourceRow.rowNumber]: `Applied to ${affectedRows.length} similar row${affectedRows.length > 1 ? "s" : ""}`,
+    }));
+    setTimeout(() => {
+      setAppliedMessages((prev) => {
+        const next = { ...prev };
+        delete next[sourceRow.rowNumber];
+        return next;
+      });
+    }, 3000);
+
+    setApplyToSimilarState({ open: false, sourceRow: null, affectedRows: [], matchType: "merchant", matchValue: "" });
+  };
+
+  const handleApproveSuggestion = (id: string) => {
+    const suggestion = allSuggestions.find((s) => s.id === id);
+    if (!suggestion) return;
+    const newEdits = { ...editedCategories };
+    for (const rowNum of suggestion.affectedRowIds) {
+      newEdits[rowNum] = suggestion.suggestedCategory;
+    }
+    onEditCategory(newEdits);
+    setHandledSuggestions((prev) => new Set(prev).add(id));
+  };
+
+  const handleRejectSuggestion = (id: string) => {
+    setHandledSuggestions((prev) => new Set(prev).add(id));
+  };
+
+  const handleApproveAll = () => {
+    const newEdits = { ...editedCategories };
+    for (const s of allSuggestions) {
+      if (handledSuggestions.has(s.id)) continue;
+      for (const rowNum of s.affectedRowIds) {
+        newEdits[rowNum] = s.suggestedCategory;
+      }
+    }
+    onEditCategory(newEdits);
+    setHandledSuggestions(new Set(allSuggestions.map((s) => s.id)));
+  };
+
+  const visibleSuggestions = allSuggestions.filter((s) => !handledSuggestions.has(s.id));
 
   // Build dynamic columns from mapped fields
   const mappedFields = preview.columnMappings.map((m) => m.field);
@@ -1018,7 +1524,7 @@ function PreviewStep({
     (f) => !["date", "merchant", "description", "amount", "type", "category"].includes(f)
   );
 
-  const isRevolut = preview.sourceType === "revolut_business_csv";
+  const isRevolut = preview.detectedProvider === "revolut_business_csv";
 
   return (
     <div className="space-y-5">
@@ -1035,6 +1541,39 @@ function PreviewStep({
         </div>
       )}
 
+      {/* Top Actions Bar */}
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl border px-4 py-3" style={{ borderColor: "rgba(148,163,184,0.16)", background: "rgba(9,9,11,0.95)", backdropFilter: "blur(12px)" }}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-[var(--foreground)]">{fileName}</span>
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {preview.previewRows.length + preview.failedRows.length} rows
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="btn-secondary text-xs px-3 py-1.5">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Adjust Mapping
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={hasCriticalErrors || isLoading}
+            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                Confirm & Import
+                <ArrowRight className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Rows Detected" value={String(preview.previewRows.length + preview.failedRows.length)} icon={<FileText className="h-4 w-4" />} />
@@ -1043,12 +1582,150 @@ function PreviewStep({
         <StatCard label="Failed" value={String(preview.failedRows.length)} icon={<AlertCircle className="h-4 w-4" />} color="text-rose-400" />
       </div>
 
+      {/* Category Summary */}
+      {(() => {
+        const categorised = preview.previewRows.filter((r) => r.confidenceScore >= 90).length;
+        const suggested = preview.previewRows.filter((r) => r.confidenceScore >= 75 && r.confidenceScore < 90).length;
+        const review = preview.previewRows.filter((r) => r.confidenceScore < 75).length;
+        const total = preview.previewRows.length;
+        const pct = total > 0 ? Math.round((categorised / total) * 100) : 0;
+        return (
+          <div className="rounded-xl border px-4 py-3" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-[var(--foreground)]">Categorisation</span>
+              <span className="text-xs text-[var(--muted-foreground)]">{pct}% auto-categorised</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-emerald-400">● Categorised: {categorised}</span>
+              <span className="text-amber-400">● Suggested: {suggested}</span>
+              <span className="text-rose-400">● Needs Review: {review}</span>
+            </div>
+            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(148,163,184,0.12)" }}>
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500" style={{ width: `${total > 0 ? 100 : 0}%`, opacity: 0.7 }} />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Diagnostic banner for critical parse failures */}
+      {hasCriticalErrors && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-300">Could not match columns</p>
+            <p className="text-xs text-amber-200/70 mt-0.5">
+              Try selecting a different source type or check your CSV headers.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Cash Movement */}
       <div className="grid grid-cols-3 gap-3">
         <CashCard label="Income" amount={preview.incomeTotal} icon={<TrendingUp className="h-4 w-4" />} color="text-emerald-400" currencySymbol={currencySymbol} />
         <CashCard label="Expenses" amount={preview.expenseTotal} icon={<TrendingDown className="h-4 w-4" />} color="text-rose-400" currencySymbol={currencySymbol} />
         <CashCard label="Net" amount={preview.netMovement} icon={<Sparkles className="h-4 w-4" />} color={preview.netMovement >= 0 ? "text-emerald-400" : "text-rose-400"} currencySymbol={currencySymbol} />
       </div>
+
+      {/* Estimated Impact */}
+      {preview.estimatedImpact && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">Estimated Impact</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <ImpactCard
+              label="💰 Income to add"
+              value={`+${currencySymbol}${preview.estimatedImpact.incomeToAdd.toFixed(2)}`}
+              icon={<TrendingUp className="h-4 w-4" />}
+              color="text-emerald-400"
+              valueColor="text-emerald-400"
+            />
+            <ImpactCard
+              label="💸 Expenses to add"
+              value={`-${currencySymbol}${preview.estimatedImpact.expensesToAdd.toFixed(2)}`}
+              icon={<TrendingDown className="h-4 w-4" />}
+              color="text-rose-400"
+              valueColor="text-rose-400"
+            />
+            <ImpactCard
+              label="📊 Net movement"
+              value={`${preview.estimatedImpact.netMovement >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(preview.estimatedImpact.netMovement).toFixed(2)}`}
+              icon={<Sparkles className="h-4 w-4" />}
+              color={preview.estimatedImpact.netMovement >= 0 ? "text-emerald-400" : "text-rose-400"}
+              valueColor={preview.estimatedImpact.netMovement >= 0 ? "text-emerald-400" : "text-rose-400"}
+            />
+            <ImpactCard
+              label="🔄 Duplicates to skip"
+              value={String(preview.estimatedImpact.duplicatesToSkip)}
+              icon={<RefreshCw className="h-4 w-4" />}
+              color="text-slate-400"
+              valueColor="text-slate-400"
+            />
+            {preview.estimatedImpact.failedRows > 0 && (
+              <ImpactCard
+                label="⚠️ Failed rows"
+                value={String(preview.estimatedImpact.failedRows)}
+                icon={<AlertTriangle className="h-4 w-4" />}
+                color="text-amber-400"
+                valueColor="text-amber-400"
+              />
+            )}
+            <ImpactCard
+              label="📝 Subscriptions detected"
+              value={String(preview.estimatedImpact.subscriptionsDetected)}
+              icon={<FileText className="h-4 w-4" />}
+              color="text-blue-400"
+              valueColor="text-blue-400"
+            />
+            {preview.estimatedImpact.latestBalanceDetected !== undefined && (
+              <ImpactCard
+                label="💳 Latest balance detected"
+                value={`${currencySymbol}${preview.estimatedImpact.latestBalanceDetected.toFixed(2)}`}
+                icon={<Database className="h-4 w-4" />}
+                color="text-[var(--muted-foreground)]"
+                valueColor="text-[var(--foreground)]"
+              />
+            )}
+          </div>
+          <p className="text-[11px] text-[var(--muted-foreground)]">
+            Estimated impact before import. After import, FounderAgent will recalculate your dashboard using the final saved transactions.
+          </p>
+        </div>
+      )}
+
+      {visibleSuggestions.length > 0 && (
+        <>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {visibleSuggestions.length} suggestion{visibleSuggestions.length === 1 ? "" : "s"} pending review
+            </p>
+            <button
+              onClick={() => setShowFullScreenReview(true)}
+              className="text-xs font-medium text-[var(--accent)] hover:underline"
+            >
+              Expand Review →
+            </button>
+          </div>
+          <SuggestionsPanel
+            suggestions={visibleSuggestions}
+            onApprove={handleApproveSuggestion}
+            onReject={handleRejectSuggestion}
+            onApproveAll={handleApproveAll}
+            onDismissAll={() => setHandledSuggestions(new Set(allSuggestions.map((s) => s.id)))}
+            previewRows={preview.previewRows}
+          />
+        </>
+      )}
+
+      <FullScreenReview
+        open={showFullScreenReview}
+        onClose={() => setShowFullScreenReview(false)}
+        suggestions={allSuggestions}
+        previewRows={preview.previewRows}
+        onApprove={handleApproveSuggestion}
+        onReject={handleRejectSuggestion}
+        onApproveAll={handleApproveAll}
+        onDismissAll={() => setHandledSuggestions(new Set(allSuggestions.map((s) => s.id)))}
+      />
 
       {/* Preview Table */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(148,163,184,0.16)" }}>
@@ -1057,7 +1734,7 @@ function PreviewStep({
           <span className="text-xs text-[var(--muted-foreground)]">{fileName}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[800px]">
             <thead>
               <tr className="text-left text-[var(--muted-foreground)]" style={{ background: "rgba(17,24,39,0.8)" }}>
                 <th className="px-3 py-2 font-medium">Row</th>
@@ -1078,7 +1755,9 @@ function PreviewStep({
               {preview.previewRows.map((row) => (
                 <tr
                   key={row.rowNumber}
-                  className="border-t transition-colors hover:bg-[rgba(148,163,184,0.04)]"
+                  className={`border-t transition-colors hover:bg-[rgba(148,163,184,0.04)] ${
+                    highlightedRows.has(row.rowNumber) ? "bg-yellow-50 transition-colors duration-500" : ""
+                  }`}
                   style={{ borderColor: "rgba(148,163,184,0.08)" }}
                 >
                   <td className="px-3 py-2 text-[var(--muted-foreground)]">
@@ -1092,7 +1771,12 @@ function PreviewStep({
                     </div>
                   </td>
                   <td className="px-3 py-2 text-[var(--foreground)]">{formatDate(row.date)}</td>
-                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[120px] truncate">{row.merchant}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <MerchantLogo name={row.merchant || ""} size="sm" />
+                      <span className="text-xs text-[var(--foreground)] max-w-[120px] truncate">{row.merchant || "—"}</span>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-[var(--foreground)] max-w-[160px] truncate">{row.description}</td>
                   <td className="px-3 py-2 text-right font-mono">
                     <span className={row.type === "income" ? "text-emerald-400" : "text-rose-400"}>
@@ -1105,7 +1789,31 @@ function PreviewStep({
                       {row.type}
                     </StatusBadge>
                   </td>
-                  <td className="px-3 py-2 text-[var(--foreground)]">{row.category}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={getRowCategory(row)}
+                        onChange={(e) => handleCategoryChange(row.rowNumber, e.target.value)}
+                        className="text-xs bg-transparent border border-[var(--border)] rounded px-2 py-1.5 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] min-h-[36px]"
+                      >
+                        {ALL_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      {editedCategories[row.rowNumber] && editedCategories[row.rowNumber] !== row.category && (
+                        <button
+                          onClick={() => handleApplyToSimilar(row)}
+                          className="text-[10px] text-[var(--accent)] hover:underline whitespace-nowrap px-2 py-1.5 rounded min-h-[36px]"
+                          title="Apply this category to rows with the same merchant or description"
+                        >
+                          Apply to similar
+                        </button>
+                      )}
+                      {appliedMessages[row.rowNumber] && (
+                        <span className="text-[10px] text-emerald-400 whitespace-nowrap">{appliedMessages[row.rowNumber]}</span>
+                      )}
+                    </div>
+                  </td>
                   {extraFields.includes("reference") && (
                     <td className="px-3 py-2 text-[var(--foreground)] max-w-[80px] truncate">
                       {row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("ref")) || ""] || "-"}
@@ -1162,6 +1870,18 @@ function PreviewStep({
         </div>
       )}
 
+      {applyToSimilarState.open && applyToSimilarState.sourceRow && (
+        <ApplyToSimilarConfirm
+          category={editedCategories[applyToSimilarState.sourceRow.rowNumber] || ""}
+          count={applyToSimilarState.affectedRows.length}
+          matchType={applyToSimilarState.matchType}
+          matchValue={applyToSimilarState.matchValue}
+          affectedRows={applyToSimilarState.affectedRows}
+          onApply={(saveAsRule) => handleConfirmApplyToSimilar(saveAsRule)}
+          onCancel={() => setApplyToSimilarState({ open: false, sourceRow: null, affectedRows: [], matchType: "merchant", matchValue: "" })}
+        />
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="btn-secondary text-sm">
@@ -1189,7 +1909,6 @@ function PreviewStep({
     </div>
   );
 }
-
 function ProcessingStep({
   fileName,
   stage,
@@ -1312,12 +2031,41 @@ function SummaryStep({
         </div>
       </div>
 
+      {/* Full Reconciliation Table */}
+      {summary.success && (
+        <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
+          <h4 className="text-sm font-semibold text-[var(--foreground)]">Import Reconciliation</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <StatCard label="Rows in File" value={String(summary.rowsInFile)} icon={<Database className="h-4 w-4" />} />
+            <StatCard label="Rows Parsed" value={String(summary.rowsParsed)} icon={<Brain className="h-4 w-4" />} />
+            <StatCard label="Rows Imported" value={String(summary.rowsImported)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Duplicates Skipped" value={String(summary.rowsDuplicate)} icon={<RefreshCw className="h-4 w-4" />} color="text-amber-400" />
+            <StatCard label="Failed" value={String(summary.rowsFailed)} icon={<AlertCircle className="h-4 w-4" />} color="text-rose-400" />
+            <StatCard label="Needs Review" value={String(summary.rowsNeedReview)} icon={<Eye className="h-4 w-4" />} color="text-sky-400" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.12)" }}>
+            <StatCard label="Categorised" value={String(summary.rowsCategorised)} icon={<Tag className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Transfers" value={String(summary.rowsTransfer)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Uncategorised" value={String(summary.unknownTransactions)} icon={<HelpCircle className="h-4 w-4" />} color="text-slate-400" />
+          </div>
+          {(summary.sourceCurrency || summary.baseCurrency) && (
+            <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] pt-2">
+              <span>Source: {summary.sourceCurrency}</span>
+              {summary.baseCurrency && summary.baseCurrency !== summary.sourceCurrency && (
+                <span>· Base: {summary.baseCurrency}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Intelligence Results */}
       {summary.success && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Rows Imported" value={String(summary.rowsImported)} icon={<Database className="h-4 w-4" />} />
           <StatCard label="Subscriptions" value={String(summary.subscriptionsDetected)} icon={<RefreshCw className="h-4 w-4" />} />
           <StatCard label="Alerts" value={String(summary.alertsCreated)} icon={<AlertCircle className="h-4 w-4" />} />
           <StatCard label="Recommendations" value={String(summary.recommendationsCreated)} icon={<Sparkles className="h-4 w-4" />} />
+          <StatCard label="Net Movement" value={`${summary.incomeTotal >= summary.expenseTotal ? "+" : ""}${(summary.incomeTotal - summary.expenseTotal).toFixed(0)}`} icon={<TrendingUp className="h-4 w-4" />} />
         </div>
       )}
 
@@ -1401,6 +2149,33 @@ function CashCard({
       <p className={`text-lg font-bold ${color}`}>
         {amount >= 0 ? "" : "-"}{currencySymbol}{Math.abs(amount).toFixed(2)}
       </p>
+    </div>
+  );
+}
+
+function ImpactCard({
+  label,
+  value,
+  icon,
+  color = "text-[var(--muted-foreground)]",
+  valueColor = "text-[var(--foreground)]",
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  color?: string;
+  valueColor?: string;
+}) {
+  return (
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className={color}>{icon}</span>
+        <span className="text-xs text-[var(--muted-foreground)]">{label}</span>
+      </div>
+      <p className={`text-xl font-bold ${valueColor}`}>{value}</p>
     </div>
   );
 }

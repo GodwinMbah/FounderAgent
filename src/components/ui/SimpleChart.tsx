@@ -15,7 +15,6 @@ interface SimpleBarChartProps {
 
 export function SimpleBarChart({ data, maxValue, height = 160, showLabels = true }: SimpleBarChartProps) {
   const max = maxValue ?? Math.max(...data.map((d) => d.value));
-  const barWidth = data.length > 0 ? Math.min(48, 100 / data.length) : 0;
   const gap = 8;
 
   return (

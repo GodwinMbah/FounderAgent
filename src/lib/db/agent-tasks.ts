@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
 import type { AgentTask } from "@/lib/types";
 
@@ -72,6 +73,39 @@ export async function createAgentTask(data: {
 
   if (error) throw error;
   return mapRow(row as Record<string, unknown>);
+}
+
+export async function createAgentTasksBatch(
+  items: {
+    companyId: string;
+    createdBy?: string;
+    title: string;
+    taskType: string;
+    priority?: string;
+    inputData?: Record<string, unknown>;
+  }[]
+): Promise<{ count: number; error?: string }> {
+  if (items.length === 0) return { count: 0 };
+
+  const admin = createAdminClient();
+  if (!admin) throw new Error("Admin client not available");
+
+  const payloads = items.map((data) => ({
+    company_id: data.companyId,
+    created_by: data.createdBy,
+    title: data.title,
+    task_type: data.taskType,
+    priority: data.priority ?? "medium",
+    input_data: data.inputData ?? {},
+  }));
+
+  const { error } = await admin.from("agent_tasks").insert(payloads);
+
+  if (error) {
+    return { count: 0, error: error.message };
+  }
+
+  return { count: payloads.length };
 }
 
 export async function updateAgentTaskStatus(

@@ -6,6 +6,7 @@ export type IntentType =
   | "runway_query"
   | "revenue_query"
   | "agent_task_request"
+  | "financial_summary"
   | "general_help"
   | "greeting";
 
@@ -55,6 +56,10 @@ export function detectIntent(message: string): IntentType {
 
   if (/\b(revenue|income|mrr|arr)\b/.test(lower)) {
     return "revenue_query";
+  }
+
+  if (/\b(summary|overview|financial health|how are we doing|company status)\b/.test(lower)) {
+    return "financial_summary";
   }
 
   return "general_help";

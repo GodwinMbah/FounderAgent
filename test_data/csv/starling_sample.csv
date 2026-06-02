@@ -1,0 +1,4 @@
+Date,Counter Party,Reference,Type,Amount (GBP),Balance (GBP),Spending category,Notes
+02/01/2024,John Smith,SAL-JAN, Faster Payment,2200.00,4200.00,INCOME,January salary
+05/01/2024,BT Group Plc,BILL-001,Direct Debit,-89.99,4110.01,BILLS_AND_SERVICES,Monthly broadband
+07/01/2024,Tesco Stores Ltd,GROC-003,Debit Card,-67.23,4042.78,GROCERIES,Weekly groceries

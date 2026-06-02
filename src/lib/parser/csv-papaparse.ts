@@ -20,6 +20,7 @@ export function parseCsvWithPapa(text: string): ParsedCsv {
   const result = Papa.parse<string[]>(cleanText, {
     skipEmptyLines: true,
     delimiter: "", // auto-detect
+    header: false, // explicit: we want raw arrays, not keyed objects
   });
 
   const delimiter = result.meta.delimiter || ",";

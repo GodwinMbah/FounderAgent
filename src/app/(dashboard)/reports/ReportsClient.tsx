@@ -32,7 +32,7 @@ interface ReportItem {
   id: string;
   name: string;
   type: string;
-  status: "ready" | "generating";
+  status: "ready" | "generating" | "draft" | "needs_review";
   generatedAt: string;
   size: string;
 }
@@ -45,7 +45,7 @@ export default function ReportsClient({ reportsData }: Props) {
   const reportsGenerated = reportsData.length;
   const readyToExport = reportsData.filter((r) => r.status === "ready").length;
   const scheduled = reportsData.filter((r) => r.status === "generating").length;
-  const needsReview = 0;
+  const needsReview = reportsData.filter((r) => r.status === "draft" || r.status === "needs_review").length;
 
   const typeDistribution = (() => {
     const map = new Map<string, number>();
@@ -184,11 +184,35 @@ export default function ReportsClient({ reportsData }: Props) {
 
       {/* Recent Reports Table */}
       <SectionCard title="Recent Reports" subtitle="Latest generated outputs">
-        <DataTable
-          columns={columns}
-          data={reportsData}
-          keyExtractor={(row: ReportItem) => row.id}
-        />
+        {/* Desktop Table */}
+        <div className="hidden sm:block">
+          <DataTable
+            columns={columns}
+            data={reportsData}
+            keyExtractor={(row: ReportItem) => row.id}
+          />
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="sm:hidden space-y-3">
+          {reportsData.map((report) => (
+            <div key={report.id} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[var(--foreground)] truncate">{report.name}</p>
+                  <p className="text-xs text-[var(--muted-foreground)]">{report.type} · {report.generatedAt}</p>
+                </div>
+                <StatusBadge variant={report.status === "ready" ? "success" : "warning"}>
+                  {report.status}
+                </StatusBadge>
+              </div>
+              <p className="text-xs text-[var(--muted-foreground)] mt-1">{report.size}</p>
+            </div>
+          ))}
+          {reportsData.length === 0 && (
+            <p className="text-center text-[var(--muted-foreground)] text-sm py-10">No reports generated yet</p>
+          )}
+        </div>
       </SectionCard>
     </div>
   );

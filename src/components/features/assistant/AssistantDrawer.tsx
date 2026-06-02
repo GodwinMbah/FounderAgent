@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { AgentOrb } from "@/components/AgentOrb";
-import { Send, X, Sparkles, Clock, CheckCircle2, Loader2, AlertCircle, Zap } from "lucide-react";
+import { Send, X, Sparkles, CheckCircle2, AlertCircle, Zap } from "lucide-react";
 import { useAssistant } from "@/components/layout/AssistantContext";
 import { processAssistantMessage } from "./actions";
 
@@ -20,20 +20,6 @@ const suggestedActions = [
   { label: "Analyse runway", icon: Zap },
   { label: "Find duplicates", icon: AlertCircle },
   { label: "Review alerts", icon: AlertCircle },
-];
-
-interface MockTask {
-  id: string;
-  title: string;
-  status: "completed" | "running" | "pending";
-  time: string;
-}
-
-const mockTasks: MockTask[] = [
-  { id: "task_1", title: "Find cheaper alternatives to Datadog", status: "completed", time: "2d ago" },
-  { id: "task_2", title: "Detect duplicate subscriptions", status: "completed", time: "4d ago" },
-  { id: "task_3", title: "Forecast runway scenarios", status: "running", time: "Now" },
-  { id: "task_4", title: "Flag wasteful spending", status: "pending", time: "Queued" },
 ];
 
 
@@ -205,29 +191,10 @@ export function AssistantDrawer() {
               <p className="text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-widest mb-3 px-1">
                 Recent Agent Tasks
               </p>
-              <div className="space-y-2">
-                {mockTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-3 rounded-xl bg-[var(--card)]/40 border border-[var(--border)]/40 px-3 py-2.5 backdrop-blur-sm hover:border-[var(--highlight)]/15 transition-colors"
-                  >
-                    <div className="shrink-0">
-                      {task.status === "completed" && (
-                        <CheckCircle2 className="h-4 w-4 text-[var(--success)]" />
-                      )}
-                      {task.status === "running" && (
-                        <Loader2 className="h-4 w-4 text-[var(--accent)] animate-spin" />
-                      )}
-                      {task.status === "pending" && (
-                        <Clock className="h-4 w-4 text-[var(--muted-foreground)]" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-medium text-[var(--foreground)] truncate">{task.title}</p>
-                      <p className="text-[11px] text-[var(--muted-foreground)]">{task.time}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="rounded-xl border border-[var(--border)]/40 bg-[var(--card)]/40 px-4 py-6 text-center backdrop-blur-sm">
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  No active agent tasks. Ask FounderAgent to analyse your finances.
+                </p>
               </div>
             </div>
           )}

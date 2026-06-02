@@ -1,21 +1,36 @@
 import { getDashboardMetrics, getMonthlyMetrics, requireAuthCompany } from "@/lib/db";
+import { getGlobalDateRange } from "@/lib/date-range-server";
 import RunwayClient from "./RunwayClient";
 
-export default async function RunwayPage() {
+interface Props {
+  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+}
+
+export default async function RunwayPage({ searchParams }: Props) {
   const { companyId } = await requireAuthCompany();
 
-  // Runway uses real-time cached metrics (all-time for cash/burn)
-  // Chart shows last 12 months
-  const toDate = new Date().toISOString().slice(0, 10);
-  const fromDate = new Date();
-  fromDate.setMonth(fromDate.getMonth() - 12);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
 
   const [metrics, monthlyMetrics] = await Promise.all([
     getDashboardMetrics(companyId),
-    getMonthlyMetrics(companyId, fromDate.toISOString().slice(0, 10), toDate),
+    getMonthlyMetrics(companyId, from, to),
   ]);
 
   return (
-    <RunwayClient metrics={metrics} monthlyMetrics={monthlyMetrics} />
+    <RunwayClient
+      metrics={{
+        cashBalance: metrics.cashBalance,
+        monthlyBurn: metrics.monthlyBurn,
+        runwayMonths: metrics.runwayMonths,
+        monthlyRevenue: metrics.monthlyRevenue,
+        monthlyExpenses: metrics.monthlyExpenses,
+        monthlySubscriptionSpend: metrics.monthlySubscriptionSpend,
+      }}
+      monthlyMetrics={monthlyMetrics}
+      initialPreset={preset}
+      initialFrom={from}
+      initialTo={to}
+    />
   );
 }

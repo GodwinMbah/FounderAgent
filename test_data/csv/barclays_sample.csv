@@ -1,0 +1,4 @@
+Number,Date,Account,Amount,Subcategory,Memo
+001,02/01/2024,20-00-00 12345678,1800.00,SALARY,Monthly payroll
+002,04/01/2024,20-00-00 12345678,-65.00,UTILITIES,Electric bill
+003,09/01/2024,20-00-00 12345678,-240.00,INSURANCE,Business insurance renewal

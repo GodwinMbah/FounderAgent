@@ -1,0 +1,4901 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: upload-694.spec.ts >> 694-row Revolut import >> categorises specific merchants correctly in preview
+- Location: e2e/upload-694.spec.ts:107:7
+
+# Error details
+
+```
+TimeoutError: page.waitForSelector: Timeout 90000ms exceeded.
+Call log:
+  - waiting for locator('text=/Column Mapping|Rows Detected|Preview Import/') to be visible
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - img "FounderAgent" [ref=e6]
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph [ref=e9]: Main
+          - link "Overview" [ref=e10] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e11]
+            - generic [ref=e14]: Overview
+          - link "Cash Flow" [ref=e15] [cursor=pointer]:
+            - /url: /cash-flow
+            - img [ref=e16]
+            - generic [ref=e19]: Cash Flow
+          - link "Runway" [ref=e20] [cursor=pointer]:
+            - /url: /runway
+            - img [ref=e21]
+            - generic [ref=e24]: Runway
+          - link "Expenses" [ref=e25] [cursor=pointer]:
+            - /url: /expenses
+            - img [ref=e26]
+            - generic [ref=e29]: Expenses
+          - link "Revenue" [ref=e30] [cursor=pointer]:
+            - /url: /revenue
+            - img [ref=e31]
+            - generic [ref=e34]: Revenue
+          - link "Subscriptions" [ref=e35] [cursor=pointer]:
+            - /url: /subscriptions
+            - img [ref=e36]
+            - generic [ref=e41]: Subscriptions
+          - link "Budgets" [ref=e42] [cursor=pointer]:
+            - /url: /budgets
+            - img [ref=e43]
+            - generic [ref=e46]: Budgets
+          - link "Reports" [ref=e47] [cursor=pointer]:
+            - /url: /reports
+            - img [ref=e48]
+            - generic [ref=e51]: Reports
+        - generic [ref=e52]:
+          - paragraph [ref=e53]: Intelligence
+          - link "AI Insights" [ref=e54] [cursor=pointer]:
+            - /url: /ai-insights
+            - img [ref=e55]
+            - generic [ref=e58]: AI Insights
+          - link "Alerts" [ref=e59] [cursor=pointer]:
+            - /url: /alerts
+            - img [ref=e60]
+            - generic [ref=e63]: Alerts
+        - generic [ref=e64]:
+          - paragraph [ref=e65]: System
+          - link "Upload Centre" [ref=e66] [cursor=pointer]:
+            - /url: /upload-centre
+            - img [ref=e68]
+            - generic [ref=e71]: Upload Centre
+            - img [ref=e72]
+          - link "Settings" [ref=e74] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e75]
+            - generic [ref=e78]: Settings
+      - generic [ref=e80]:
+        - generic [ref=e83]:
+          - img "FounderAgent AI Orb" [ref=e91]
+          - generic [ref=e95]:
+            - paragraph [ref=e96]: Ask FounderAgent
+            - paragraph [ref=e97]: Your AI finance copilot
+        - generic [ref=e98]:
+          - button "Runway forecast?" [ref=e99]
+          - button "Cut costs?" [ref=e100]
+          - button "Revenue up?" [ref=e101]
+        - button "Ask a question" [ref=e102]:
+          - img [ref=e103]
+          - text: Ask a question
+          - img [ref=e106]
+      - generic [ref=e109]:
+        - link "DE Acme Labs demo@acmelabs.com" [ref=e110] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e111]: DE
+          - generic [ref=e112]:
+            - generic [ref=e113]: Acme Labs
+            - generic [ref=e114]: demo@acmelabs.com
+          - img [ref=e115]
+        - button "Sign out" [ref=e118]:
+          - img [ref=e119]
+          - text: Sign out
+    - generic [ref=e122]:
+      - banner [ref=e124]:
+        - generic [ref=e125]:
+          - button "Last 30 days" [ref=e127]:
+            - img [ref=e128]
+            - generic [ref=e130]: Last 30 days
+            - img [ref=e131]
+          - button [ref=e133]:
+            - img [ref=e134]
+          - button [ref=e137]:
+            - img [ref=e138]
+          - button "AI Assist" [ref=e142]:
+            - img [ref=e143]
+            - text: AI Assist
+          - button "DE" [ref=e147] [cursor=pointer]
+      - main [ref=e148]:
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - generic [ref=e153]:
+              - heading "Upload Centre" [level=1] [ref=e154]
+              - paragraph [ref=e155]: Upload financial documents and let FounderAgent intelligently map, preview, and import everything.
+            - generic [ref=e156]:
+              - generic [ref=e158]:
+                - img [ref=e159]
+                - generic [ref=e162]: Upload
+              - generic [ref=e165]:
+                - img [ref=e166]
+                - generic [ref=e169]: Map
+              - generic [ref=e172]:
+                - img [ref=e173]
+                - generic [ref=e176]: Preview
+              - generic [ref=e179]:
+                - img [ref=e180]
+                - generic [ref=e185]: Import
+              - generic [ref=e188]:
+                - img [ref=e189]
+                - generic [ref=e192]: Summary
+            - generic [ref=e194]:
+              - generic [ref=e195]:
+                - generic [ref=e196]: Source Type
+                - combobox [ref=e197]:
+                  - option "Auto Detect" [selected]
+                  - option "Bank Statement CSV"
+                  - option "Generic Bank"
+                  - option "Payment Processor CSV"
+                  - option "Accounting Export CSV"
+                  - option "Manual CSV"
+                - paragraph [ref=e198]: Select the source or let FounderAgent auto-detect.
+              - generic [ref=e200] [cursor=pointer]:
+                - img [ref=e202]
+                - paragraph [ref=e205]: Click or drag CSV to upload
+                - paragraph [ref=e206]: Supports CSV, TXT, TSV, XLSX up to 20MB
+              - generic [ref=e207]:
+                - generic [ref=e208]:
+                  - img [ref=e210]
+                  - generic [ref=e213]: Bank CSV
+                - generic [ref=e214]:
+                  - img [ref=e216]
+                  - generic [ref=e219]: Stripe
+                - generic [ref=e220]:
+                  - img [ref=e222]
+                  - generic [ref=e225]: PayPal
+                - generic [ref=e226]:
+                  - img [ref=e228]
+                  - generic [ref=e232]: QuickBooks
+          - generic [ref=e233]:
+            - generic [ref=e234]:
+              - heading "Upload History" [level=3] [ref=e235]
+              - generic [ref=e236]: 323 uploads
+            - generic [ref=e237]:
+              - button "All323" [ref=e238]
+              - button "Completed32" [ref=e239]
+              - button "Failed290" [ref=e240]
+              - button "Processing0" [ref=e241]
+            - generic [ref=e243]:
+              - generic [ref=e245]:
+                - generic [ref=e246]:
+                  - img [ref=e248]
+                  - generic [ref=e251]:
+                    - paragraph [ref=e252]: revolut_694.csv
+                    - paragraph [ref=e253]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e254]:
+                  - generic [ref=e255]:
+                    - generic [ref=e256]:
+                      - img [ref=e257]
+                      - text: "694"
+                    - generic [ref=e261]: 223 xfer
+                  - button "View details" [ref=e262]:
+                    - img [ref=e263]
+                  - button "Delete upload and transactions" [ref=e266]:
+                    - img [ref=e267]
+              - generic [ref=e271]:
+                - generic [ref=e272]:
+                  - img [ref=e274]
+                  - generic [ref=e277]:
+                    - paragraph [ref=e278]: revolut_694.csv
+                    - paragraph [ref=e279]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e280]:
+                  - generic [ref=e281]:
+                    - generic [ref=e282]:
+                      - img [ref=e283]
+                      - text: "694"
+                    - generic [ref=e287]: 694 dup
+                    - generic [ref=e288]: 223 xfer
+                  - button "View details" [ref=e289]:
+                    - img [ref=e290]
+                  - button "Delete upload and transactions" [ref=e293]:
+                    - img [ref=e294]
+              - generic [ref=e298]:
+                - generic [ref=e299]:
+                  - img [ref=e301]
+                  - generic [ref=e304]:
+                    - paragraph [ref=e305]: revolut_694.csv
+                    - paragraph [ref=e306]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e307]:
+                  - generic [ref=e308]:
+                    - generic [ref=e309]:
+                      - img [ref=e310]
+                      - text: "694"
+                    - generic [ref=e314]: 694 dup
+                    - generic [ref=e315]: 223 xfer
+                  - button "View details" [ref=e316]:
+                    - img [ref=e317]
+                  - button "Delete upload and transactions" [ref=e320]:
+                    - img [ref=e321]
+              - generic [ref=e325]:
+                - generic [ref=e326]:
+                  - img [ref=e328]
+                  - generic [ref=e331]:
+                    - paragraph [ref=e332]: revolut_694.csv
+                    - paragraph [ref=e333]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e334]:
+                  - generic [ref=e335]:
+                    - generic [ref=e336]:
+                      - img [ref=e337]
+                      - text: "694"
+                    - generic [ref=e341]: 223 xfer
+                  - button "View details" [ref=e342]:
+                    - img [ref=e343]
+                  - button "Delete upload and transactions" [ref=e346]:
+                    - img [ref=e347]
+              - generic [ref=e351]:
+                - generic [ref=e352]:
+                  - img [ref=e354]
+                  - generic [ref=e357]:
+                    - paragraph [ref=e358]: revolut_694.csv
+                    - paragraph [ref=e359]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e360]:
+                  - generic [ref=e362]:
+                    - img [ref=e363]
+                    - text: "0"
+                  - button "View details" [ref=e367]:
+                    - img [ref=e368]
+                  - button "Delete upload and transactions" [ref=e371]:
+                    - img [ref=e372]
+              - generic [ref=e376]:
+                - generic [ref=e377]:
+                  - img [ref=e379]
+                  - generic [ref=e382]:
+                    - paragraph [ref=e383]: revolut_694.csv
+                    - paragraph [ref=e384]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e385]:
+                  - generic [ref=e387]:
+                    - img [ref=e388]
+                    - text: "0"
+                  - button "View details" [ref=e392]:
+                    - img [ref=e393]
+                  - button "Delete upload and transactions" [ref=e396]:
+                    - img [ref=e397]
+              - generic [ref=e401]:
+                - generic [ref=e402]:
+                  - img [ref=e404]
+                  - generic [ref=e407]:
+                    - paragraph [ref=e408]: revolut_694.csv
+                    - paragraph [ref=e409]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e410]:
+                  - generic [ref=e412]:
+                    - img [ref=e413]
+                    - text: "694"
+                  - button "View details" [ref=e417]:
+                    - img [ref=e418]
+                  - button "Delete upload and transactions" [ref=e421]:
+                    - img [ref=e422]
+              - generic [ref=e426]:
+                - generic [ref=e427]:
+                  - img [ref=e429]
+                  - generic [ref=e432]:
+                    - paragraph [ref=e433]: revolut_694.csv
+                    - paragraph [ref=e434]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e435]:
+                  - generic [ref=e437]:
+                    - img [ref=e438]
+                    - text: "0"
+                  - button "View details" [ref=e442]:
+                    - img [ref=e443]
+                  - button "Delete upload and transactions" [ref=e446]:
+                    - img [ref=e447]
+              - generic [ref=e451]:
+                - generic [ref=e452]:
+                  - img [ref=e454]
+                  - generic [ref=e457]:
+                    - paragraph [ref=e458]: revolut_694.csv
+                    - paragraph [ref=e459]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e460]:
+                  - generic [ref=e462]:
+                    - img [ref=e463]
+                    - text: "0"
+                  - button "View details" [ref=e467]:
+                    - img [ref=e468]
+                  - button "Delete upload and transactions" [ref=e471]:
+                    - img [ref=e472]
+              - generic [ref=e476]:
+                - generic [ref=e477]:
+                  - img [ref=e479]
+                  - generic [ref=e482]:
+                    - paragraph [ref=e483]: revolut_694.csv
+                    - paragraph [ref=e484]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e485]:
+                  - generic [ref=e487]:
+                    - img [ref=e488]
+                    - text: "0"
+                  - button "View details" [ref=e492]:
+                    - img [ref=e493]
+                  - button "Delete upload and transactions" [ref=e496]:
+                    - img [ref=e497]
+              - generic [ref=e501]:
+                - generic [ref=e502]:
+                  - img [ref=e504]
+                  - generic [ref=e507]:
+                    - paragraph [ref=e508]: revolut_694.csv
+                    - paragraph [ref=e509]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e510]:
+                  - generic [ref=e512]:
+                    - img [ref=e513]
+                    - text: "0"
+                  - button "View details" [ref=e517]:
+                    - img [ref=e518]
+                  - button "Delete upload and transactions" [ref=e521]:
+                    - img [ref=e522]
+              - generic [ref=e526]:
+                - generic [ref=e527]:
+                  - img [ref=e529]
+                  - generic [ref=e532]:
+                    - paragraph [ref=e533]: revolut_694.csv
+                    - paragraph [ref=e534]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e535]:
+                  - generic [ref=e537]:
+                    - img [ref=e538]
+                    - text: "0"
+                  - button "View details" [ref=e542]:
+                    - img [ref=e543]
+                  - button "Delete upload and transactions" [ref=e546]:
+                    - img [ref=e547]
+              - generic [ref=e551]:
+                - generic [ref=e552]:
+                  - img [ref=e554]
+                  - generic [ref=e557]:
+                    - paragraph [ref=e558]: revolut_694.csv
+                    - paragraph [ref=e559]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e560]:
+                  - generic [ref=e562]:
+                    - img [ref=e563]
+                    - text: "694"
+                  - button "View details" [ref=e567]:
+                    - img [ref=e568]
+                  - button "Delete upload and transactions" [ref=e571]:
+                    - img [ref=e572]
+              - generic [ref=e576]:
+                - generic [ref=e577]:
+                  - img [ref=e579]
+                  - generic [ref=e582]:
+                    - paragraph [ref=e583]: revolut_694.csv
+                    - paragraph [ref=e584]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e585]:
+                  - generic [ref=e587]:
+                    - img [ref=e588]
+                    - text: "0"
+                  - button "View details" [ref=e592]:
+                    - img [ref=e593]
+                  - button "Delete upload and transactions" [ref=e596]:
+                    - img [ref=e597]
+              - generic [ref=e601]:
+                - generic [ref=e602]:
+                  - img [ref=e604]
+                  - generic [ref=e607]:
+                    - paragraph [ref=e608]: revolut_694.csv
+                    - paragraph [ref=e609]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e610]:
+                  - generic [ref=e612]:
+                    - img [ref=e613]
+                    - text: "0"
+                  - button "View details" [ref=e617]:
+                    - img [ref=e618]
+                  - button "Delete upload and transactions" [ref=e621]:
+                    - img [ref=e622]
+              - generic [ref=e626]:
+                - generic [ref=e627]:
+                  - img [ref=e629]
+                  - generic [ref=e632]:
+                    - paragraph [ref=e633]: revolut_694.csv
+                    - paragraph [ref=e634]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e635]:
+                  - generic [ref=e637]:
+                    - img [ref=e638]
+                    - text: "0"
+                  - button "View details" [ref=e642]:
+                    - img [ref=e643]
+                  - button "Delete upload and transactions" [ref=e646]:
+                    - img [ref=e647]
+              - generic [ref=e651]:
+                - generic [ref=e652]:
+                  - img [ref=e654]
+                  - generic [ref=e657]:
+                    - paragraph [ref=e658]: revolut_694.csv
+                    - paragraph [ref=e659]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e660]:
+                  - generic [ref=e662]:
+                    - img [ref=e663]
+                    - text: "0"
+                  - button "View details" [ref=e667]:
+                    - img [ref=e668]
+                  - button "Delete upload and transactions" [ref=e671]:
+                    - img [ref=e672]
+              - generic [ref=e676]:
+                - generic [ref=e677]:
+                  - img [ref=e679]
+                  - generic [ref=e682]:
+                    - paragraph [ref=e683]: revolut_694.csv
+                    - paragraph [ref=e684]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e685]:
+                  - generic [ref=e687]:
+                    - img [ref=e688]
+                    - text: "694"
+                  - button "View details" [ref=e692]:
+                    - img [ref=e693]
+                  - button "Delete upload and transactions" [ref=e696]:
+                    - img [ref=e697]
+              - generic [ref=e701]:
+                - generic [ref=e702]:
+                  - img [ref=e704]
+                  - generic [ref=e707]:
+                    - paragraph [ref=e708]: revolut_694.csv
+                    - paragraph [ref=e709]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e710]:
+                  - generic [ref=e712]:
+                    - img [ref=e713]
+                    - text: "0"
+                  - button "View details" [ref=e717]:
+                    - img [ref=e718]
+                  - button "Delete upload and transactions" [ref=e721]:
+                    - img [ref=e722]
+              - generic [ref=e726]:
+                - generic [ref=e727]:
+                  - img [ref=e729]
+                  - generic [ref=e732]:
+                    - paragraph [ref=e733]: revolut_694.csv
+                    - paragraph [ref=e734]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e735]:
+                  - generic [ref=e737]:
+                    - img [ref=e738]
+                    - text: "0"
+                  - button "View details" [ref=e742]:
+                    - img [ref=e743]
+                  - button "Delete upload and transactions" [ref=e746]:
+                    - img [ref=e747]
+              - generic [ref=e751]:
+                - generic [ref=e752]:
+                  - img [ref=e754]
+                  - generic [ref=e757]:
+                    - paragraph [ref=e758]: revolut_694.csv
+                    - paragraph [ref=e759]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e760]:
+                  - generic [ref=e762]:
+                    - img [ref=e763]
+                    - text: "0"
+                  - button "View details" [ref=e767]:
+                    - img [ref=e768]
+                  - button "Delete upload and transactions" [ref=e771]:
+                    - img [ref=e772]
+              - generic [ref=e776]:
+                - generic [ref=e777]:
+                  - img [ref=e779]
+                  - generic [ref=e782]:
+                    - paragraph [ref=e783]: revolut_694.csv
+                    - paragraph [ref=e784]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e785]:
+                  - generic [ref=e787]:
+                    - img [ref=e788]
+                    - text: "694"
+                  - button "View details" [ref=e792]:
+                    - img [ref=e793]
+                  - button "Delete upload and transactions" [ref=e796]:
+                    - img [ref=e797]
+              - generic [ref=e801]:
+                - generic [ref=e802]:
+                  - img [ref=e804]
+                  - generic [ref=e807]:
+                    - paragraph [ref=e808]: revolut_694.csv
+                    - paragraph [ref=e809]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e810]:
+                  - generic [ref=e812]:
+                    - img [ref=e813]
+                    - text: "0"
+                  - button "View details" [ref=e817]:
+                    - img [ref=e818]
+                  - button "Delete upload and transactions" [ref=e821]:
+                    - img [ref=e822]
+              - generic [ref=e826]:
+                - generic [ref=e827]:
+                  - img [ref=e829]
+                  - generic [ref=e832]:
+                    - paragraph [ref=e833]: revolut_694.csv
+                    - paragraph [ref=e834]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e835]:
+                  - generic [ref=e837]:
+                    - img [ref=e838]
+                    - text: "694"
+                  - button "View details" [ref=e842]:
+                    - img [ref=e843]
+                  - button "Delete upload and transactions" [ref=e846]:
+                    - img [ref=e847]
+              - generic [ref=e851]:
+                - generic [ref=e852]:
+                  - img [ref=e854]
+                  - generic [ref=e857]:
+                    - paragraph [ref=e858]: revolut_694.csv
+                    - paragraph [ref=e859]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e860]:
+                  - generic [ref=e862]:
+                    - img [ref=e863]
+                    - text: "0"
+                  - button "View details" [ref=e867]:
+                    - img [ref=e868]
+                  - button "Delete upload and transactions" [ref=e871]:
+                    - img [ref=e872]
+              - generic [ref=e876]:
+                - generic [ref=e877]:
+                  - img [ref=e879]
+                  - generic [ref=e882]:
+                    - paragraph [ref=e883]: revolut_694.csv
+                    - paragraph [ref=e884]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e885]:
+                  - generic [ref=e887]:
+                    - img [ref=e888]
+                    - text: "694"
+                  - button "View details" [ref=e892]:
+                    - img [ref=e893]
+                  - button "Delete upload and transactions" [ref=e896]:
+                    - img [ref=e897]
+              - generic [ref=e901]:
+                - generic [ref=e902]:
+                  - img [ref=e904]
+                  - generic [ref=e907]:
+                    - paragraph [ref=e908]: revolut_694.csv
+                    - paragraph [ref=e909]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e910]:
+                  - generic [ref=e912]:
+                    - img [ref=e913]
+                    - text: "0"
+                  - button "View details" [ref=e917]:
+                    - img [ref=e918]
+                  - button "Delete upload and transactions" [ref=e921]:
+                    - img [ref=e922]
+              - generic [ref=e926]:
+                - generic [ref=e927]:
+                  - img [ref=e929]
+                  - generic [ref=e932]:
+                    - paragraph [ref=e933]: revolut_694.csv
+                    - paragraph [ref=e934]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e935]:
+                  - generic [ref=e937]:
+                    - img [ref=e938]
+                    - text: "0"
+                  - button "View details" [ref=e942]:
+                    - img [ref=e943]
+                  - button "Delete upload and transactions" [ref=e946]:
+                    - img [ref=e947]
+              - generic [ref=e951]:
+                - generic [ref=e952]:
+                  - img [ref=e954]
+                  - generic [ref=e957]:
+                    - paragraph [ref=e958]: revolut_694.csv
+                    - paragraph [ref=e959]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e960]:
+                  - generic [ref=e962]:
+                    - img [ref=e963]
+                    - text: "0"
+                  - button "View details" [ref=e967]:
+                    - img [ref=e968]
+                  - button "Delete upload and transactions" [ref=e971]:
+                    - img [ref=e972]
+              - generic [ref=e976]:
+                - generic [ref=e977]:
+                  - img [ref=e979]
+                  - generic [ref=e981]:
+                    - paragraph [ref=e982]: revolut_694.csv
+                    - paragraph [ref=e983]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e984]:
+                  - generic [ref=e986]:
+                    - img [ref=e987]
+                    - text: "0"
+                  - button "View details" [ref=e991]:
+                    - img [ref=e992]
+                  - button "Delete upload and transactions" [ref=e995]:
+                    - img [ref=e996]
+              - generic [ref=e1000]:
+                - generic [ref=e1001]:
+                  - img [ref=e1003]
+                  - generic [ref=e1005]:
+                    - paragraph [ref=e1006]: revolut_694.csv
+                    - paragraph [ref=e1007]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e1008]:
+                  - generic [ref=e1010]:
+                    - img [ref=e1011]
+                    - text: "0"
+                  - button "View details" [ref=e1015]:
+                    - img [ref=e1016]
+                  - button "Delete upload and transactions" [ref=e1019]:
+                    - img [ref=e1020]
+              - generic [ref=e1024]:
+                - generic [ref=e1025]:
+                  - img [ref=e1027]
+                  - generic [ref=e1029]:
+                    - paragraph [ref=e1030]: revolut_694.csv
+                    - paragraph [ref=e1031]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e1032]:
+                  - generic [ref=e1034]:
+                    - img [ref=e1035]
+                    - text: "0"
+                  - button "View details" [ref=e1039]:
+                    - img [ref=e1040]
+                  - button "Delete upload and transactions" [ref=e1043]:
+                    - img [ref=e1044]
+              - generic [ref=e1048]:
+                - generic [ref=e1049]:
+                  - img [ref=e1051]
+                  - generic [ref=e1053]:
+                    - paragraph [ref=e1054]: revolut_694.csv
+                    - paragraph [ref=e1055]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e1056]:
+                  - generic [ref=e1058]:
+                    - img [ref=e1059]
+                    - text: "0"
+                  - button "View details" [ref=e1063]:
+                    - img [ref=e1064]
+                  - button "Delete upload and transactions" [ref=e1067]:
+                    - img [ref=e1068]
+              - generic [ref=e1072]:
+                - generic [ref=e1073]:
+                  - img [ref=e1075]
+                  - generic [ref=e1077]:
+                    - paragraph [ref=e1078]: revolut_694.csv
+                    - paragraph [ref=e1079]: May 31, 2026 · bank statement csv · GBP
+                - generic [ref=e1080]:
+                  - generic [ref=e1082]:
+                    - img [ref=e1083]
+                    - text: "0"
+                  - button "View details" [ref=e1087]:
+                    - img [ref=e1088]
+                  - button "Delete upload and transactions" [ref=e1091]:
+                    - img [ref=e1092]
+              - generic [ref=e1096]:
+                - generic [ref=e1097]:
+                  - img [ref=e1099]
+                  - generic [ref=e1101]:
+                    - paragraph [ref=e1102]: tide_sample.csv
+                    - paragraph [ref=e1103]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e1104]:
+                  - generic [ref=e1106]:
+                    - img [ref=e1107]
+                    - text: "0"
+                  - button "View details" [ref=e1111]:
+                    - img [ref=e1112]
+                  - button "Delete upload and transactions" [ref=e1115]:
+                    - img [ref=e1116]
+              - generic [ref=e1120]:
+                - generic [ref=e1121]:
+                  - img [ref=e1123]
+                  - generic [ref=e1125]:
+                    - paragraph [ref=e1126]: revolut_recent.csv
+                    - paragraph [ref=e1127]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1128]:
+                  - generic [ref=e1130]:
+                    - img [ref=e1131]
+                    - text: "0"
+                  - button "View details" [ref=e1135]:
+                    - img [ref=e1136]
+                  - button "Delete upload and transactions" [ref=e1139]:
+                    - img [ref=e1140]
+              - generic [ref=e1144]:
+                - generic [ref=e1145]:
+                  - img [ref=e1147]
+                  - generic [ref=e1149]:
+                    - paragraph [ref=e1150]: revolut_recent.csv
+                    - paragraph [ref=e1151]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1152]:
+                  - generic [ref=e1154]:
+                    - img [ref=e1155]
+                    - text: "0"
+                  - button "View details" [ref=e1159]:
+                    - img [ref=e1160]
+                  - button "Delete upload and transactions" [ref=e1163]:
+                    - img [ref=e1164]
+              - generic [ref=e1168]:
+                - generic [ref=e1169]:
+                  - img [ref=e1171]
+                  - generic [ref=e1173]:
+                    - paragraph [ref=e1174]: revolut_recent.csv
+                    - paragraph [ref=e1175]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1176]:
+                  - generic [ref=e1178]:
+                    - img [ref=e1179]
+                    - text: "0"
+                  - button "View details" [ref=e1183]:
+                    - img [ref=e1184]
+                  - button "Delete upload and transactions" [ref=e1187]:
+                    - img [ref=e1188]
+              - generic [ref=e1192]:
+                - generic [ref=e1193]:
+                  - img [ref=e1195]
+                  - generic [ref=e1197]:
+                    - paragraph [ref=e1198]: revolut_recent.csv
+                    - paragraph [ref=e1199]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1200]:
+                  - generic [ref=e1202]:
+                    - img [ref=e1203]
+                    - text: "0"
+                  - button "View details" [ref=e1207]:
+                    - img [ref=e1208]
+                  - button "Delete upload and transactions" [ref=e1211]:
+                    - img [ref=e1212]
+              - generic [ref=e1216]:
+                - generic [ref=e1217]:
+                  - img [ref=e1219]
+                  - generic [ref=e1221]:
+                    - paragraph [ref=e1222]: revolut_recent.csv
+                    - paragraph [ref=e1223]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1224]:
+                  - generic [ref=e1226]:
+                    - img [ref=e1227]
+                    - text: "0"
+                  - button "View details" [ref=e1231]:
+                    - img [ref=e1232]
+                  - button "Delete upload and transactions" [ref=e1235]:
+                    - img [ref=e1236]
+              - generic [ref=e1240]:
+                - generic [ref=e1241]:
+                  - img [ref=e1243]
+                  - generic [ref=e1245]:
+                    - paragraph [ref=e1246]: bank-standard.csv
+                    - paragraph [ref=e1247]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e1248]:
+                  - generic [ref=e1250]:
+                    - img [ref=e1251]
+                    - text: "0"
+                  - button "View details" [ref=e1255]:
+                    - img [ref=e1256]
+                  - button "Delete upload and transactions" [ref=e1259]:
+                    - img [ref=e1260]
+              - generic [ref=e1264]:
+                - generic [ref=e1265]:
+                  - img [ref=e1267]
+                  - generic [ref=e1269]:
+                    - paragraph [ref=e1270]: revolut_recent.csv
+                    - paragraph [ref=e1271]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1272]:
+                  - generic [ref=e1274]:
+                    - img [ref=e1275]
+                    - text: "0"
+                  - button "View details" [ref=e1279]:
+                    - img [ref=e1280]
+                  - button "Delete upload and transactions" [ref=e1283]:
+                    - img [ref=e1284]
+              - generic [ref=e1288]:
+                - generic [ref=e1289]:
+                  - img [ref=e1291]
+                  - generic [ref=e1293]:
+                    - paragraph [ref=e1294]: revolut_recent.csv
+                    - paragraph [ref=e1295]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1296]:
+                  - generic [ref=e1298]:
+                    - img [ref=e1299]
+                    - text: "0"
+                  - button "View details" [ref=e1303]:
+                    - img [ref=e1304]
+                  - button "Delete upload and transactions" [ref=e1307]:
+                    - img [ref=e1308]
+              - generic [ref=e1312]:
+                - generic [ref=e1313]:
+                  - img [ref=e1315]
+                  - generic [ref=e1317]:
+                    - paragraph [ref=e1318]: revolut_recent.csv
+                    - paragraph [ref=e1319]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1320]:
+                  - generic [ref=e1322]:
+                    - img [ref=e1323]
+                    - text: "0"
+                  - button "View details" [ref=e1327]:
+                    - img [ref=e1328]
+                  - button "Delete upload and transactions" [ref=e1331]:
+                    - img [ref=e1332]
+              - generic [ref=e1336]:
+                - generic [ref=e1337]:
+                  - img [ref=e1339]
+                  - generic [ref=e1341]:
+                    - paragraph [ref=e1342]: revolut_recent.csv
+                    - paragraph [ref=e1343]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1344]:
+                  - generic [ref=e1346]:
+                    - img [ref=e1347]
+                    - text: "0"
+                  - button "View details" [ref=e1351]:
+                    - img [ref=e1352]
+                  - button "Delete upload and transactions" [ref=e1355]:
+                    - img [ref=e1356]
+              - generic [ref=e1360]:
+                - generic [ref=e1361]:
+                  - img [ref=e1363]
+                  - generic [ref=e1365]:
+                    - paragraph [ref=e1366]: revolut_recent.csv
+                    - paragraph [ref=e1367]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1368]:
+                  - generic [ref=e1370]:
+                    - img [ref=e1371]
+                    - text: "0"
+                  - button "View details" [ref=e1375]:
+                    - img [ref=e1376]
+                  - button "Delete upload and transactions" [ref=e1379]:
+                    - img [ref=e1380]
+              - generic [ref=e1384]:
+                - generic [ref=e1385]:
+                  - img [ref=e1387]
+                  - generic [ref=e1389]:
+                    - paragraph [ref=e1390]: tide_sample.csv
+                    - paragraph [ref=e1391]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e1392]:
+                  - generic [ref=e1394]:
+                    - img [ref=e1395]
+                    - text: "0"
+                  - button "View details" [ref=e1399]:
+                    - img [ref=e1400]
+                  - button "Delete upload and transactions" [ref=e1403]:
+                    - img [ref=e1404]
+              - generic [ref=e1408]:
+                - generic [ref=e1409]:
+                  - img [ref=e1411]
+                  - generic [ref=e1413]:
+                    - paragraph [ref=e1414]: tide_sample.csv
+                    - paragraph [ref=e1415]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e1416]:
+                  - generic [ref=e1418]:
+                    - img [ref=e1419]
+                    - text: "0"
+                  - button "View details" [ref=e1423]:
+                    - img [ref=e1424]
+                  - button "Delete upload and transactions" [ref=e1427]:
+                    - img [ref=e1428]
+              - generic [ref=e1432]:
+                - generic [ref=e1433]:
+                  - img [ref=e1435]
+                  - generic [ref=e1437]:
+                    - paragraph [ref=e1438]: revolut_recent.csv
+                    - paragraph [ref=e1439]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1440]:
+                  - generic [ref=e1442]:
+                    - img [ref=e1443]
+                    - text: "0"
+                  - button "View details" [ref=e1447]:
+                    - img [ref=e1448]
+                  - button "Delete upload and transactions" [ref=e1451]:
+                    - img [ref=e1452]
+              - generic [ref=e1456]:
+                - generic [ref=e1457]:
+                  - img [ref=e1459]
+                  - generic [ref=e1461]:
+                    - paragraph [ref=e1462]: revolut_recent.csv
+                    - paragraph [ref=e1463]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1464]:
+                  - generic [ref=e1466]:
+                    - img [ref=e1467]
+                    - text: "0"
+                  - button "View details" [ref=e1471]:
+                    - img [ref=e1472]
+                  - button "Delete upload and transactions" [ref=e1475]:
+                    - img [ref=e1476]
+              - generic [ref=e1480]:
+                - generic [ref=e1481]:
+                  - img [ref=e1483]
+                  - generic [ref=e1485]:
+                    - paragraph [ref=e1486]: revolut_recent.csv
+                    - paragraph [ref=e1487]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1488]:
+                  - generic [ref=e1490]:
+                    - img [ref=e1491]
+                    - text: "0"
+                  - button "View details" [ref=e1495]:
+                    - img [ref=e1496]
+                  - button "Delete upload and transactions" [ref=e1499]:
+                    - img [ref=e1500]
+              - generic [ref=e1504]:
+                - generic [ref=e1505]:
+                  - img [ref=e1507]
+                  - generic [ref=e1509]:
+                    - paragraph [ref=e1510]: revolut_recent.csv
+                    - paragraph [ref=e1511]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1512]:
+                  - generic [ref=e1514]:
+                    - img [ref=e1515]
+                    - text: "0"
+                  - button "View details" [ref=e1519]:
+                    - img [ref=e1520]
+                  - button "Delete upload and transactions" [ref=e1523]:
+                    - img [ref=e1524]
+              - generic [ref=e1528]:
+                - generic [ref=e1529]:
+                  - img [ref=e1531]
+                  - generic [ref=e1533]:
+                    - paragraph [ref=e1534]: revolut_recent.csv
+                    - paragraph [ref=e1535]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1536]:
+                  - generic [ref=e1538]:
+                    - img [ref=e1539]
+                    - text: "0"
+                  - button "View details" [ref=e1543]:
+                    - img [ref=e1544]
+                  - button "Delete upload and transactions" [ref=e1547]:
+                    - img [ref=e1548]
+              - generic [ref=e1552]:
+                - generic [ref=e1553]:
+                  - img [ref=e1555]
+                  - generic [ref=e1557]:
+                    - paragraph [ref=e1558]: bank-standard.csv
+                    - paragraph [ref=e1559]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e1560]:
+                  - generic [ref=e1562]:
+                    - img [ref=e1563]
+                    - text: "0"
+                  - button "View details" [ref=e1567]:
+                    - img [ref=e1568]
+                  - button "Delete upload and transactions" [ref=e1571]:
+                    - img [ref=e1572]
+              - generic [ref=e1576]:
+                - generic [ref=e1577]:
+                  - img [ref=e1579]
+                  - generic [ref=e1581]:
+                    - paragraph [ref=e1582]: revolut_recent.csv
+                    - paragraph [ref=e1583]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1584]:
+                  - generic [ref=e1586]:
+                    - img [ref=e1587]
+                    - text: "0"
+                  - button "View details" [ref=e1591]:
+                    - img [ref=e1592]
+                  - button "Delete upload and transactions" [ref=e1595]:
+                    - img [ref=e1596]
+              - generic [ref=e1600]:
+                - generic [ref=e1601]:
+                  - img [ref=e1603]
+                  - generic [ref=e1605]:
+                    - paragraph [ref=e1606]: revolut_recent.csv
+                    - paragraph [ref=e1607]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1608]:
+                  - generic [ref=e1610]:
+                    - img [ref=e1611]
+                    - text: "0"
+                  - button "View details" [ref=e1615]:
+                    - img [ref=e1616]
+                  - button "Delete upload and transactions" [ref=e1619]:
+                    - img [ref=e1620]
+              - generic [ref=e1624]:
+                - generic [ref=e1625]:
+                  - img [ref=e1627]
+                  - generic [ref=e1629]:
+                    - paragraph [ref=e1630]: revolut_recent.csv
+                    - paragraph [ref=e1631]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1632]:
+                  - generic [ref=e1634]:
+                    - img [ref=e1635]
+                    - text: "0"
+                  - button "View details" [ref=e1639]:
+                    - img [ref=e1640]
+                  - button "Delete upload and transactions" [ref=e1643]:
+                    - img [ref=e1644]
+              - generic [ref=e1648]:
+                - generic [ref=e1649]:
+                  - img [ref=e1651]
+                  - generic [ref=e1653]:
+                    - paragraph [ref=e1654]: revolut_recent.csv
+                    - paragraph [ref=e1655]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1656]:
+                  - generic [ref=e1658]:
+                    - img [ref=e1659]
+                    - text: "0"
+                  - button "View details" [ref=e1663]:
+                    - img [ref=e1664]
+                  - button "Delete upload and transactions" [ref=e1667]:
+                    - img [ref=e1668]
+              - generic [ref=e1672]:
+                - generic [ref=e1673]:
+                  - img [ref=e1675]
+                  - generic [ref=e1677]:
+                    - paragraph [ref=e1678]: revolut_recent.csv
+                    - paragraph [ref=e1679]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1680]:
+                  - generic [ref=e1682]:
+                    - img [ref=e1683]
+                    - text: "0"
+                  - button "View details" [ref=e1687]:
+                    - img [ref=e1688]
+                  - button "Delete upload and transactions" [ref=e1691]:
+                    - img [ref=e1692]
+              - generic [ref=e1696]:
+                - generic [ref=e1697]:
+                  - img [ref=e1699]
+                  - generic [ref=e1701]:
+                    - paragraph [ref=e1702]: revolut_recent.csv
+                    - paragraph [ref=e1703]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1704]:
+                  - generic [ref=e1706]:
+                    - img [ref=e1707]
+                    - text: "0"
+                  - button "View details" [ref=e1711]:
+                    - img [ref=e1712]
+                  - button "Delete upload and transactions" [ref=e1715]:
+                    - img [ref=e1716]
+              - generic [ref=e1720]:
+                - generic [ref=e1721]:
+                  - img [ref=e1723]
+                  - generic [ref=e1725]:
+                    - paragraph [ref=e1726]: revolut_recent.csv
+                    - paragraph [ref=e1727]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1728]:
+                  - generic [ref=e1730]:
+                    - img [ref=e1731]
+                    - text: "0"
+                  - button "View details" [ref=e1735]:
+                    - img [ref=e1736]
+                  - button "Delete upload and transactions" [ref=e1739]:
+                    - img [ref=e1740]
+              - generic [ref=e1744]:
+                - generic [ref=e1745]:
+                  - img [ref=e1747]
+                  - generic [ref=e1749]:
+                    - paragraph [ref=e1750]: revolut_recent.csv
+                    - paragraph [ref=e1751]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1752]:
+                  - generic [ref=e1754]:
+                    - img [ref=e1755]
+                    - text: "0"
+                  - button "View details" [ref=e1759]:
+                    - img [ref=e1760]
+                  - button "Delete upload and transactions" [ref=e1763]:
+                    - img [ref=e1764]
+              - generic [ref=e1768]:
+                - generic [ref=e1769]:
+                  - img [ref=e1771]
+                  - generic [ref=e1773]:
+                    - paragraph [ref=e1774]: revolut_recent.csv
+                    - paragraph [ref=e1775]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1776]:
+                  - generic [ref=e1778]:
+                    - img [ref=e1779]
+                    - text: "0"
+                  - button "View details" [ref=e1783]:
+                    - img [ref=e1784]
+                  - button "Delete upload and transactions" [ref=e1787]:
+                    - img [ref=e1788]
+              - generic [ref=e1792]:
+                - generic [ref=e1793]:
+                  - img [ref=e1795]
+                  - generic [ref=e1797]:
+                    - paragraph [ref=e1798]: revolut_recent.csv
+                    - paragraph [ref=e1799]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1800]:
+                  - generic [ref=e1802]:
+                    - img [ref=e1803]
+                    - text: "0"
+                  - button "View details" [ref=e1807]:
+                    - img [ref=e1808]
+                  - button "Delete upload and transactions" [ref=e1811]:
+                    - img [ref=e1812]
+              - generic [ref=e1816]:
+                - generic [ref=e1817]:
+                  - img [ref=e1819]
+                  - generic [ref=e1821]:
+                    - paragraph [ref=e1822]: bank-standard.csv
+                    - paragraph [ref=e1823]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e1824]:
+                  - generic [ref=e1826]:
+                    - img [ref=e1827]
+                    - text: "0"
+                  - button "View details" [ref=e1831]:
+                    - img [ref=e1832]
+                  - button "Delete upload and transactions" [ref=e1835]:
+                    - img [ref=e1836]
+              - generic [ref=e1840]:
+                - generic [ref=e1841]:
+                  - img [ref=e1843]
+                  - generic [ref=e1845]:
+                    - paragraph [ref=e1846]: revolut_recent.csv
+                    - paragraph [ref=e1847]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1848]:
+                  - generic [ref=e1850]:
+                    - img [ref=e1851]
+                    - text: "0"
+                  - button "View details" [ref=e1855]:
+                    - img [ref=e1856]
+                  - button "Delete upload and transactions" [ref=e1859]:
+                    - img [ref=e1860]
+              - generic [ref=e1864]:
+                - generic [ref=e1865]:
+                  - img [ref=e1867]
+                  - generic [ref=e1869]:
+                    - paragraph [ref=e1870]: revolut_recent.csv
+                    - paragraph [ref=e1871]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1872]:
+                  - generic [ref=e1874]:
+                    - img [ref=e1875]
+                    - text: "0"
+                  - button "View details" [ref=e1879]:
+                    - img [ref=e1880]
+                  - button "Delete upload and transactions" [ref=e1883]:
+                    - img [ref=e1884]
+              - generic [ref=e1888]:
+                - generic [ref=e1889]:
+                  - img [ref=e1891]
+                  - generic [ref=e1893]:
+                    - paragraph [ref=e1894]: revolut_recent.csv
+                    - paragraph [ref=e1895]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1896]:
+                  - generic [ref=e1898]:
+                    - img [ref=e1899]
+                    - text: "0"
+                  - button "View details" [ref=e1903]:
+                    - img [ref=e1904]
+                  - button "Delete upload and transactions" [ref=e1907]:
+                    - img [ref=e1908]
+              - generic [ref=e1912]:
+                - generic [ref=e1913]:
+                  - img [ref=e1915]
+                  - generic [ref=e1917]:
+                    - paragraph [ref=e1918]: revolut_recent.csv
+                    - paragraph [ref=e1919]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1920]:
+                  - generic [ref=e1922]:
+                    - img [ref=e1923]
+                    - text: "0"
+                  - button "View details" [ref=e1927]:
+                    - img [ref=e1928]
+                  - button "Delete upload and transactions" [ref=e1931]:
+                    - img [ref=e1932]
+              - generic [ref=e1936]:
+                - generic [ref=e1937]:
+                  - img [ref=e1939]
+                  - generic [ref=e1941]:
+                    - paragraph [ref=e1942]: revolut_recent.csv
+                    - paragraph [ref=e1943]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1944]:
+                  - generic [ref=e1946]:
+                    - img [ref=e1947]
+                    - text: "0"
+                  - button "View details" [ref=e1951]:
+                    - img [ref=e1952]
+                  - button "Delete upload and transactions" [ref=e1955]:
+                    - img [ref=e1956]
+              - generic [ref=e1960]:
+                - generic [ref=e1961]:
+                  - img [ref=e1963]
+                  - generic [ref=e1965]:
+                    - paragraph [ref=e1966]: revolut_recent.csv
+                    - paragraph [ref=e1967]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1968]:
+                  - generic [ref=e1970]:
+                    - img [ref=e1971]
+                    - text: "0"
+                  - button "View details" [ref=e1975]:
+                    - img [ref=e1976]
+                  - button "Delete upload and transactions" [ref=e1979]:
+                    - img [ref=e1980]
+              - generic [ref=e1984]:
+                - generic [ref=e1985]:
+                  - img [ref=e1987]
+                  - generic [ref=e1989]:
+                    - paragraph [ref=e1990]: revolut_recent.csv
+                    - paragraph [ref=e1991]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e1992]:
+                  - generic [ref=e1994]:
+                    - img [ref=e1995]
+                    - text: "0"
+                  - button "View details" [ref=e1999]:
+                    - img [ref=e2000]
+                  - button "Delete upload and transactions" [ref=e2003]:
+                    - img [ref=e2004]
+              - generic [ref=e2008]:
+                - generic [ref=e2009]:
+                  - img [ref=e2011]
+                  - generic [ref=e2013]:
+                    - paragraph [ref=e2014]: revolut_recent.csv
+                    - paragraph [ref=e2015]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2016]:
+                  - generic [ref=e2018]:
+                    - img [ref=e2019]
+                    - text: "0"
+                  - button "View details" [ref=e2023]:
+                    - img [ref=e2024]
+                  - button "Delete upload and transactions" [ref=e2027]:
+                    - img [ref=e2028]
+              - generic [ref=e2032]:
+                - generic [ref=e2033]:
+                  - img [ref=e2035]
+                  - generic [ref=e2037]:
+                    - paragraph [ref=e2038]: revolut_recent.csv
+                    - paragraph [ref=e2039]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2040]:
+                  - generic [ref=e2042]:
+                    - img [ref=e2043]
+                    - text: "0"
+                  - button "View details" [ref=e2047]:
+                    - img [ref=e2048]
+                  - button "Delete upload and transactions" [ref=e2051]:
+                    - img [ref=e2052]
+              - generic [ref=e2056]:
+                - generic [ref=e2057]:
+                  - img [ref=e2059]
+                  - generic [ref=e2061]:
+                    - paragraph [ref=e2062]: revolut_recent.csv
+                    - paragraph [ref=e2063]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2064]:
+                  - generic [ref=e2066]:
+                    - img [ref=e2067]
+                    - text: "0"
+                  - button "View details" [ref=e2071]:
+                    - img [ref=e2072]
+                  - button "Delete upload and transactions" [ref=e2075]:
+                    - img [ref=e2076]
+              - generic [ref=e2080]:
+                - generic [ref=e2081]:
+                  - img [ref=e2083]
+                  - generic [ref=e2085]:
+                    - paragraph [ref=e2086]: tide_sample.csv
+                    - paragraph [ref=e2087]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2088]:
+                  - generic [ref=e2090]:
+                    - img [ref=e2091]
+                    - text: "0"
+                  - button "View details" [ref=e2095]:
+                    - img [ref=e2096]
+                  - button "Delete upload and transactions" [ref=e2099]:
+                    - img [ref=e2100]
+              - generic [ref=e2104]:
+                - generic [ref=e2105]:
+                  - img [ref=e2107]
+                  - generic [ref=e2109]:
+                    - paragraph [ref=e2110]: revolut_recent.csv
+                    - paragraph [ref=e2111]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2112]:
+                  - generic [ref=e2114]:
+                    - img [ref=e2115]
+                    - text: "0"
+                  - button "View details" [ref=e2119]:
+                    - img [ref=e2120]
+                  - button "Delete upload and transactions" [ref=e2123]:
+                    - img [ref=e2124]
+              - generic [ref=e2128]:
+                - generic [ref=e2129]:
+                  - img [ref=e2131]
+                  - generic [ref=e2133]:
+                    - paragraph [ref=e2134]: revolut_recent.csv
+                    - paragraph [ref=e2135]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2136]:
+                  - generic [ref=e2138]:
+                    - img [ref=e2139]
+                    - text: "0"
+                  - button "View details" [ref=e2143]:
+                    - img [ref=e2144]
+                  - button "Delete upload and transactions" [ref=e2147]:
+                    - img [ref=e2148]
+              - generic [ref=e2152]:
+                - generic [ref=e2153]:
+                  - img [ref=e2155]
+                  - generic [ref=e2157]:
+                    - paragraph [ref=e2158]: revolut_recent.csv
+                    - paragraph [ref=e2159]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2160]:
+                  - generic [ref=e2162]:
+                    - img [ref=e2163]
+                    - text: "0"
+                  - button "View details" [ref=e2167]:
+                    - img [ref=e2168]
+                  - button "Delete upload and transactions" [ref=e2171]:
+                    - img [ref=e2172]
+              - generic [ref=e2176]:
+                - generic [ref=e2177]:
+                  - img [ref=e2179]
+                  - generic [ref=e2181]:
+                    - paragraph [ref=e2182]: revolut_recent.csv
+                    - paragraph [ref=e2183]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2184]:
+                  - generic [ref=e2186]:
+                    - img [ref=e2187]
+                    - text: "0"
+                  - button "View details" [ref=e2191]:
+                    - img [ref=e2192]
+                  - button "Delete upload and transactions" [ref=e2195]:
+                    - img [ref=e2196]
+              - generic [ref=e2200]:
+                - generic [ref=e2201]:
+                  - img [ref=e2203]
+                  - generic [ref=e2205]:
+                    - paragraph [ref=e2206]: revolut_recent.csv
+                    - paragraph [ref=e2207]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2208]:
+                  - generic [ref=e2210]:
+                    - img [ref=e2211]
+                    - text: "0"
+                  - button "View details" [ref=e2215]:
+                    - img [ref=e2216]
+                  - button "Delete upload and transactions" [ref=e2219]:
+                    - img [ref=e2220]
+              - generic [ref=e2224]:
+                - generic [ref=e2225]:
+                  - img [ref=e2227]
+                  - generic [ref=e2229]:
+                    - paragraph [ref=e2230]: tide_sample.csv
+                    - paragraph [ref=e2231]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2232]:
+                  - generic [ref=e2234]:
+                    - img [ref=e2235]
+                    - text: "0"
+                  - button "View details" [ref=e2239]:
+                    - img [ref=e2240]
+                  - button "Delete upload and transactions" [ref=e2243]:
+                    - img [ref=e2244]
+              - generic [ref=e2248]:
+                - generic [ref=e2249]:
+                  - img [ref=e2251]
+                  - generic [ref=e2253]:
+                    - paragraph [ref=e2254]: bank-standard.csv
+                    - paragraph [ref=e2255]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2256]:
+                  - generic [ref=e2258]:
+                    - img [ref=e2259]
+                    - text: "0"
+                  - button "View details" [ref=e2263]:
+                    - img [ref=e2264]
+                  - button "Delete upload and transactions" [ref=e2267]:
+                    - img [ref=e2268]
+              - generic [ref=e2272]:
+                - generic [ref=e2273]:
+                  - img [ref=e2275]
+                  - generic [ref=e2277]:
+                    - paragraph [ref=e2278]: bank-standard.csv
+                    - paragraph [ref=e2279]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2280]:
+                  - generic [ref=e2282]:
+                    - img [ref=e2283]
+                    - text: "0"
+                  - button "View details" [ref=e2287]:
+                    - img [ref=e2288]
+                  - button "Delete upload and transactions" [ref=e2291]:
+                    - img [ref=e2292]
+              - generic [ref=e2296]:
+                - generic [ref=e2297]:
+                  - img [ref=e2299]
+                  - generic [ref=e2301]:
+                    - paragraph [ref=e2302]: bank-standard.csv
+                    - paragraph [ref=e2303]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2304]:
+                  - generic [ref=e2306]:
+                    - img [ref=e2307]
+                    - text: "0"
+                  - button "View details" [ref=e2311]:
+                    - img [ref=e2312]
+                  - button "Delete upload and transactions" [ref=e2315]:
+                    - img [ref=e2316]
+              - generic [ref=e2320]:
+                - generic [ref=e2321]:
+                  - img [ref=e2323]
+                  - generic [ref=e2325]:
+                    - paragraph [ref=e2326]: bank-standard.csv
+                    - paragraph [ref=e2327]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2328]:
+                  - generic [ref=e2330]:
+                    - img [ref=e2331]
+                    - text: "0"
+                  - button "View details" [ref=e2335]:
+                    - img [ref=e2336]
+                  - button "Delete upload and transactions" [ref=e2339]:
+                    - img [ref=e2340]
+              - generic [ref=e2344]:
+                - generic [ref=e2345]:
+                  - img [ref=e2347]
+                  - generic [ref=e2349]:
+                    - paragraph [ref=e2350]: revolut_recent.csv
+                    - paragraph [ref=e2351]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2352]:
+                  - generic [ref=e2354]:
+                    - img [ref=e2355]
+                    - text: "0"
+                  - button "View details" [ref=e2359]:
+                    - img [ref=e2360]
+                  - button "Delete upload and transactions" [ref=e2363]:
+                    - img [ref=e2364]
+              - generic [ref=e2368]:
+                - generic [ref=e2369]:
+                  - img [ref=e2371]
+                  - generic [ref=e2373]:
+                    - paragraph [ref=e2374]: revolut_recent.csv
+                    - paragraph [ref=e2375]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2376]:
+                  - generic [ref=e2378]:
+                    - img [ref=e2379]
+                    - text: "0"
+                  - button "View details" [ref=e2383]:
+                    - img [ref=e2384]
+                  - button "Delete upload and transactions" [ref=e2387]:
+                    - img [ref=e2388]
+              - generic [ref=e2392]:
+                - generic [ref=e2393]:
+                  - img [ref=e2395]
+                  - generic [ref=e2397]:
+                    - paragraph [ref=e2398]: revolut_recent.csv
+                    - paragraph [ref=e2399]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2400]:
+                  - generic [ref=e2402]:
+                    - img [ref=e2403]
+                    - text: "0"
+                  - button "View details" [ref=e2407]:
+                    - img [ref=e2408]
+                  - button "Delete upload and transactions" [ref=e2411]:
+                    - img [ref=e2412]
+              - generic [ref=e2416]:
+                - generic [ref=e2417]:
+                  - img [ref=e2419]
+                  - generic [ref=e2421]:
+                    - paragraph [ref=e2422]: revolut_recent.csv
+                    - paragraph [ref=e2423]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2424]:
+                  - generic [ref=e2426]:
+                    - img [ref=e2427]
+                    - text: "0"
+                  - button "View details" [ref=e2431]:
+                    - img [ref=e2432]
+                  - button "Delete upload and transactions" [ref=e2435]:
+                    - img [ref=e2436]
+              - generic [ref=e2440]:
+                - generic [ref=e2441]:
+                  - img [ref=e2443]
+                  - generic [ref=e2445]:
+                    - paragraph [ref=e2446]: revolut_recent.csv
+                    - paragraph [ref=e2447]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2448]:
+                  - generic [ref=e2450]:
+                    - img [ref=e2451]
+                    - text: "0"
+                  - button "View details" [ref=e2455]:
+                    - img [ref=e2456]
+                  - button "Delete upload and transactions" [ref=e2459]:
+                    - img [ref=e2460]
+              - generic [ref=e2464]:
+                - generic [ref=e2465]:
+                  - img [ref=e2467]
+                  - generic [ref=e2469]:
+                    - paragraph [ref=e2470]: bank-standard.csv
+                    - paragraph [ref=e2471]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2472]:
+                  - generic [ref=e2474]:
+                    - img [ref=e2475]
+                    - text: "0"
+                  - button "View details" [ref=e2479]:
+                    - img [ref=e2480]
+                  - button "Delete upload and transactions" [ref=e2483]:
+                    - img [ref=e2484]
+              - generic [ref=e2488]:
+                - generic [ref=e2489]:
+                  - img [ref=e2491]
+                  - generic [ref=e2493]:
+                    - paragraph [ref=e2494]: revolut_recent.csv
+                    - paragraph [ref=e2495]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2496]:
+                  - generic [ref=e2498]:
+                    - img [ref=e2499]
+                    - text: "0"
+                  - button "View details" [ref=e2503]:
+                    - img [ref=e2504]
+                  - button "Delete upload and transactions" [ref=e2507]:
+                    - img [ref=e2508]
+              - generic [ref=e2512]:
+                - generic [ref=e2513]:
+                  - img [ref=e2515]
+                  - generic [ref=e2517]:
+                    - paragraph [ref=e2518]: revolut_recent.csv
+                    - paragraph [ref=e2519]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2520]:
+                  - generic [ref=e2522]:
+                    - img [ref=e2523]
+                    - text: "0"
+                  - button "View details" [ref=e2527]:
+                    - img [ref=e2528]
+                  - button "Delete upload and transactions" [ref=e2531]:
+                    - img [ref=e2532]
+              - generic [ref=e2536]:
+                - generic [ref=e2537]:
+                  - img [ref=e2539]
+                  - generic [ref=e2541]:
+                    - paragraph [ref=e2542]: revolut_recent.csv
+                    - paragraph [ref=e2543]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2544]:
+                  - generic [ref=e2546]:
+                    - img [ref=e2547]
+                    - text: "0"
+                  - button "View details" [ref=e2551]:
+                    - img [ref=e2552]
+                  - button "Delete upload and transactions" [ref=e2555]:
+                    - img [ref=e2556]
+              - generic [ref=e2560]:
+                - generic [ref=e2561]:
+                  - img [ref=e2563]
+                  - generic [ref=e2565]:
+                    - paragraph [ref=e2566]: revolut_recent.csv
+                    - paragraph [ref=e2567]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2568]:
+                  - generic [ref=e2570]:
+                    - img [ref=e2571]
+                    - text: "0"
+                  - button "View details" [ref=e2575]:
+                    - img [ref=e2576]
+                  - button "Delete upload and transactions" [ref=e2579]:
+                    - img [ref=e2580]
+              - generic [ref=e2584]:
+                - generic [ref=e2585]:
+                  - img [ref=e2587]
+                  - generic [ref=e2589]:
+                    - paragraph [ref=e2590]: revolut_recent.csv
+                    - paragraph [ref=e2591]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2592]:
+                  - generic [ref=e2594]:
+                    - img [ref=e2595]
+                    - text: "0"
+                  - button "View details" [ref=e2599]:
+                    - img [ref=e2600]
+                  - button "Delete upload and transactions" [ref=e2603]:
+                    - img [ref=e2604]
+              - generic [ref=e2608]:
+                - generic [ref=e2609]:
+                  - img [ref=e2611]
+                  - generic [ref=e2613]:
+                    - paragraph [ref=e2614]: revolut_recent.csv
+                    - paragraph [ref=e2615]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2616]:
+                  - generic [ref=e2618]:
+                    - img [ref=e2619]
+                    - text: "0"
+                  - button "View details" [ref=e2623]:
+                    - img [ref=e2624]
+                  - button "Delete upload and transactions" [ref=e2627]:
+                    - img [ref=e2628]
+              - generic [ref=e2632]:
+                - generic [ref=e2633]:
+                  - img [ref=e2635]
+                  - generic [ref=e2637]:
+                    - paragraph [ref=e2638]: revolut_recent.csv
+                    - paragraph [ref=e2639]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2640]:
+                  - generic [ref=e2642]:
+                    - img [ref=e2643]
+                    - text: "0"
+                  - button "View details" [ref=e2647]:
+                    - img [ref=e2648]
+                  - button "Delete upload and transactions" [ref=e2651]:
+                    - img [ref=e2652]
+              - generic [ref=e2656]:
+                - generic [ref=e2657]:
+                  - img [ref=e2659]
+                  - generic [ref=e2661]:
+                    - paragraph [ref=e2662]: revolut_recent.csv
+                    - paragraph [ref=e2663]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2664]:
+                  - generic [ref=e2666]:
+                    - img [ref=e2667]
+                    - text: "0"
+                  - button "View details" [ref=e2671]:
+                    - img [ref=e2672]
+                  - button "Delete upload and transactions" [ref=e2675]:
+                    - img [ref=e2676]
+              - generic [ref=e2680]:
+                - generic [ref=e2681]:
+                  - img [ref=e2683]
+                  - generic [ref=e2685]:
+                    - paragraph [ref=e2686]: revolut_recent.csv
+                    - paragraph [ref=e2687]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2688]:
+                  - generic [ref=e2690]:
+                    - img [ref=e2691]
+                    - text: "0"
+                  - button "View details" [ref=e2695]:
+                    - img [ref=e2696]
+                  - button "Delete upload and transactions" [ref=e2699]:
+                    - img [ref=e2700]
+              - generic [ref=e2704]:
+                - generic [ref=e2705]:
+                  - img [ref=e2707]
+                  - generic [ref=e2709]:
+                    - paragraph [ref=e2710]: revolut_recent.csv
+                    - paragraph [ref=e2711]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2712]:
+                  - generic [ref=e2714]:
+                    - img [ref=e2715]
+                    - text: "0"
+                  - button "View details" [ref=e2719]:
+                    - img [ref=e2720]
+                  - button "Delete upload and transactions" [ref=e2723]:
+                    - img [ref=e2724]
+              - generic [ref=e2728]:
+                - generic [ref=e2729]:
+                  - img [ref=e2731]
+                  - generic [ref=e2733]:
+                    - paragraph [ref=e2734]: bank-standard.csv
+                    - paragraph [ref=e2735]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e2736]:
+                  - generic [ref=e2738]:
+                    - img [ref=e2739]
+                    - text: "0"
+                  - button "View details" [ref=e2743]:
+                    - img [ref=e2744]
+                  - button "Delete upload and transactions" [ref=e2747]:
+                    - img [ref=e2748]
+              - generic [ref=e2752]:
+                - generic [ref=e2753]:
+                  - img [ref=e2755]
+                  - generic [ref=e2757]:
+                    - paragraph [ref=e2758]: revolut_recent.csv
+                    - paragraph [ref=e2759]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2760]:
+                  - generic [ref=e2762]:
+                    - img [ref=e2763]
+                    - text: "0"
+                  - button "View details" [ref=e2767]:
+                    - img [ref=e2768]
+                  - button "Delete upload and transactions" [ref=e2771]:
+                    - img [ref=e2772]
+              - generic [ref=e2776]:
+                - generic [ref=e2777]:
+                  - img [ref=e2779]
+                  - generic [ref=e2781]:
+                    - paragraph [ref=e2782]: revolut_recent.csv
+                    - paragraph [ref=e2783]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2784]:
+                  - generic [ref=e2786]:
+                    - img [ref=e2787]
+                    - text: "0"
+                  - button "View details" [ref=e2791]:
+                    - img [ref=e2792]
+                  - button "Delete upload and transactions" [ref=e2795]:
+                    - img [ref=e2796]
+              - generic [ref=e2800]:
+                - generic [ref=e2801]:
+                  - img [ref=e2803]
+                  - generic [ref=e2805]:
+                    - paragraph [ref=e2806]: revolut_recent.csv
+                    - paragraph [ref=e2807]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2808]:
+                  - generic [ref=e2810]:
+                    - img [ref=e2811]
+                    - text: "0"
+                  - button "View details" [ref=e2815]:
+                    - img [ref=e2816]
+                  - button "Delete upload and transactions" [ref=e2819]:
+                    - img [ref=e2820]
+              - generic [ref=e2824]:
+                - generic [ref=e2825]:
+                  - img [ref=e2827]
+                  - generic [ref=e2829]:
+                    - paragraph [ref=e2830]: revolut_recent.csv
+                    - paragraph [ref=e2831]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2832]:
+                  - generic [ref=e2834]:
+                    - img [ref=e2835]
+                    - text: "0"
+                  - button "View details" [ref=e2839]:
+                    - img [ref=e2840]
+                  - button "Delete upload and transactions" [ref=e2843]:
+                    - img [ref=e2844]
+              - generic [ref=e2848]:
+                - generic [ref=e2849]:
+                  - img [ref=e2851]
+                  - generic [ref=e2853]:
+                    - paragraph [ref=e2854]: revolut_recent.csv
+                    - paragraph [ref=e2855]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2856]:
+                  - generic [ref=e2858]:
+                    - img [ref=e2859]
+                    - text: "0"
+                  - button "View details" [ref=e2863]:
+                    - img [ref=e2864]
+                  - button "Delete upload and transactions" [ref=e2867]:
+                    - img [ref=e2868]
+              - generic [ref=e2872]:
+                - generic [ref=e2873]:
+                  - img [ref=e2875]
+                  - generic [ref=e2877]:
+                    - paragraph [ref=e2878]: revolut_recent.csv
+                    - paragraph [ref=e2879]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2880]:
+                  - generic [ref=e2882]:
+                    - img [ref=e2883]
+                    - text: "0"
+                  - button "View details" [ref=e2887]:
+                    - img [ref=e2888]
+                  - button "Delete upload and transactions" [ref=e2891]:
+                    - img [ref=e2892]
+              - generic [ref=e2896]:
+                - generic [ref=e2897]:
+                  - img [ref=e2899]
+                  - generic [ref=e2901]:
+                    - paragraph [ref=e2902]: revolut_recent.csv
+                    - paragraph [ref=e2903]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2904]:
+                  - generic [ref=e2906]:
+                    - img [ref=e2907]
+                    - text: "0"
+                  - button "View details" [ref=e2911]:
+                    - img [ref=e2912]
+                  - button "Delete upload and transactions" [ref=e2915]:
+                    - img [ref=e2916]
+              - generic [ref=e2920]:
+                - generic [ref=e2921]:
+                  - img [ref=e2923]
+                  - generic [ref=e2925]:
+                    - paragraph [ref=e2926]: revolut_recent.csv
+                    - paragraph [ref=e2927]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2928]:
+                  - generic [ref=e2930]:
+                    - img [ref=e2931]
+                    - text: "0"
+                  - button "View details" [ref=e2935]:
+                    - img [ref=e2936]
+                  - button "Delete upload and transactions" [ref=e2939]:
+                    - img [ref=e2940]
+              - generic [ref=e2944]:
+                - generic [ref=e2945]:
+                  - img [ref=e2947]
+                  - generic [ref=e2949]:
+                    - paragraph [ref=e2950]: revolut_recent.csv
+                    - paragraph [ref=e2951]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2952]:
+                  - generic [ref=e2954]:
+                    - img [ref=e2955]
+                    - text: "0"
+                  - button "View details" [ref=e2959]:
+                    - img [ref=e2960]
+                  - button "Delete upload and transactions" [ref=e2963]:
+                    - img [ref=e2964]
+              - generic [ref=e2968]:
+                - generic [ref=e2969]:
+                  - img [ref=e2971]
+                  - generic [ref=e2973]:
+                    - paragraph [ref=e2974]: revolut_recent.csv
+                    - paragraph [ref=e2975]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e2976]:
+                  - generic [ref=e2978]:
+                    - img [ref=e2979]
+                    - text: "0"
+                  - button "View details" [ref=e2983]:
+                    - img [ref=e2984]
+                  - button "Delete upload and transactions" [ref=e2987]:
+                    - img [ref=e2988]
+              - generic [ref=e2992]:
+                - generic [ref=e2993]:
+                  - img [ref=e2995]
+                  - generic [ref=e2998]:
+                    - paragraph [ref=e2999]: bank-standard.csv
+                    - paragraph [ref=e3000]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3001]:
+                  - generic [ref=e3003]:
+                    - img [ref=e3004]
+                    - text: "10"
+                  - button "View details" [ref=e3008]:
+                    - img [ref=e3009]
+                  - button "Delete upload and transactions" [ref=e3012]:
+                    - img [ref=e3013]
+              - generic [ref=e3017]:
+                - generic [ref=e3018]:
+                  - img [ref=e3020]
+                  - generic [ref=e3022]:
+                    - paragraph [ref=e3023]: revolut_recent.csv
+                    - paragraph [ref=e3024]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3025]:
+                  - generic [ref=e3027]:
+                    - img [ref=e3028]
+                    - text: "0"
+                  - button "View details" [ref=e3032]:
+                    - img [ref=e3033]
+                  - button "Delete upload and transactions" [ref=e3036]:
+                    - img [ref=e3037]
+              - generic [ref=e3041]:
+                - generic [ref=e3042]:
+                  - img [ref=e3044]
+                  - generic [ref=e3046]:
+                    - paragraph [ref=e3047]: revolut_recent.csv
+                    - paragraph [ref=e3048]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3049]:
+                  - generic [ref=e3051]:
+                    - img [ref=e3052]
+                    - text: "0"
+                  - button "View details" [ref=e3056]:
+                    - img [ref=e3057]
+                  - button "Delete upload and transactions" [ref=e3060]:
+                    - img [ref=e3061]
+              - generic [ref=e3065]:
+                - generic [ref=e3066]:
+                  - img [ref=e3068]
+                  - generic [ref=e3070]:
+                    - paragraph [ref=e3071]: tide_sample.csv
+                    - paragraph [ref=e3072]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3073]:
+                  - generic [ref=e3075]:
+                    - img [ref=e3076]
+                    - text: "0"
+                  - button "View details" [ref=e3080]:
+                    - img [ref=e3081]
+                  - button "Delete upload and transactions" [ref=e3084]:
+                    - img [ref=e3085]
+              - generic [ref=e3089]:
+                - generic [ref=e3090]:
+                  - img [ref=e3092]
+                  - generic [ref=e3094]:
+                    - paragraph [ref=e3095]: revolut_recent.csv
+                    - paragraph [ref=e3096]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3097]:
+                  - generic [ref=e3099]:
+                    - img [ref=e3100]
+                    - text: "0"
+                  - button "View details" [ref=e3104]:
+                    - img [ref=e3105]
+                  - button "Delete upload and transactions" [ref=e3108]:
+                    - img [ref=e3109]
+              - generic [ref=e3113]:
+                - generic [ref=e3114]:
+                  - img [ref=e3116]
+                  - generic [ref=e3118]:
+                    - paragraph [ref=e3119]: tide_sample.csv
+                    - paragraph [ref=e3120]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3121]:
+                  - generic [ref=e3123]:
+                    - img [ref=e3124]
+                    - text: "0"
+                  - button "View details" [ref=e3128]:
+                    - img [ref=e3129]
+                  - button "Delete upload and transactions" [ref=e3132]:
+                    - img [ref=e3133]
+              - generic [ref=e3137]:
+                - generic [ref=e3138]:
+                  - img [ref=e3140]
+                  - generic [ref=e3142]:
+                    - paragraph [ref=e3143]: tide_sample.csv
+                    - paragraph [ref=e3144]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3145]:
+                  - generic [ref=e3147]:
+                    - img [ref=e3148]
+                    - text: "0"
+                  - button "View details" [ref=e3152]:
+                    - img [ref=e3153]
+                  - button "Delete upload and transactions" [ref=e3156]:
+                    - img [ref=e3157]
+              - generic [ref=e3161]:
+                - generic [ref=e3162]:
+                  - img [ref=e3164]
+                  - generic [ref=e3166]:
+                    - paragraph [ref=e3167]: tide_sample.csv
+                    - paragraph [ref=e3168]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3169]:
+                  - generic [ref=e3171]:
+                    - img [ref=e3172]
+                    - text: "0"
+                  - button "View details" [ref=e3176]:
+                    - img [ref=e3177]
+                  - button "Delete upload and transactions" [ref=e3180]:
+                    - img [ref=e3181]
+              - generic [ref=e3185]:
+                - generic [ref=e3186]:
+                  - img [ref=e3188]
+                  - generic [ref=e3190]:
+                    - paragraph [ref=e3191]: tide_sample.csv
+                    - paragraph [ref=e3192]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3193]:
+                  - generic [ref=e3195]:
+                    - img [ref=e3196]
+                    - text: "0"
+                  - button "View details" [ref=e3200]:
+                    - img [ref=e3201]
+                  - button "Delete upload and transactions" [ref=e3204]:
+                    - img [ref=e3205]
+              - generic [ref=e3209]:
+                - generic [ref=e3210]:
+                  - img [ref=e3212]
+                  - generic [ref=e3214]:
+                    - paragraph [ref=e3215]: tide_sample.csv
+                    - paragraph [ref=e3216]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3217]:
+                  - generic [ref=e3219]:
+                    - img [ref=e3220]
+                    - text: "0"
+                  - button "View details" [ref=e3224]:
+                    - img [ref=e3225]
+                  - button "Delete upload and transactions" [ref=e3228]:
+                    - img [ref=e3229]
+              - generic [ref=e3233]:
+                - generic [ref=e3234]:
+                  - img [ref=e3236]
+                  - generic [ref=e3238]:
+                    - paragraph [ref=e3239]: tide_sample.csv
+                    - paragraph [ref=e3240]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3241]:
+                  - generic [ref=e3243]:
+                    - img [ref=e3244]
+                    - text: "0"
+                  - button "View details" [ref=e3248]:
+                    - img [ref=e3249]
+                  - button "Delete upload and transactions" [ref=e3252]:
+                    - img [ref=e3253]
+              - generic [ref=e3257]:
+                - generic [ref=e3258]:
+                  - img [ref=e3260]
+                  - generic [ref=e3262]:
+                    - paragraph [ref=e3263]: tide_sample.csv
+                    - paragraph [ref=e3264]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3265]:
+                  - generic [ref=e3267]:
+                    - img [ref=e3268]
+                    - text: "0"
+                  - button "View details" [ref=e3272]:
+                    - img [ref=e3273]
+                  - button "Delete upload and transactions" [ref=e3276]:
+                    - img [ref=e3277]
+              - generic [ref=e3281]:
+                - generic [ref=e3282]:
+                  - img [ref=e3284]
+                  - generic [ref=e3286]:
+                    - paragraph [ref=e3287]: tide_sample.csv
+                    - paragraph [ref=e3288]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3289]:
+                  - generic [ref=e3291]:
+                    - img [ref=e3292]
+                    - text: "0"
+                  - button "View details" [ref=e3296]:
+                    - img [ref=e3297]
+                  - button "Delete upload and transactions" [ref=e3300]:
+                    - img [ref=e3301]
+              - generic [ref=e3305]:
+                - generic [ref=e3306]:
+                  - img [ref=e3308]
+                  - generic [ref=e3310]:
+                    - paragraph [ref=e3311]: tide_sample.csv
+                    - paragraph [ref=e3312]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3313]:
+                  - generic [ref=e3315]:
+                    - img [ref=e3316]
+                    - text: "0"
+                  - button "View details" [ref=e3320]:
+                    - img [ref=e3321]
+                  - button "Delete upload and transactions" [ref=e3324]:
+                    - img [ref=e3325]
+              - generic [ref=e3329]:
+                - generic [ref=e3330]:
+                  - img [ref=e3332]
+                  - generic [ref=e3334]:
+                    - paragraph [ref=e3335]: tide_sample.csv
+                    - paragraph [ref=e3336]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3337]:
+                  - generic [ref=e3339]:
+                    - img [ref=e3340]
+                    - text: "0"
+                  - button "View details" [ref=e3344]:
+                    - img [ref=e3345]
+                  - button "Delete upload and transactions" [ref=e3348]:
+                    - img [ref=e3349]
+              - generic [ref=e3353]:
+                - generic [ref=e3354]:
+                  - img [ref=e3356]
+                  - generic [ref=e3358]:
+                    - paragraph [ref=e3359]: revolut_business_sample.csv
+                    - paragraph [ref=e3360]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3361]:
+                  - generic [ref=e3363]:
+                    - img [ref=e3364]
+                    - text: "0"
+                  - button "View details" [ref=e3368]:
+                    - img [ref=e3369]
+                  - button "Delete upload and transactions" [ref=e3372]:
+                    - img [ref=e3373]
+              - generic [ref=e3377]:
+                - generic [ref=e3378]:
+                  - img [ref=e3380]
+                  - generic [ref=e3382]:
+                    - paragraph [ref=e3383]: tide_sample.csv
+                    - paragraph [ref=e3384]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3385]:
+                  - generic [ref=e3387]:
+                    - img [ref=e3388]
+                    - text: "0"
+                  - button "View details" [ref=e3392]:
+                    - img [ref=e3393]
+                  - button "Delete upload and transactions" [ref=e3396]:
+                    - img [ref=e3397]
+              - generic [ref=e3401]:
+                - generic [ref=e3402]:
+                  - img [ref=e3404]
+                  - generic [ref=e3406]:
+                    - paragraph [ref=e3407]: revolut_business_sample.csv
+                    - paragraph [ref=e3408]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3409]:
+                  - generic [ref=e3411]:
+                    - img [ref=e3412]
+                    - text: "0"
+                  - button "View details" [ref=e3416]:
+                    - img [ref=e3417]
+                  - button "Delete upload and transactions" [ref=e3420]:
+                    - img [ref=e3421]
+              - generic [ref=e3425]:
+                - generic [ref=e3426]:
+                  - img [ref=e3428]
+                  - generic [ref=e3430]:
+                    - paragraph [ref=e3431]: tide_sample.csv
+                    - paragraph [ref=e3432]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3433]:
+                  - generic [ref=e3435]:
+                    - img [ref=e3436]
+                    - text: "0"
+                  - button "View details" [ref=e3440]:
+                    - img [ref=e3441]
+                  - button "Delete upload and transactions" [ref=e3444]:
+                    - img [ref=e3445]
+              - generic [ref=e3449]:
+                - generic [ref=e3450]:
+                  - img [ref=e3452]
+                  - generic [ref=e3454]:
+                    - paragraph [ref=e3455]: tide_sample.csv
+                    - paragraph [ref=e3456]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3457]:
+                  - generic [ref=e3459]:
+                    - img [ref=e3460]
+                    - text: "0"
+                  - button "View details" [ref=e3464]:
+                    - img [ref=e3465]
+                  - button "Delete upload and transactions" [ref=e3468]:
+                    - img [ref=e3469]
+              - generic [ref=e3473]:
+                - generic [ref=e3474]:
+                  - img [ref=e3476]
+                  - generic [ref=e3478]:
+                    - paragraph [ref=e3479]: tide_sample.csv
+                    - paragraph [ref=e3480]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3481]:
+                  - generic [ref=e3483]:
+                    - img [ref=e3484]
+                    - text: "0"
+                  - button "View details" [ref=e3488]:
+                    - img [ref=e3489]
+                  - button "Delete upload and transactions" [ref=e3492]:
+                    - img [ref=e3493]
+              - generic [ref=e3497]:
+                - generic [ref=e3498]:
+                  - img [ref=e3500]
+                  - generic [ref=e3502]:
+                    - paragraph [ref=e3503]: revolut_business_sample.csv
+                    - paragraph [ref=e3504]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3505]:
+                  - generic [ref=e3507]:
+                    - img [ref=e3508]
+                    - text: "0"
+                  - button "View details" [ref=e3512]:
+                    - img [ref=e3513]
+                  - button "Delete upload and transactions" [ref=e3516]:
+                    - img [ref=e3517]
+              - generic [ref=e3521]:
+                - generic [ref=e3522]:
+                  - img [ref=e3524]
+                  - generic [ref=e3526]:
+                    - paragraph [ref=e3527]: tide_sample.csv
+                    - paragraph [ref=e3528]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3529]:
+                  - generic [ref=e3531]:
+                    - img [ref=e3532]
+                    - text: "0"
+                  - button "View details" [ref=e3536]:
+                    - img [ref=e3537]
+                  - button "Delete upload and transactions" [ref=e3540]:
+                    - img [ref=e3541]
+              - generic [ref=e3545]:
+                - generic [ref=e3546]:
+                  - img [ref=e3548]
+                  - generic [ref=e3550]:
+                    - paragraph [ref=e3551]: revolut_business_sample.csv
+                    - paragraph [ref=e3552]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3553]:
+                  - generic [ref=e3555]:
+                    - img [ref=e3556]
+                    - text: "0"
+                  - button "View details" [ref=e3560]:
+                    - img [ref=e3561]
+                  - button "Delete upload and transactions" [ref=e3564]:
+                    - img [ref=e3565]
+              - generic [ref=e3569]:
+                - generic [ref=e3570]:
+                  - img [ref=e3572]
+                  - generic [ref=e3574]:
+                    - paragraph [ref=e3575]: tide_sample.csv
+                    - paragraph [ref=e3576]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3577]:
+                  - generic [ref=e3579]:
+                    - img [ref=e3580]
+                    - text: "0"
+                  - button "View details" [ref=e3584]:
+                    - img [ref=e3585]
+                  - button "Delete upload and transactions" [ref=e3588]:
+                    - img [ref=e3589]
+              - generic [ref=e3593]:
+                - generic [ref=e3594]:
+                  - img [ref=e3596]
+                  - generic [ref=e3598]:
+                    - paragraph [ref=e3599]: tide_sample.csv
+                    - paragraph [ref=e3600]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3601]:
+                  - generic [ref=e3603]:
+                    - img [ref=e3604]
+                    - text: "0"
+                  - button "View details" [ref=e3608]:
+                    - img [ref=e3609]
+                  - button "Delete upload and transactions" [ref=e3612]:
+                    - img [ref=e3613]
+              - generic [ref=e3617]:
+                - generic [ref=e3618]:
+                  - img [ref=e3620]
+                  - generic [ref=e3622]:
+                    - paragraph [ref=e3623]: tide_sample.csv
+                    - paragraph [ref=e3624]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3625]:
+                  - generic [ref=e3627]:
+                    - img [ref=e3628]
+                    - text: "0"
+                  - button "View details" [ref=e3632]:
+                    - img [ref=e3633]
+                  - button "Delete upload and transactions" [ref=e3636]:
+                    - img [ref=e3637]
+              - generic [ref=e3641]:
+                - generic [ref=e3642]:
+                  - img [ref=e3644]
+                  - generic [ref=e3646]:
+                    - paragraph [ref=e3647]: revolut_business_sample.csv
+                    - paragraph [ref=e3648]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3649]:
+                  - generic [ref=e3651]:
+                    - img [ref=e3652]
+                    - text: "0"
+                  - button "View details" [ref=e3656]:
+                    - img [ref=e3657]
+                  - button "Delete upload and transactions" [ref=e3660]:
+                    - img [ref=e3661]
+              - generic [ref=e3665]:
+                - generic [ref=e3666]:
+                  - img [ref=e3668]
+                  - generic [ref=e3670]:
+                    - paragraph [ref=e3671]: tide_sample.csv
+                    - paragraph [ref=e3672]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3673]:
+                  - generic [ref=e3675]:
+                    - img [ref=e3676]
+                    - text: "0"
+                  - button "View details" [ref=e3680]:
+                    - img [ref=e3681]
+                  - button "Delete upload and transactions" [ref=e3684]:
+                    - img [ref=e3685]
+              - generic [ref=e3689]:
+                - generic [ref=e3690]:
+                  - img [ref=e3692]
+                  - generic [ref=e3694]:
+                    - paragraph [ref=e3695]: tide_sample.csv
+                    - paragraph [ref=e3696]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3697]:
+                  - generic [ref=e3699]:
+                    - img [ref=e3700]
+                    - text: "0"
+                  - button "View details" [ref=e3704]:
+                    - img [ref=e3705]
+                  - button "Delete upload and transactions" [ref=e3708]:
+                    - img [ref=e3709]
+              - generic [ref=e3713]:
+                - generic [ref=e3714]:
+                  - img [ref=e3716]
+                  - generic [ref=e3718]:
+                    - paragraph [ref=e3719]: tide_sample.csv
+                    - paragraph [ref=e3720]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3721]:
+                  - generic [ref=e3723]:
+                    - img [ref=e3724]
+                    - text: "0"
+                  - button "View details" [ref=e3728]:
+                    - img [ref=e3729]
+                  - button "Delete upload and transactions" [ref=e3732]:
+                    - img [ref=e3733]
+              - generic [ref=e3737]:
+                - generic [ref=e3738]:
+                  - img [ref=e3740]
+                  - generic [ref=e3742]:
+                    - paragraph [ref=e3743]: tide_sample.csv
+                    - paragraph [ref=e3744]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3745]:
+                  - generic [ref=e3747]:
+                    - img [ref=e3748]
+                    - text: "0"
+                  - button "View details" [ref=e3752]:
+                    - img [ref=e3753]
+                  - button "Delete upload and transactions" [ref=e3756]:
+                    - img [ref=e3757]
+              - generic [ref=e3761]:
+                - generic [ref=e3762]:
+                  - img [ref=e3764]
+                  - generic [ref=e3766]:
+                    - paragraph [ref=e3767]: revolut_business_sample.csv
+                    - paragraph [ref=e3768]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3769]:
+                  - generic [ref=e3771]:
+                    - img [ref=e3772]
+                    - text: "0"
+                  - button "View details" [ref=e3776]:
+                    - img [ref=e3777]
+                  - button "Delete upload and transactions" [ref=e3780]:
+                    - img [ref=e3781]
+              - generic [ref=e3785]:
+                - generic [ref=e3786]:
+                  - img [ref=e3788]
+                  - generic [ref=e3790]:
+                    - paragraph [ref=e3791]: tide_sample.csv
+                    - paragraph [ref=e3792]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3793]:
+                  - generic [ref=e3795]:
+                    - img [ref=e3796]
+                    - text: "0"
+                  - button "View details" [ref=e3800]:
+                    - img [ref=e3801]
+                  - button "Delete upload and transactions" [ref=e3804]:
+                    - img [ref=e3805]
+              - generic [ref=e3809]:
+                - generic [ref=e3810]:
+                  - img [ref=e3812]
+                  - generic [ref=e3814]:
+                    - paragraph [ref=e3815]: tide_sample.csv
+                    - paragraph [ref=e3816]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3817]:
+                  - generic [ref=e3819]:
+                    - img [ref=e3820]
+                    - text: "0"
+                  - button "View details" [ref=e3824]:
+                    - img [ref=e3825]
+                  - button "Delete upload and transactions" [ref=e3828]:
+                    - img [ref=e3829]
+              - generic [ref=e3833]:
+                - generic [ref=e3834]:
+                  - img [ref=e3836]
+                  - generic [ref=e3838]:
+                    - paragraph [ref=e3839]: tide_sample.csv
+                    - paragraph [ref=e3840]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3841]:
+                  - generic [ref=e3843]:
+                    - img [ref=e3844]
+                    - text: "0"
+                  - button "View details" [ref=e3848]:
+                    - img [ref=e3849]
+                  - button "Delete upload and transactions" [ref=e3852]:
+                    - img [ref=e3853]
+              - generic [ref=e3857]:
+                - generic [ref=e3858]:
+                  - img [ref=e3860]
+                  - generic [ref=e3862]:
+                    - paragraph [ref=e3863]: tide_sample.csv
+                    - paragraph [ref=e3864]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3865]:
+                  - generic [ref=e3867]:
+                    - img [ref=e3868]
+                    - text: "0"
+                  - button "View details" [ref=e3872]:
+                    - img [ref=e3873]
+                  - button "Delete upload and transactions" [ref=e3876]:
+                    - img [ref=e3877]
+              - generic [ref=e3881]:
+                - generic [ref=e3882]:
+                  - img [ref=e3884]
+                  - generic [ref=e3886]:
+                    - paragraph [ref=e3887]: revolut_business_sample.csv
+                    - paragraph [ref=e3888]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3889]:
+                  - generic [ref=e3891]:
+                    - img [ref=e3892]
+                    - text: "0"
+                  - button "View details" [ref=e3896]:
+                    - img [ref=e3897]
+                  - button "Delete upload and transactions" [ref=e3900]:
+                    - img [ref=e3901]
+              - generic [ref=e3905]:
+                - generic [ref=e3906]:
+                  - img [ref=e3908]
+                  - generic [ref=e3910]:
+                    - paragraph [ref=e3911]: tide_sample.csv
+                    - paragraph [ref=e3912]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3913]:
+                  - generic [ref=e3915]:
+                    - img [ref=e3916]
+                    - text: "0"
+                  - button "View details" [ref=e3920]:
+                    - img [ref=e3921]
+                  - button "Delete upload and transactions" [ref=e3924]:
+                    - img [ref=e3925]
+              - generic [ref=e3929]:
+                - generic [ref=e3930]:
+                  - img [ref=e3932]
+                  - generic [ref=e3934]:
+                    - paragraph [ref=e3935]: revolut_business_sample.csv
+                    - paragraph [ref=e3936]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3937]:
+                  - generic [ref=e3939]:
+                    - img [ref=e3940]
+                    - text: "0"
+                  - button "View details" [ref=e3944]:
+                    - img [ref=e3945]
+                  - button "Delete upload and transactions" [ref=e3948]:
+                    - img [ref=e3949]
+              - generic [ref=e3953]:
+                - generic [ref=e3954]:
+                  - img [ref=e3956]
+                  - generic [ref=e3958]:
+                    - paragraph [ref=e3959]: tide_sample.csv
+                    - paragraph [ref=e3960]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e3961]:
+                  - generic [ref=e3963]:
+                    - img [ref=e3964]
+                    - text: "0"
+                  - button "View details" [ref=e3968]:
+                    - img [ref=e3969]
+                  - button "Delete upload and transactions" [ref=e3972]:
+                    - img [ref=e3973]
+              - generic [ref=e3977]:
+                - generic [ref=e3978]:
+                  - img [ref=e3980]
+                  - generic [ref=e3982]:
+                    - paragraph [ref=e3983]: revolut_business_sample.csv
+                    - paragraph [ref=e3984]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e3985]:
+                  - generic [ref=e3987]:
+                    - img [ref=e3988]
+                    - text: "0"
+                  - button "View details" [ref=e3992]:
+                    - img [ref=e3993]
+                  - button "Delete upload and transactions" [ref=e3996]:
+                    - img [ref=e3997]
+              - generic [ref=e4001]:
+                - generic [ref=e4002]:
+                  - img [ref=e4004]
+                  - generic [ref=e4006]:
+                    - paragraph [ref=e4007]: tide_sample.csv
+                    - paragraph [ref=e4008]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4009]:
+                  - generic [ref=e4011]:
+                    - img [ref=e4012]
+                    - text: "0"
+                  - button "View details" [ref=e4016]:
+                    - img [ref=e4017]
+                  - button "Delete upload and transactions" [ref=e4020]:
+                    - img [ref=e4021]
+              - generic [ref=e4025]:
+                - generic [ref=e4026]:
+                  - img [ref=e4028]
+                  - generic [ref=e4030]:
+                    - paragraph [ref=e4031]: tide_sample.csv
+                    - paragraph [ref=e4032]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4033]:
+                  - generic [ref=e4035]:
+                    - img [ref=e4036]
+                    - text: "0"
+                  - button "View details" [ref=e4040]:
+                    - img [ref=e4041]
+                  - button "Delete upload and transactions" [ref=e4044]:
+                    - img [ref=e4045]
+              - generic [ref=e4049]:
+                - generic [ref=e4050]:
+                  - img [ref=e4052]
+                  - generic [ref=e4054]:
+                    - paragraph [ref=e4055]: tide_sample.csv
+                    - paragraph [ref=e4056]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4057]:
+                  - generic [ref=e4059]:
+                    - img [ref=e4060]
+                    - text: "0"
+                  - button "View details" [ref=e4064]:
+                    - img [ref=e4065]
+                  - button "Delete upload and transactions" [ref=e4068]:
+                    - img [ref=e4069]
+              - generic [ref=e4073]:
+                - generic [ref=e4074]:
+                  - img [ref=e4076]
+                  - generic [ref=e4078]:
+                    - paragraph [ref=e4079]: tide_sample.csv
+                    - paragraph [ref=e4080]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4081]:
+                  - generic [ref=e4083]:
+                    - img [ref=e4084]
+                    - text: "0"
+                  - button "View details" [ref=e4088]:
+                    - img [ref=e4089]
+                  - button "Delete upload and transactions" [ref=e4092]:
+                    - img [ref=e4093]
+              - generic [ref=e4097]:
+                - generic [ref=e4098]:
+                  - img [ref=e4100]
+                  - generic [ref=e4102]:
+                    - paragraph [ref=e4103]: tide_sample.csv
+                    - paragraph [ref=e4104]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4105]:
+                  - generic [ref=e4107]:
+                    - img [ref=e4108]
+                    - text: "0"
+                  - button "View details" [ref=e4112]:
+                    - img [ref=e4113]
+                  - button "Delete upload and transactions" [ref=e4116]:
+                    - img [ref=e4117]
+              - generic [ref=e4121]:
+                - generic [ref=e4122]:
+                  - img [ref=e4124]
+                  - generic [ref=e4126]:
+                    - paragraph [ref=e4127]: tide_sample.csv
+                    - paragraph [ref=e4128]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4129]:
+                  - generic [ref=e4131]:
+                    - img [ref=e4132]
+                    - text: "0"
+                  - button "View details" [ref=e4136]:
+                    - img [ref=e4137]
+                  - button "Delete upload and transactions" [ref=e4140]:
+                    - img [ref=e4141]
+              - generic [ref=e4145]:
+                - generic [ref=e4146]:
+                  - img [ref=e4148]
+                  - generic [ref=e4150]:
+                    - paragraph [ref=e4151]: revolut_business_sample.csv
+                    - paragraph [ref=e4152]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e4153]:
+                  - generic [ref=e4155]:
+                    - img [ref=e4156]
+                    - text: "0"
+                  - button "View details" [ref=e4160]:
+                    - img [ref=e4161]
+                  - button "Delete upload and transactions" [ref=e4164]:
+                    - img [ref=e4165]
+              - generic [ref=e4169]:
+                - generic [ref=e4170]:
+                  - img [ref=e4172]
+                  - generic [ref=e4174]:
+                    - paragraph [ref=e4175]: tide_sample.csv
+                    - paragraph [ref=e4176]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4177]:
+                  - generic [ref=e4179]:
+                    - img [ref=e4180]
+                    - text: "0"
+                  - button "View details" [ref=e4184]:
+                    - img [ref=e4185]
+                  - button "Delete upload and transactions" [ref=e4188]:
+                    - img [ref=e4189]
+              - generic [ref=e4193]:
+                - generic [ref=e4194]:
+                  - img [ref=e4196]
+                  - generic [ref=e4198]:
+                    - paragraph [ref=e4199]: revolut_business_sample.csv
+                    - paragraph [ref=e4200]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e4201]:
+                  - generic [ref=e4203]:
+                    - img [ref=e4204]
+                    - text: "0"
+                  - button "View details" [ref=e4208]:
+                    - img [ref=e4209]
+                  - button "Delete upload and transactions" [ref=e4212]:
+                    - img [ref=e4213]
+              - generic [ref=e4217]:
+                - generic [ref=e4218]:
+                  - img [ref=e4220]
+                  - generic [ref=e4222]:
+                    - paragraph [ref=e4223]: tide_sample.csv
+                    - paragraph [ref=e4224]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4225]:
+                  - generic [ref=e4227]:
+                    - img [ref=e4228]
+                    - text: "0"
+                  - button "View details" [ref=e4232]:
+                    - img [ref=e4233]
+                  - button "Delete upload and transactions" [ref=e4236]:
+                    - img [ref=e4237]
+              - generic [ref=e4241]:
+                - generic [ref=e4242]:
+                  - img [ref=e4244]
+                  - generic [ref=e4246]:
+                    - paragraph [ref=e4247]: tide_sample.csv
+                    - paragraph [ref=e4248]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4249]:
+                  - generic [ref=e4251]:
+                    - img [ref=e4252]
+                    - text: "0"
+                  - button "View details" [ref=e4256]:
+                    - img [ref=e4257]
+                  - button "Delete upload and transactions" [ref=e4260]:
+                    - img [ref=e4261]
+              - generic [ref=e4265]:
+                - generic [ref=e4266]:
+                  - img [ref=e4268]
+                  - generic [ref=e4270]:
+                    - paragraph [ref=e4271]: tide_sample.csv
+                    - paragraph [ref=e4272]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4273]:
+                  - generic [ref=e4275]:
+                    - img [ref=e4276]
+                    - text: "0"
+                  - button "View details" [ref=e4280]:
+                    - img [ref=e4281]
+                  - button "Delete upload and transactions" [ref=e4284]:
+                    - img [ref=e4285]
+              - generic [ref=e4289]:
+                - generic [ref=e4290]:
+                  - img [ref=e4292]
+                  - generic [ref=e4294]:
+                    - paragraph [ref=e4295]: revolut_business_sample.csv
+                    - paragraph [ref=e4296]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e4297]:
+                  - generic [ref=e4299]:
+                    - img [ref=e4300]
+                    - text: "0"
+                  - button "View details" [ref=e4304]:
+                    - img [ref=e4305]
+                  - button "Delete upload and transactions" [ref=e4308]:
+                    - img [ref=e4309]
+              - generic [ref=e4313]:
+                - generic [ref=e4314]:
+                  - img [ref=e4316]
+                  - generic [ref=e4318]:
+                    - paragraph [ref=e4319]: tide_sample.csv
+                    - paragraph [ref=e4320]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4321]:
+                  - generic [ref=e4323]:
+                    - img [ref=e4324]
+                    - text: "0"
+                  - button "View details" [ref=e4328]:
+                    - img [ref=e4329]
+                  - button "Delete upload and transactions" [ref=e4332]:
+                    - img [ref=e4333]
+              - generic [ref=e4337]:
+                - generic [ref=e4338]:
+                  - img [ref=e4340]
+                  - generic [ref=e4342]:
+                    - paragraph [ref=e4343]: tide_sample.csv
+                    - paragraph [ref=e4344]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4345]:
+                  - generic [ref=e4347]:
+                    - img [ref=e4348]
+                    - text: "0"
+                  - button "View details" [ref=e4352]:
+                    - img [ref=e4353]
+                  - button "Delete upload and transactions" [ref=e4356]:
+                    - img [ref=e4357]
+              - generic [ref=e4361]:
+                - generic [ref=e4362]:
+                  - img [ref=e4364]
+                  - generic [ref=e4366]:
+                    - paragraph [ref=e4367]: tide_sample.csv
+                    - paragraph [ref=e4368]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4369]:
+                  - generic [ref=e4371]:
+                    - img [ref=e4372]
+                    - text: "0"
+                  - button "View details" [ref=e4376]:
+                    - img [ref=e4377]
+                  - button "Delete upload and transactions" [ref=e4380]:
+                    - img [ref=e4381]
+              - generic [ref=e4385]:
+                - generic [ref=e4386]:
+                  - img [ref=e4388]
+                  - generic [ref=e4390]:
+                    - paragraph [ref=e4391]: tide_sample.csv
+                    - paragraph [ref=e4392]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4393]:
+                  - generic [ref=e4395]:
+                    - img [ref=e4396]
+                    - text: "0"
+                  - button "View details" [ref=e4400]:
+                    - img [ref=e4401]
+                  - button "Delete upload and transactions" [ref=e4404]:
+                    - img [ref=e4405]
+              - generic [ref=e4409]:
+                - generic [ref=e4410]:
+                  - img [ref=e4412]
+                  - generic [ref=e4414]:
+                    - paragraph [ref=e4415]: revolut_business_sample.csv
+                    - paragraph [ref=e4416]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e4417]:
+                  - generic [ref=e4419]:
+                    - img [ref=e4420]
+                    - text: "0"
+                  - button "View details" [ref=e4424]:
+                    - img [ref=e4425]
+                  - button "Delete upload and transactions" [ref=e4428]:
+                    - img [ref=e4429]
+              - generic [ref=e4433]:
+                - generic [ref=e4434]:
+                  - img [ref=e4436]
+                  - generic [ref=e4438]:
+                    - paragraph [ref=e4439]: tide_sample.csv
+                    - paragraph [ref=e4440]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4441]:
+                  - generic [ref=e4443]:
+                    - img [ref=e4444]
+                    - text: "0"
+                  - button "View details" [ref=e4448]:
+                    - img [ref=e4449]
+                  - button "Delete upload and transactions" [ref=e4452]:
+                    - img [ref=e4453]
+              - generic [ref=e4457]:
+                - generic [ref=e4458]:
+                  - img [ref=e4460]
+                  - generic [ref=e4462]:
+                    - paragraph [ref=e4463]: tide_sample.csv
+                    - paragraph [ref=e4464]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4465]:
+                  - generic [ref=e4467]:
+                    - img [ref=e4468]
+                    - text: "0"
+                  - button "View details" [ref=e4472]:
+                    - img [ref=e4473]
+                  - button "Delete upload and transactions" [ref=e4476]:
+                    - img [ref=e4477]
+              - generic [ref=e4481]:
+                - generic [ref=e4482]:
+                  - img [ref=e4484]
+                  - generic [ref=e4486]:
+                    - paragraph [ref=e4487]: tide_sample.csv
+                    - paragraph [ref=e4488]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4489]:
+                  - generic [ref=e4491]:
+                    - img [ref=e4492]
+                    - text: "0"
+                  - button "View details" [ref=e4496]:
+                    - img [ref=e4497]
+                  - button "Delete upload and transactions" [ref=e4500]:
+                    - img [ref=e4501]
+              - generic [ref=e4505]:
+                - generic [ref=e4506]:
+                  - img [ref=e4508]
+                  - generic [ref=e4510]:
+                    - paragraph [ref=e4511]: tide_sample.csv
+                    - paragraph [ref=e4512]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4513]:
+                  - generic [ref=e4515]:
+                    - img [ref=e4516]
+                    - text: "0"
+                  - button "View details" [ref=e4520]:
+                    - img [ref=e4521]
+                  - button "Delete upload and transactions" [ref=e4524]:
+                    - img [ref=e4525]
+              - generic [ref=e4529]:
+                - generic [ref=e4530]:
+                  - img [ref=e4532]
+                  - generic [ref=e4534]:
+                    - paragraph [ref=e4535]: revolut_business_sample.csv
+                    - paragraph [ref=e4536]: May 30, 2026 · bank statement csv · GBP
+                - generic [ref=e4537]:
+                  - generic [ref=e4539]:
+                    - img [ref=e4540]
+                    - text: "0"
+                  - button "View details" [ref=e4544]:
+                    - img [ref=e4545]
+                  - button "Delete upload and transactions" [ref=e4548]:
+                    - img [ref=e4549]
+              - generic [ref=e4553]:
+                - generic [ref=e4554]:
+                  - img [ref=e4556]
+                  - generic [ref=e4558]:
+                    - paragraph [ref=e4559]: tide_sample.csv
+                    - paragraph [ref=e4560]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4561]:
+                  - generic [ref=e4563]:
+                    - img [ref=e4564]
+                    - text: "0"
+                  - button "View details" [ref=e4568]:
+                    - img [ref=e4569]
+                  - button "Delete upload and transactions" [ref=e4572]:
+                    - img [ref=e4573]
+              - generic [ref=e4577]:
+                - generic [ref=e4578]:
+                  - img [ref=e4580]
+                  - generic [ref=e4582]:
+                    - paragraph [ref=e4583]: tide_sample.csv
+                    - paragraph [ref=e4584]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4585]:
+                  - generic [ref=e4587]:
+                    - img [ref=e4588]
+                    - text: "0"
+                  - button "View details" [ref=e4592]:
+                    - img [ref=e4593]
+                  - button "Delete upload and transactions" [ref=e4596]:
+                    - img [ref=e4597]
+              - generic [ref=e4601]:
+                - generic [ref=e4602]:
+                  - img [ref=e4604]
+                  - generic [ref=e4606]:
+                    - paragraph [ref=e4607]: tide_sample.csv
+                    - paragraph [ref=e4608]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4609]:
+                  - generic [ref=e4611]:
+                    - img [ref=e4612]
+                    - text: "0"
+                  - button "View details" [ref=e4616]:
+                    - img [ref=e4617]
+                  - button "Delete upload and transactions" [ref=e4620]:
+                    - img [ref=e4621]
+              - generic [ref=e4625]:
+                - generic [ref=e4626]:
+                  - img [ref=e4628]
+                  - generic [ref=e4630]:
+                    - paragraph [ref=e4631]: tide_sample.csv
+                    - paragraph [ref=e4632]: May 30, 2026 · bank statement csv · USD
+                - generic [ref=e4633]:
+                  - generic [ref=e4635]:
+                    - img [ref=e4636]
+                    - text: "0"
+                  - button "View details" [ref=e4640]:
+                    - img [ref=e4641]
+                  - button "Delete upload and transactions" [ref=e4644]:
+                    - img [ref=e4645]
+              - generic [ref=e4649]:
+                - generic [ref=e4650]:
+                  - img [ref=e4652]
+                  - generic [ref=e4654]:
+                    - paragraph [ref=e4655]: revolut_business_sample.csv
+                    - paragraph [ref=e4656]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e4657]:
+                  - generic [ref=e4659]:
+                    - img [ref=e4660]
+                    - text: "0"
+                  - button "View details" [ref=e4664]:
+                    - img [ref=e4665]
+                  - button "Delete upload and transactions" [ref=e4668]:
+                    - img [ref=e4669]
+              - generic [ref=e4673]:
+                - generic [ref=e4674]:
+                  - img [ref=e4676]
+                  - generic [ref=e4678]:
+                    - paragraph [ref=e4679]: tide_sample.csv
+                    - paragraph [ref=e4680]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4681]:
+                  - generic [ref=e4683]:
+                    - img [ref=e4684]
+                    - text: "0"
+                  - button "View details" [ref=e4688]:
+                    - img [ref=e4689]
+                  - button "Delete upload and transactions" [ref=e4692]:
+                    - img [ref=e4693]
+              - generic [ref=e4697]:
+                - generic [ref=e4698]:
+                  - img [ref=e4700]
+                  - generic [ref=e4702]:
+                    - paragraph [ref=e4703]: revolut_business_sample.csv
+                    - paragraph [ref=e4704]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e4705]:
+                  - generic [ref=e4707]:
+                    - img [ref=e4708]
+                    - text: "0"
+                  - button "View details" [ref=e4712]:
+                    - img [ref=e4713]
+                  - button "Delete upload and transactions" [ref=e4716]:
+                    - img [ref=e4717]
+              - generic [ref=e4721]:
+                - generic [ref=e4722]:
+                  - img [ref=e4724]
+                  - generic [ref=e4726]:
+                    - paragraph [ref=e4727]: tide_sample.csv
+                    - paragraph [ref=e4728]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4729]:
+                  - generic [ref=e4731]:
+                    - img [ref=e4732]
+                    - text: "0"
+                  - button "View details" [ref=e4736]:
+                    - img [ref=e4737]
+                  - button "Delete upload and transactions" [ref=e4740]:
+                    - img [ref=e4741]
+              - generic [ref=e4745]:
+                - generic [ref=e4746]:
+                  - img [ref=e4748]
+                  - generic [ref=e4750]:
+                    - paragraph [ref=e4751]: tide_sample.csv
+                    - paragraph [ref=e4752]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4753]:
+                  - generic [ref=e4755]:
+                    - img [ref=e4756]
+                    - text: "0"
+                  - button "View details" [ref=e4760]:
+                    - img [ref=e4761]
+                  - button "Delete upload and transactions" [ref=e4764]:
+                    - img [ref=e4765]
+              - generic [ref=e4769]:
+                - generic [ref=e4770]:
+                  - img [ref=e4772]
+                  - generic [ref=e4774]:
+                    - paragraph [ref=e4775]: tide_sample.csv
+                    - paragraph [ref=e4776]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4777]:
+                  - generic [ref=e4779]:
+                    - img [ref=e4780]
+                    - text: "0"
+                  - button "View details" [ref=e4784]:
+                    - img [ref=e4785]
+                  - button "Delete upload and transactions" [ref=e4788]:
+                    - img [ref=e4789]
+              - generic [ref=e4793]:
+                - generic [ref=e4794]:
+                  - img [ref=e4796]
+                  - generic [ref=e4798]:
+                    - paragraph [ref=e4799]: revolut_business_sample.csv
+                    - paragraph [ref=e4800]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e4801]:
+                  - generic [ref=e4803]:
+                    - img [ref=e4804]
+                    - text: "0"
+                  - button "View details" [ref=e4808]:
+                    - img [ref=e4809]
+                  - button "Delete upload and transactions" [ref=e4812]:
+                    - img [ref=e4813]
+              - generic [ref=e4817]:
+                - generic [ref=e4818]:
+                  - img [ref=e4820]
+                  - generic [ref=e4822]:
+                    - paragraph [ref=e4823]: tide_sample.csv
+                    - paragraph [ref=e4824]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4825]:
+                  - generic [ref=e4827]:
+                    - img [ref=e4828]
+                    - text: "0"
+                  - button "View details" [ref=e4832]:
+                    - img [ref=e4833]
+                  - button "Delete upload and transactions" [ref=e4836]:
+                    - img [ref=e4837]
+              - generic [ref=e4841]:
+                - generic [ref=e4842]:
+                  - img [ref=e4844]
+                  - generic [ref=e4846]:
+                    - paragraph [ref=e4847]: tide_sample.csv
+                    - paragraph [ref=e4848]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4849]:
+                  - generic [ref=e4851]:
+                    - img [ref=e4852]
+                    - text: "0"
+                  - button "View details" [ref=e4856]:
+                    - img [ref=e4857]
+                  - button "Delete upload and transactions" [ref=e4860]:
+                    - img [ref=e4861]
+              - generic [ref=e4865]:
+                - generic [ref=e4866]:
+                  - img [ref=e4868]
+                  - generic [ref=e4870]:
+                    - paragraph [ref=e4871]: tide_sample.csv
+                    - paragraph [ref=e4872]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4873]:
+                  - generic [ref=e4875]:
+                    - img [ref=e4876]
+                    - text: "0"
+                  - button "View details" [ref=e4880]:
+                    - img [ref=e4881]
+                  - button "Delete upload and transactions" [ref=e4884]:
+                    - img [ref=e4885]
+              - generic [ref=e4889]:
+                - generic [ref=e4890]:
+                  - img [ref=e4892]
+                  - generic [ref=e4894]:
+                    - paragraph [ref=e4895]: tide_sample.csv
+                    - paragraph [ref=e4896]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4897]:
+                  - generic [ref=e4899]:
+                    - img [ref=e4900]
+                    - text: "0"
+                  - button "View details" [ref=e4904]:
+                    - img [ref=e4905]
+                  - button "Delete upload and transactions" [ref=e4908]:
+                    - img [ref=e4909]
+              - generic [ref=e4913]:
+                - generic [ref=e4914]:
+                  - img [ref=e4916]
+                  - generic [ref=e4918]:
+                    - paragraph [ref=e4919]: revolut_business_sample.csv
+                    - paragraph [ref=e4920]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e4921]:
+                  - generic [ref=e4923]:
+                    - img [ref=e4924]
+                    - text: "0"
+                  - button "View details" [ref=e4928]:
+                    - img [ref=e4929]
+                  - button "Delete upload and transactions" [ref=e4932]:
+                    - img [ref=e4933]
+              - generic [ref=e4937]:
+                - generic [ref=e4938]:
+                  - img [ref=e4940]
+                  - generic [ref=e4942]:
+                    - paragraph [ref=e4943]: tide_sample.csv
+                    - paragraph [ref=e4944]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4945]:
+                  - generic [ref=e4947]:
+                    - img [ref=e4948]
+                    - text: "0"
+                  - button "View details" [ref=e4952]:
+                    - img [ref=e4953]
+                  - button "Delete upload and transactions" [ref=e4956]:
+                    - img [ref=e4957]
+              - generic [ref=e4961]:
+                - generic [ref=e4962]:
+                  - img [ref=e4964]
+                  - generic [ref=e4966]:
+                    - paragraph [ref=e4967]: tide_sample.csv
+                    - paragraph [ref=e4968]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4969]:
+                  - generic [ref=e4971]:
+                    - img [ref=e4972]
+                    - text: "0"
+                  - button "View details" [ref=e4976]:
+                    - img [ref=e4977]
+                  - button "Delete upload and transactions" [ref=e4980]:
+                    - img [ref=e4981]
+              - generic [ref=e4985]:
+                - generic [ref=e4986]:
+                  - img [ref=e4988]
+                  - generic [ref=e4990]:
+                    - paragraph [ref=e4991]: tide_sample.csv
+                    - paragraph [ref=e4992]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e4993]:
+                  - generic [ref=e4995]:
+                    - img [ref=e4996]
+                    - text: "0"
+                  - button "View details" [ref=e5000]:
+                    - img [ref=e5001]
+                  - button "Delete upload and transactions" [ref=e5004]:
+                    - img [ref=e5005]
+              - generic [ref=e5009]:
+                - generic [ref=e5010]:
+                  - img [ref=e5012]
+                  - generic [ref=e5014]:
+                    - paragraph [ref=e5015]: tide_sample.csv
+                    - paragraph [ref=e5016]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5017]:
+                  - generic [ref=e5019]:
+                    - img [ref=e5020]
+                    - text: "0"
+                  - button "View details" [ref=e5024]:
+                    - img [ref=e5025]
+                  - button "Delete upload and transactions" [ref=e5028]:
+                    - img [ref=e5029]
+              - generic [ref=e5033]:
+                - generic [ref=e5034]:
+                  - img [ref=e5036]
+                  - generic [ref=e5038]:
+                    - paragraph [ref=e5039]: revolut_business_sample.csv
+                    - paragraph [ref=e5040]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5041]:
+                  - generic [ref=e5043]:
+                    - img [ref=e5044]
+                    - text: "0"
+                  - button "View details" [ref=e5048]:
+                    - img [ref=e5049]
+                  - button "Delete upload and transactions" [ref=e5052]:
+                    - img [ref=e5053]
+              - generic [ref=e5057]:
+                - generic [ref=e5058]:
+                  - img [ref=e5060]
+                  - generic [ref=e5062]:
+                    - paragraph [ref=e5063]: tide_sample.csv
+                    - paragraph [ref=e5064]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5065]:
+                  - generic [ref=e5067]:
+                    - img [ref=e5068]
+                    - text: "0"
+                  - button "View details" [ref=e5072]:
+                    - img [ref=e5073]
+                  - button "Delete upload and transactions" [ref=e5076]:
+                    - img [ref=e5077]
+              - generic [ref=e5081]:
+                - generic [ref=e5082]:
+                  - img [ref=e5084]
+                  - generic [ref=e5086]:
+                    - paragraph [ref=e5087]: revolut_business_sample.csv
+                    - paragraph [ref=e5088]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5089]:
+                  - generic [ref=e5091]:
+                    - img [ref=e5092]
+                    - text: "0"
+                  - button "View details" [ref=e5096]:
+                    - img [ref=e5097]
+                  - button "Delete upload and transactions" [ref=e5100]:
+                    - img [ref=e5101]
+              - generic [ref=e5105]:
+                - generic [ref=e5106]:
+                  - img [ref=e5108]
+                  - generic [ref=e5110]:
+                    - paragraph [ref=e5111]: tide_sample.csv
+                    - paragraph [ref=e5112]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5113]:
+                  - generic [ref=e5115]:
+                    - img [ref=e5116]
+                    - text: "0"
+                  - button "View details" [ref=e5120]:
+                    - img [ref=e5121]
+                  - button "Delete upload and transactions" [ref=e5124]:
+                    - img [ref=e5125]
+              - generic [ref=e5129]:
+                - generic [ref=e5130]:
+                  - img [ref=e5132]
+                  - generic [ref=e5134]:
+                    - paragraph [ref=e5135]: tide_sample.csv
+                    - paragraph [ref=e5136]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5137]:
+                  - generic [ref=e5139]:
+                    - img [ref=e5140]
+                    - text: "0"
+                  - button "View details" [ref=e5144]:
+                    - img [ref=e5145]
+                  - button "Delete upload and transactions" [ref=e5148]:
+                    - img [ref=e5149]
+              - generic [ref=e5153]:
+                - generic [ref=e5154]:
+                  - img [ref=e5156]
+                  - generic [ref=e5158]:
+                    - paragraph [ref=e5159]: tide_sample.csv
+                    - paragraph [ref=e5160]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5161]:
+                  - generic [ref=e5163]:
+                    - img [ref=e5164]
+                    - text: "0"
+                  - button "View details" [ref=e5168]:
+                    - img [ref=e5169]
+                  - button "Delete upload and transactions" [ref=e5172]:
+                    - img [ref=e5173]
+              - generic [ref=e5177]:
+                - generic [ref=e5178]:
+                  - img [ref=e5180]
+                  - generic [ref=e5182]:
+                    - paragraph [ref=e5183]: revolut_business_sample.csv
+                    - paragraph [ref=e5184]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5185]:
+                  - generic [ref=e5187]:
+                    - img [ref=e5188]
+                    - text: "0"
+                  - button "View details" [ref=e5192]:
+                    - img [ref=e5193]
+                  - button "Delete upload and transactions" [ref=e5196]:
+                    - img [ref=e5197]
+              - generic [ref=e5201]:
+                - generic [ref=e5202]:
+                  - img [ref=e5204]
+                  - generic [ref=e5206]:
+                    - paragraph [ref=e5207]: tide_sample.csv
+                    - paragraph [ref=e5208]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5209]:
+                  - generic [ref=e5211]:
+                    - img [ref=e5212]
+                    - text: "0"
+                  - button "View details" [ref=e5216]:
+                    - img [ref=e5217]
+                  - button "Delete upload and transactions" [ref=e5220]:
+                    - img [ref=e5221]
+              - generic [ref=e5225]:
+                - generic [ref=e5226]:
+                  - img [ref=e5228]
+                  - generic [ref=e5230]:
+                    - paragraph [ref=e5231]: revolut_business_sample.csv
+                    - paragraph [ref=e5232]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5233]:
+                  - generic [ref=e5235]:
+                    - img [ref=e5236]
+                    - text: "0"
+                  - button "View details" [ref=e5240]:
+                    - img [ref=e5241]
+                  - button "Delete upload and transactions" [ref=e5244]:
+                    - img [ref=e5245]
+              - generic [ref=e5249]:
+                - generic [ref=e5250]:
+                  - img [ref=e5252]
+                  - generic [ref=e5254]:
+                    - paragraph [ref=e5255]: tide_sample.csv
+                    - paragraph [ref=e5256]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5257]:
+                  - generic [ref=e5259]:
+                    - img [ref=e5260]
+                    - text: "0"
+                  - button "View details" [ref=e5264]:
+                    - img [ref=e5265]
+                  - button "Delete upload and transactions" [ref=e5268]:
+                    - img [ref=e5269]
+              - generic [ref=e5273]:
+                - generic [ref=e5274]:
+                  - img [ref=e5276]
+                  - generic [ref=e5278]:
+                    - paragraph [ref=e5279]: tide_sample.csv
+                    - paragraph [ref=e5280]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5281]:
+                  - generic [ref=e5283]:
+                    - img [ref=e5284]
+                    - text: "0"
+                  - button "View details" [ref=e5288]:
+                    - img [ref=e5289]
+                  - button "Delete upload and transactions" [ref=e5292]:
+                    - img [ref=e5293]
+              - generic [ref=e5297]:
+                - generic [ref=e5298]:
+                  - img [ref=e5300]
+                  - generic [ref=e5302]:
+                    - paragraph [ref=e5303]: tide_sample.csv
+                    - paragraph [ref=e5304]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5305]:
+                  - generic [ref=e5307]:
+                    - img [ref=e5308]
+                    - text: "0"
+                  - button "View details" [ref=e5312]:
+                    - img [ref=e5313]
+                  - button "Delete upload and transactions" [ref=e5316]:
+                    - img [ref=e5317]
+              - generic [ref=e5321]:
+                - generic [ref=e5322]:
+                  - img [ref=e5324]
+                  - generic [ref=e5326]:
+                    - paragraph [ref=e5327]: revolut_business_sample.csv
+                    - paragraph [ref=e5328]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5329]:
+                  - generic [ref=e5331]:
+                    - img [ref=e5332]
+                    - text: "0"
+                  - button "View details" [ref=e5336]:
+                    - img [ref=e5337]
+                  - button "Delete upload and transactions" [ref=e5340]:
+                    - img [ref=e5341]
+              - generic [ref=e5345]:
+                - generic [ref=e5346]:
+                  - img [ref=e5348]
+                  - generic [ref=e5350]:
+                    - paragraph [ref=e5351]: tide_sample.csv
+                    - paragraph [ref=e5352]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5353]:
+                  - generic [ref=e5355]:
+                    - img [ref=e5356]
+                    - text: "0"
+                  - button "View details" [ref=e5360]:
+                    - img [ref=e5361]
+                  - button "Delete upload and transactions" [ref=e5364]:
+                    - img [ref=e5365]
+              - generic [ref=e5369]:
+                - generic [ref=e5370]:
+                  - img [ref=e5372]
+                  - generic [ref=e5374]:
+                    - paragraph [ref=e5375]: revolut_business_sample.csv
+                    - paragraph [ref=e5376]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5377]:
+                  - generic [ref=e5379]:
+                    - img [ref=e5380]
+                    - text: "0"
+                  - button "View details" [ref=e5384]:
+                    - img [ref=e5385]
+                  - button "Delete upload and transactions" [ref=e5388]:
+                    - img [ref=e5389]
+              - generic [ref=e5393]:
+                - generic [ref=e5394]:
+                  - img [ref=e5396]
+                  - generic [ref=e5398]:
+                    - paragraph [ref=e5399]: tide_sample.csv
+                    - paragraph [ref=e5400]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5401]:
+                  - generic [ref=e5403]:
+                    - img [ref=e5404]
+                    - text: "0"
+                  - button "View details" [ref=e5408]:
+                    - img [ref=e5409]
+                  - button "Delete upload and transactions" [ref=e5412]:
+                    - img [ref=e5413]
+              - generic [ref=e5417]:
+                - generic [ref=e5418]:
+                  - img [ref=e5420]
+                  - generic [ref=e5422]:
+                    - paragraph [ref=e5423]: tide_sample.csv
+                    - paragraph [ref=e5424]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5425]:
+                  - generic [ref=e5427]:
+                    - img [ref=e5428]
+                    - text: "0"
+                  - button "View details" [ref=e5432]:
+                    - img [ref=e5433]
+                  - button "Delete upload and transactions" [ref=e5436]:
+                    - img [ref=e5437]
+              - generic [ref=e5441]:
+                - generic [ref=e5442]:
+                  - img [ref=e5444]
+                  - generic [ref=e5446]:
+                    - paragraph [ref=e5447]: tide_sample.csv
+                    - paragraph [ref=e5448]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5449]:
+                  - generic [ref=e5451]:
+                    - img [ref=e5452]
+                    - text: "0"
+                  - button "View details" [ref=e5456]:
+                    - img [ref=e5457]
+                  - button "Delete upload and transactions" [ref=e5460]:
+                    - img [ref=e5461]
+              - generic [ref=e5465]:
+                - generic [ref=e5466]:
+                  - img [ref=e5468]
+                  - generic [ref=e5470]:
+                    - paragraph [ref=e5471]: revolut_business_sample.csv
+                    - paragraph [ref=e5472]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5473]:
+                  - generic [ref=e5475]:
+                    - img [ref=e5476]
+                    - text: "0"
+                  - button "View details" [ref=e5480]:
+                    - img [ref=e5481]
+                  - button "Delete upload and transactions" [ref=e5484]:
+                    - img [ref=e5485]
+              - generic [ref=e5489]:
+                - generic [ref=e5490]:
+                  - img [ref=e5492]
+                  - generic [ref=e5494]:
+                    - paragraph [ref=e5495]: tide_sample.csv
+                    - paragraph [ref=e5496]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5497]:
+                  - generic [ref=e5499]:
+                    - img [ref=e5500]
+                    - text: "0"
+                  - button "View details" [ref=e5504]:
+                    - img [ref=e5505]
+                  - button "Delete upload and transactions" [ref=e5508]:
+                    - img [ref=e5509]
+              - generic [ref=e5513]:
+                - generic [ref=e5514]:
+                  - img [ref=e5516]
+                  - generic [ref=e5518]:
+                    - paragraph [ref=e5519]: revolut_business_sample.csv
+                    - paragraph [ref=e5520]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5521]:
+                  - generic [ref=e5523]:
+                    - img [ref=e5524]
+                    - text: "0"
+                  - button "View details" [ref=e5528]:
+                    - img [ref=e5529]
+                  - button "Delete upload and transactions" [ref=e5532]:
+                    - img [ref=e5533]
+              - generic [ref=e5537]:
+                - generic [ref=e5538]:
+                  - img [ref=e5540]
+                  - generic [ref=e5542]:
+                    - paragraph [ref=e5543]: tide_sample.csv
+                    - paragraph [ref=e5544]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5545]:
+                  - generic [ref=e5547]:
+                    - img [ref=e5548]
+                    - text: "0"
+                  - button "View details" [ref=e5552]:
+                    - img [ref=e5553]
+                  - button "Delete upload and transactions" [ref=e5556]:
+                    - img [ref=e5557]
+              - generic [ref=e5561]:
+                - generic [ref=e5562]:
+                  - img [ref=e5564]
+                  - generic [ref=e5566]:
+                    - paragraph [ref=e5567]: tide_sample.csv
+                    - paragraph [ref=e5568]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5569]:
+                  - generic [ref=e5571]:
+                    - img [ref=e5572]
+                    - text: "0"
+                  - button "View details" [ref=e5576]:
+                    - img [ref=e5577]
+                  - button "Delete upload and transactions" [ref=e5580]:
+                    - img [ref=e5581]
+              - generic [ref=e5585]:
+                - generic [ref=e5586]:
+                  - img [ref=e5588]
+                  - generic [ref=e5590]:
+                    - paragraph [ref=e5591]: tide_sample.csv
+                    - paragraph [ref=e5592]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5593]:
+                  - generic [ref=e5595]:
+                    - img [ref=e5596]
+                    - text: "0"
+                  - button "View details" [ref=e5600]:
+                    - img [ref=e5601]
+                  - button "Delete upload and transactions" [ref=e5604]:
+                    - img [ref=e5605]
+              - generic [ref=e5609]:
+                - generic [ref=e5610]:
+                  - img [ref=e5612]
+                  - generic [ref=e5614]:
+                    - paragraph [ref=e5615]: revolut_business_sample.csv
+                    - paragraph [ref=e5616]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5617]:
+                  - generic [ref=e5619]:
+                    - img [ref=e5620]
+                    - text: "0"
+                  - button "View details" [ref=e5624]:
+                    - img [ref=e5625]
+                  - button "Delete upload and transactions" [ref=e5628]:
+                    - img [ref=e5629]
+              - generic [ref=e5633]:
+                - generic [ref=e5634]:
+                  - img [ref=e5636]
+                  - generic [ref=e5638]:
+                    - paragraph [ref=e5639]: tide_sample.csv
+                    - paragraph [ref=e5640]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5641]:
+                  - generic [ref=e5643]:
+                    - img [ref=e5644]
+                    - text: "0"
+                  - button "View details" [ref=e5648]:
+                    - img [ref=e5649]
+                  - button "Delete upload and transactions" [ref=e5652]:
+                    - img [ref=e5653]
+              - generic [ref=e5657]:
+                - generic [ref=e5658]:
+                  - img [ref=e5660]
+                  - generic [ref=e5662]:
+                    - paragraph [ref=e5663]: revolut_business_sample.csv
+                    - paragraph [ref=e5664]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5665]:
+                  - generic [ref=e5667]:
+                    - img [ref=e5668]
+                    - text: "0"
+                  - button "View details" [ref=e5672]:
+                    - img [ref=e5673]
+                  - button "Delete upload and transactions" [ref=e5676]:
+                    - img [ref=e5677]
+              - generic [ref=e5681]:
+                - generic [ref=e5682]:
+                  - img [ref=e5684]
+                  - generic [ref=e5686]:
+                    - paragraph [ref=e5687]: tide_sample.csv
+                    - paragraph [ref=e5688]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5689]:
+                  - generic [ref=e5691]:
+                    - img [ref=e5692]
+                    - text: "0"
+                  - button "View details" [ref=e5696]:
+                    - img [ref=e5697]
+                  - button "Delete upload and transactions" [ref=e5700]:
+                    - img [ref=e5701]
+              - generic [ref=e5705]:
+                - generic [ref=e5706]:
+                  - img [ref=e5708]
+                  - generic [ref=e5710]:
+                    - paragraph [ref=e5711]: tide_sample.csv
+                    - paragraph [ref=e5712]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5713]:
+                  - generic [ref=e5715]:
+                    - img [ref=e5716]
+                    - text: "0"
+                  - button "View details" [ref=e5720]:
+                    - img [ref=e5721]
+                  - button "Delete upload and transactions" [ref=e5724]:
+                    - img [ref=e5725]
+              - generic [ref=e5729]:
+                - generic [ref=e5730]:
+                  - img [ref=e5732]
+                  - generic [ref=e5734]:
+                    - paragraph [ref=e5735]: tide_sample.csv
+                    - paragraph [ref=e5736]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5737]:
+                  - generic [ref=e5739]:
+                    - img [ref=e5740]
+                    - text: "0"
+                  - button "View details" [ref=e5744]:
+                    - img [ref=e5745]
+                  - button "Delete upload and transactions" [ref=e5748]:
+                    - img [ref=e5749]
+              - generic [ref=e5753]:
+                - generic [ref=e5754]:
+                  - img [ref=e5756]
+                  - generic [ref=e5758]:
+                    - paragraph [ref=e5759]: revolut_business_sample.csv
+                    - paragraph [ref=e5760]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5761]:
+                  - generic [ref=e5763]:
+                    - img [ref=e5764]
+                    - text: "0"
+                  - button "View details" [ref=e5768]:
+                    - img [ref=e5769]
+                  - button "Delete upload and transactions" [ref=e5772]:
+                    - img [ref=e5773]
+              - generic [ref=e5777]:
+                - generic [ref=e5778]:
+                  - img [ref=e5780]
+                  - generic [ref=e5782]:
+                    - paragraph [ref=e5783]: tide_sample.csv
+                    - paragraph [ref=e5784]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5785]:
+                  - generic [ref=e5787]:
+                    - img [ref=e5788]
+                    - text: "0"
+                  - button "View details" [ref=e5792]:
+                    - img [ref=e5793]
+                  - button "Delete upload and transactions" [ref=e5796]:
+                    - img [ref=e5797]
+              - generic [ref=e5801]:
+                - generic [ref=e5802]:
+                  - img [ref=e5804]
+                  - generic [ref=e5806]:
+                    - paragraph [ref=e5807]: revolut_business_sample.csv
+                    - paragraph [ref=e5808]: May 29, 2026 · bank statement csv · GBP
+                - generic [ref=e5809]:
+                  - generic [ref=e5811]:
+                    - img [ref=e5812]
+                    - text: "0"
+                  - button "View details" [ref=e5816]:
+                    - img [ref=e5817]
+                  - button "Delete upload and transactions" [ref=e5820]:
+                    - img [ref=e5821]
+              - generic [ref=e5825]:
+                - generic [ref=e5826]:
+                  - img [ref=e5828]
+                  - generic [ref=e5830]:
+                    - paragraph [ref=e5831]: tide_sample.csv
+                    - paragraph [ref=e5832]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5833]:
+                  - generic [ref=e5835]:
+                    - img [ref=e5836]
+                    - text: "0"
+                  - button "View details" [ref=e5840]:
+                    - img [ref=e5841]
+                  - button "Delete upload and transactions" [ref=e5844]:
+                    - img [ref=e5845]
+              - generic [ref=e5849]:
+                - generic [ref=e5850]:
+                  - img [ref=e5852]
+                  - generic [ref=e5854]:
+                    - paragraph [ref=e5855]: tide_sample.csv
+                    - paragraph [ref=e5856]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5857]:
+                  - generic [ref=e5859]:
+                    - img [ref=e5860]
+                    - text: "0"
+                  - button "View details" [ref=e5864]:
+                    - img [ref=e5865]
+                  - button "Delete upload and transactions" [ref=e5868]:
+                    - img [ref=e5869]
+              - generic [ref=e5873]:
+                - generic [ref=e5874]:
+                  - img [ref=e5876]
+                  - generic [ref=e5878]:
+                    - paragraph [ref=e5879]: tide_sample.csv
+                    - paragraph [ref=e5880]: May 29, 2026 · bank statement csv · USD
+                - generic [ref=e5881]:
+                  - generic [ref=e5883]:
+                    - img [ref=e5884]
+                    - text: "0"
+                  - button "View details" [ref=e5888]:
+                    - img [ref=e5889]
+                  - button "Delete upload and transactions" [ref=e5892]:
+                    - img [ref=e5893]
+              - generic [ref=e5897]:
+                - generic [ref=e5898]:
+                  - img [ref=e5900]
+                  - generic [ref=e5902]:
+                    - paragraph [ref=e5903]: revolut_business_sample.csv
+                    - paragraph [ref=e5904]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e5905]:
+                  - generic [ref=e5907]:
+                    - img [ref=e5908]
+                    - text: "0"
+                  - button "View details" [ref=e5912]:
+                    - img [ref=e5913]
+                  - button "Delete upload and transactions" [ref=e5916]:
+                    - img [ref=e5917]
+              - generic [ref=e5921]:
+                - generic [ref=e5922]:
+                  - img [ref=e5924]
+                  - generic [ref=e5926]:
+                    - paragraph [ref=e5927]: tide_sample.csv
+                    - paragraph [ref=e5928]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e5929]:
+                  - generic [ref=e5931]:
+                    - img [ref=e5932]
+                    - text: "0"
+                  - button "View details" [ref=e5936]:
+                    - img [ref=e5937]
+                  - button "Delete upload and transactions" [ref=e5940]:
+                    - img [ref=e5941]
+              - generic [ref=e5945]:
+                - generic [ref=e5946]:
+                  - img [ref=e5948]
+                  - generic [ref=e5950]:
+                    - paragraph [ref=e5951]: revolut_business_sample.csv
+                    - paragraph [ref=e5952]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e5953]:
+                  - generic [ref=e5955]:
+                    - img [ref=e5956]
+                    - text: "0"
+                  - button "View details" [ref=e5960]:
+                    - img [ref=e5961]
+                  - button "Delete upload and transactions" [ref=e5964]:
+                    - img [ref=e5965]
+              - generic [ref=e5969]:
+                - generic [ref=e5970]:
+                  - img [ref=e5972]
+                  - generic [ref=e5974]:
+                    - paragraph [ref=e5975]: tide_sample.csv
+                    - paragraph [ref=e5976]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e5977]:
+                  - generic [ref=e5979]:
+                    - img [ref=e5980]
+                    - text: "0"
+                  - button "View details" [ref=e5984]:
+                    - img [ref=e5985]
+                  - button "Delete upload and transactions" [ref=e5988]:
+                    - img [ref=e5989]
+              - generic [ref=e5993]:
+                - generic [ref=e5994]:
+                  - img [ref=e5996]
+                  - generic [ref=e5998]:
+                    - paragraph [ref=e5999]: tide_sample.csv
+                    - paragraph [ref=e6000]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6001]:
+                  - generic [ref=e6003]:
+                    - img [ref=e6004]
+                    - text: "0"
+                  - button "View details" [ref=e6008]:
+                    - img [ref=e6009]
+                  - button "Delete upload and transactions" [ref=e6012]:
+                    - img [ref=e6013]
+              - generic [ref=e6017]:
+                - generic [ref=e6018]:
+                  - img [ref=e6020]
+                  - generic [ref=e6022]:
+                    - paragraph [ref=e6023]: tide_sample.csv
+                    - paragraph [ref=e6024]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6025]:
+                  - generic [ref=e6027]:
+                    - img [ref=e6028]
+                    - text: "0"
+                  - button "View details" [ref=e6032]:
+                    - img [ref=e6033]
+                  - button "Delete upload and transactions" [ref=e6036]:
+                    - img [ref=e6037]
+              - generic [ref=e6041]:
+                - generic [ref=e6042]:
+                  - img [ref=e6044]
+                  - generic [ref=e6046]:
+                    - paragraph [ref=e6047]: revolut_business_sample.csv
+                    - paragraph [ref=e6048]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6049]:
+                  - generic [ref=e6051]:
+                    - img [ref=e6052]
+                    - text: "0"
+                  - button "View details" [ref=e6056]:
+                    - img [ref=e6057]
+                  - button "Delete upload and transactions" [ref=e6060]:
+                    - img [ref=e6061]
+              - generic [ref=e6065]:
+                - generic [ref=e6066]:
+                  - img [ref=e6068]
+                  - generic [ref=e6070]:
+                    - paragraph [ref=e6071]: tide_sample.csv
+                    - paragraph [ref=e6072]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6073]:
+                  - generic [ref=e6075]:
+                    - img [ref=e6076]
+                    - text: "0"
+                  - button "View details" [ref=e6080]:
+                    - img [ref=e6081]
+                  - button "Delete upload and transactions" [ref=e6084]:
+                    - img [ref=e6085]
+              - generic [ref=e6089]:
+                - generic [ref=e6090]:
+                  - img [ref=e6092]
+                  - generic [ref=e6094]:
+                    - paragraph [ref=e6095]: revolut_business_sample.csv
+                    - paragraph [ref=e6096]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6097]:
+                  - generic [ref=e6099]:
+                    - img [ref=e6100]
+                    - text: "0"
+                  - button "View details" [ref=e6104]:
+                    - img [ref=e6105]
+                  - button "Delete upload and transactions" [ref=e6108]:
+                    - img [ref=e6109]
+              - generic [ref=e6113]:
+                - generic [ref=e6114]:
+                  - img [ref=e6116]
+                  - generic [ref=e6118]:
+                    - paragraph [ref=e6119]: tide_sample.csv
+                    - paragraph [ref=e6120]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6121]:
+                  - generic [ref=e6123]:
+                    - img [ref=e6124]
+                    - text: "0"
+                  - button "View details" [ref=e6128]:
+                    - img [ref=e6129]
+                  - button "Delete upload and transactions" [ref=e6132]:
+                    - img [ref=e6133]
+              - generic [ref=e6137]:
+                - generic [ref=e6138]:
+                  - img [ref=e6140]
+                  - generic [ref=e6142]:
+                    - paragraph [ref=e6143]: revolut_business_sample.csv
+                    - paragraph [ref=e6144]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6145]:
+                  - generic [ref=e6147]:
+                    - img [ref=e6148]
+                    - text: "0"
+                  - button "View details" [ref=e6152]:
+                    - img [ref=e6153]
+                  - button "Delete upload and transactions" [ref=e6156]:
+                    - img [ref=e6157]
+              - generic [ref=e6161]:
+                - generic [ref=e6162]:
+                  - img [ref=e6164]
+                  - generic [ref=e6166]:
+                    - paragraph [ref=e6167]: tide_sample.csv
+                    - paragraph [ref=e6168]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6169]:
+                  - generic [ref=e6171]:
+                    - img [ref=e6172]
+                    - text: "0"
+                  - button "View details" [ref=e6176]:
+                    - img [ref=e6177]
+                  - button "Delete upload and transactions" [ref=e6180]:
+                    - img [ref=e6181]
+              - generic [ref=e6185]:
+                - generic [ref=e6186]:
+                  - img [ref=e6188]
+                  - generic [ref=e6190]:
+                    - paragraph [ref=e6191]: tide_sample.csv
+                    - paragraph [ref=e6192]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6193]:
+                  - generic [ref=e6195]:
+                    - img [ref=e6196]
+                    - text: "0"
+                  - button "View details" [ref=e6200]:
+                    - img [ref=e6201]
+                  - button "Delete upload and transactions" [ref=e6204]:
+                    - img [ref=e6205]
+              - generic [ref=e6209]:
+                - generic [ref=e6210]:
+                  - img [ref=e6212]
+                  - generic [ref=e6214]:
+                    - paragraph [ref=e6215]: tide_sample.csv
+                    - paragraph [ref=e6216]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6217]:
+                  - generic [ref=e6219]:
+                    - img [ref=e6220]
+                    - text: "0"
+                  - button "View details" [ref=e6224]:
+                    - img [ref=e6225]
+                  - button "Delete upload and transactions" [ref=e6228]:
+                    - img [ref=e6229]
+              - generic [ref=e6233]:
+                - generic [ref=e6234]:
+                  - img [ref=e6236]
+                  - generic [ref=e6238]:
+                    - paragraph [ref=e6239]: tide_sample.csv
+                    - paragraph [ref=e6240]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6241]:
+                  - generic [ref=e6243]:
+                    - img [ref=e6244]
+                    - text: "0"
+                  - button "View details" [ref=e6248]:
+                    - img [ref=e6249]
+                  - button "Delete upload and transactions" [ref=e6252]:
+                    - img [ref=e6253]
+              - generic [ref=e6257]:
+                - generic [ref=e6258]:
+                  - img [ref=e6260]
+                  - generic [ref=e6262]:
+                    - paragraph [ref=e6263]: tide_sample.csv
+                    - paragraph [ref=e6264]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6265]:
+                  - generic [ref=e6267]:
+                    - img [ref=e6268]
+                    - text: "0"
+                  - button "View details" [ref=e6272]:
+                    - img [ref=e6273]
+                  - button "Delete upload and transactions" [ref=e6276]:
+                    - img [ref=e6277]
+              - generic [ref=e6281]:
+                - generic [ref=e6282]:
+                  - img [ref=e6284]
+                  - generic [ref=e6286]:
+                    - paragraph [ref=e6287]: tide_sample.csv
+                    - paragraph [ref=e6288]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6289]:
+                  - generic [ref=e6291]:
+                    - img [ref=e6292]
+                    - text: "0"
+                  - button "View details" [ref=e6296]:
+                    - img [ref=e6297]
+                  - button "Delete upload and transactions" [ref=e6300]:
+                    - img [ref=e6301]
+              - generic [ref=e6305]:
+                - generic [ref=e6306]:
+                  - img [ref=e6308]
+                  - generic [ref=e6310]:
+                    - paragraph [ref=e6311]: revolut_business_sample.csv
+                    - paragraph [ref=e6312]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6313]:
+                  - generic [ref=e6315]:
+                    - img [ref=e6316]
+                    - text: "0"
+                  - button "View details" [ref=e6320]:
+                    - img [ref=e6321]
+                  - button "Delete upload and transactions" [ref=e6324]:
+                    - img [ref=e6325]
+              - generic [ref=e6329]:
+                - generic [ref=e6330]:
+                  - img [ref=e6332]
+                  - generic [ref=e6334]:
+                    - paragraph [ref=e6335]: tide_sample.csv
+                    - paragraph [ref=e6336]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6337]:
+                  - generic [ref=e6339]:
+                    - img [ref=e6340]
+                    - text: "0"
+                  - button "View details" [ref=e6344]:
+                    - img [ref=e6345]
+                  - button "Delete upload and transactions" [ref=e6348]:
+                    - img [ref=e6349]
+              - generic [ref=e6353]:
+                - generic [ref=e6354]:
+                  - img [ref=e6356]
+                  - generic [ref=e6358]:
+                    - paragraph [ref=e6359]: tide_sample.csv
+                    - paragraph [ref=e6360]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6361]:
+                  - generic [ref=e6363]:
+                    - img [ref=e6364]
+                    - text: "0"
+                  - button "View details" [ref=e6368]:
+                    - img [ref=e6369]
+                  - button "Delete upload and transactions" [ref=e6372]:
+                    - img [ref=e6373]
+              - generic [ref=e6377]:
+                - generic [ref=e6378]:
+                  - img [ref=e6380]
+                  - generic [ref=e6382]:
+                    - paragraph [ref=e6383]: tide_sample.csv
+                    - paragraph [ref=e6384]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6385]:
+                  - generic [ref=e6387]:
+                    - img [ref=e6388]
+                    - text: "0"
+                  - button "View details" [ref=e6392]:
+                    - img [ref=e6393]
+                  - button "Delete upload and transactions" [ref=e6396]:
+                    - img [ref=e6397]
+              - generic [ref=e6401]:
+                - generic [ref=e6402]:
+                  - img [ref=e6404]
+                  - generic [ref=e6406]:
+                    - paragraph [ref=e6407]: tide_sample.csv
+                    - paragraph [ref=e6408]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6409]:
+                  - generic [ref=e6411]:
+                    - img [ref=e6412]
+                    - text: "0"
+                  - button "View details" [ref=e6416]:
+                    - img [ref=e6417]
+                  - button "Delete upload and transactions" [ref=e6420]:
+                    - img [ref=e6421]
+              - generic [ref=e6425]:
+                - generic [ref=e6426]:
+                  - img [ref=e6428]
+                  - generic [ref=e6430]:
+                    - paragraph [ref=e6431]: revolut_business_sample.csv
+                    - paragraph [ref=e6432]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6433]:
+                  - generic [ref=e6435]:
+                    - img [ref=e6436]
+                    - text: "0"
+                  - button "View details" [ref=e6440]:
+                    - img [ref=e6441]
+                  - button "Delete upload and transactions" [ref=e6444]:
+                    - img [ref=e6445]
+              - generic [ref=e6449]:
+                - generic [ref=e6450]:
+                  - img [ref=e6452]
+                  - generic [ref=e6454]:
+                    - paragraph [ref=e6455]: tide_sample.csv
+                    - paragraph [ref=e6456]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6457]:
+                  - generic [ref=e6459]:
+                    - img [ref=e6460]
+                    - text: "0"
+                  - button "View details" [ref=e6464]:
+                    - img [ref=e6465]
+                  - button "Delete upload and transactions" [ref=e6468]:
+                    - img [ref=e6469]
+              - generic [ref=e6473]:
+                - generic [ref=e6474]:
+                  - img [ref=e6476]
+                  - generic [ref=e6478]:
+                    - paragraph [ref=e6479]: tide_sample.csv
+                    - paragraph [ref=e6480]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6481]:
+                  - generic [ref=e6483]:
+                    - img [ref=e6484]
+                    - text: "0"
+                  - button "View details" [ref=e6488]:
+                    - img [ref=e6489]
+                  - button "Delete upload and transactions" [ref=e6492]:
+                    - img [ref=e6493]
+              - generic [ref=e6497]:
+                - generic [ref=e6498]:
+                  - img [ref=e6500]
+                  - generic [ref=e6502]:
+                    - paragraph [ref=e6503]: tide_sample.csv
+                    - paragraph [ref=e6504]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6505]:
+                  - generic [ref=e6507]:
+                    - img [ref=e6508]
+                    - text: "0"
+                  - button "View details" [ref=e6512]:
+                    - img [ref=e6513]
+                  - button "Delete upload and transactions" [ref=e6516]:
+                    - img [ref=e6517]
+              - generic [ref=e6521]:
+                - generic [ref=e6522]:
+                  - img [ref=e6524]
+                  - generic [ref=e6526]:
+                    - paragraph [ref=e6527]: tide_sample.csv
+                    - paragraph [ref=e6528]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6529]:
+                  - generic [ref=e6531]:
+                    - img [ref=e6532]
+                    - text: "0"
+                  - button "View details" [ref=e6536]:
+                    - img [ref=e6537]
+                  - button "Delete upload and transactions" [ref=e6540]:
+                    - img [ref=e6541]
+              - generic [ref=e6545]:
+                - generic [ref=e6546]:
+                  - img [ref=e6548]
+                  - generic [ref=e6550]:
+                    - paragraph [ref=e6551]: revolut_business_sample.csv
+                    - paragraph [ref=e6552]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6553]:
+                  - generic [ref=e6555]:
+                    - img [ref=e6556]
+                    - text: "0"
+                  - button "View details" [ref=e6560]:
+                    - img [ref=e6561]
+                  - button "Delete upload and transactions" [ref=e6564]:
+                    - img [ref=e6565]
+              - generic [ref=e6569]:
+                - generic [ref=e6570]:
+                  - img [ref=e6572]
+                  - generic [ref=e6574]:
+                    - paragraph [ref=e6575]: tide_sample.csv
+                    - paragraph [ref=e6576]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6577]:
+                  - generic [ref=e6579]:
+                    - img [ref=e6580]
+                    - text: "0"
+                  - button "View details" [ref=e6584]:
+                    - img [ref=e6585]
+                  - button "Delete upload and transactions" [ref=e6588]:
+                    - img [ref=e6589]
+              - generic [ref=e6593]:
+                - generic [ref=e6594]:
+                  - img [ref=e6596]
+                  - generic [ref=e6598]:
+                    - paragraph [ref=e6599]: tide_sample.csv
+                    - paragraph [ref=e6600]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6601]:
+                  - generic [ref=e6603]:
+                    - img [ref=e6604]
+                    - text: "0"
+                  - button "View details" [ref=e6608]:
+                    - img [ref=e6609]
+                  - button "Delete upload and transactions" [ref=e6612]:
+                    - img [ref=e6613]
+              - generic [ref=e6617]:
+                - generic [ref=e6618]:
+                  - img [ref=e6620]
+                  - generic [ref=e6622]:
+                    - paragraph [ref=e6623]: tide_sample.csv
+                    - paragraph [ref=e6624]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6625]:
+                  - generic [ref=e6627]:
+                    - img [ref=e6628]
+                    - text: "0"
+                  - button "View details" [ref=e6632]:
+                    - img [ref=e6633]
+                  - button "Delete upload and transactions" [ref=e6636]:
+                    - img [ref=e6637]
+              - generic [ref=e6641]:
+                - generic [ref=e6642]:
+                  - img [ref=e6644]
+                  - generic [ref=e6646]:
+                    - paragraph [ref=e6647]: tide_sample.csv
+                    - paragraph [ref=e6648]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6649]:
+                  - generic [ref=e6651]:
+                    - img [ref=e6652]
+                    - text: "0"
+                  - button "View details" [ref=e6656]:
+                    - img [ref=e6657]
+                  - button "Delete upload and transactions" [ref=e6660]:
+                    - img [ref=e6661]
+              - generic [ref=e6665]:
+                - generic [ref=e6666]:
+                  - img [ref=e6668]
+                  - generic [ref=e6670]:
+                    - paragraph [ref=e6671]: revolut_business_sample.csv
+                    - paragraph [ref=e6672]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6673]:
+                  - generic [ref=e6675]:
+                    - img [ref=e6676]
+                    - text: "0"
+                  - button "View details" [ref=e6680]:
+                    - img [ref=e6681]
+                  - button "Delete upload and transactions" [ref=e6684]:
+                    - img [ref=e6685]
+              - generic [ref=e6689]:
+                - generic [ref=e6690]:
+                  - img [ref=e6692]
+                  - generic [ref=e6694]:
+                    - paragraph [ref=e6695]: tide_sample.csv
+                    - paragraph [ref=e6696]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6697]:
+                  - generic [ref=e6699]:
+                    - img [ref=e6700]
+                    - text: "0"
+                  - button "View details" [ref=e6704]:
+                    - img [ref=e6705]
+                  - button "Delete upload and transactions" [ref=e6708]:
+                    - img [ref=e6709]
+              - generic [ref=e6713]:
+                - generic [ref=e6714]:
+                  - img [ref=e6716]
+                  - generic [ref=e6718]:
+                    - paragraph [ref=e6719]: revolut_business_sample.csv
+                    - paragraph [ref=e6720]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6721]:
+                  - generic [ref=e6723]:
+                    - img [ref=e6724]
+                    - text: "0"
+                  - button "View details" [ref=e6728]:
+                    - img [ref=e6729]
+                  - button "Delete upload and transactions" [ref=e6732]:
+                    - img [ref=e6733]
+              - generic [ref=e6737]:
+                - generic [ref=e6738]:
+                  - img [ref=e6740]
+                  - generic [ref=e6742]:
+                    - paragraph [ref=e6743]: tide_sample.csv
+                    - paragraph [ref=e6744]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6745]:
+                  - generic [ref=e6747]:
+                    - img [ref=e6748]
+                    - text: "0"
+                  - button "View details" [ref=e6752]:
+                    - img [ref=e6753]
+                  - button "Delete upload and transactions" [ref=e6756]:
+                    - img [ref=e6757]
+              - generic [ref=e6761]:
+                - generic [ref=e6762]:
+                  - img [ref=e6764]
+                  - generic [ref=e6766]:
+                    - paragraph [ref=e6767]: tide_sample.csv
+                    - paragraph [ref=e6768]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6769]:
+                  - generic [ref=e6771]:
+                    - img [ref=e6772]
+                    - text: "0"
+                  - button "View details" [ref=e6776]:
+                    - img [ref=e6777]
+                  - button "Delete upload and transactions" [ref=e6780]:
+                    - img [ref=e6781]
+              - generic [ref=e6785]:
+                - generic [ref=e6786]:
+                  - img [ref=e6788]
+                  - generic [ref=e6790]:
+                    - paragraph [ref=e6791]: tide_sample.csv
+                    - paragraph [ref=e6792]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6793]:
+                  - generic [ref=e6795]:
+                    - img [ref=e6796]
+                    - text: "0"
+                  - button "View details" [ref=e6800]:
+                    - img [ref=e6801]
+                  - button "Delete upload and transactions" [ref=e6804]:
+                    - img [ref=e6805]
+              - generic [ref=e6809]:
+                - generic [ref=e6810]:
+                  - img [ref=e6812]
+                  - generic [ref=e6814]:
+                    - paragraph [ref=e6815]: revolut_business_sample.csv
+                    - paragraph [ref=e6816]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6817]:
+                  - generic [ref=e6819]:
+                    - img [ref=e6820]
+                    - text: "0"
+                  - button "View details" [ref=e6824]:
+                    - img [ref=e6825]
+                  - button "Delete upload and transactions" [ref=e6828]:
+                    - img [ref=e6829]
+              - generic [ref=e6833]:
+                - generic [ref=e6834]:
+                  - img [ref=e6836]
+                  - generic [ref=e6838]:
+                    - paragraph [ref=e6839]: revolut_business_sample.csv
+                    - paragraph [ref=e6840]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6841]:
+                  - generic [ref=e6843]:
+                    - img [ref=e6844]
+                    - text: "0"
+                  - button "View details" [ref=e6848]:
+                    - img [ref=e6849]
+                  - button "Delete upload and transactions" [ref=e6852]:
+                    - img [ref=e6853]
+              - generic [ref=e6857]:
+                - generic [ref=e6858]:
+                  - img [ref=e6860]
+                  - generic [ref=e6862]:
+                    - paragraph [ref=e6863]: tide_sample.csv
+                    - paragraph [ref=e6864]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6865]:
+                  - generic [ref=e6867]:
+                    - img [ref=e6868]
+                    - text: "0"
+                  - button "View details" [ref=e6872]:
+                    - img [ref=e6873]
+                  - button "Delete upload and transactions" [ref=e6876]:
+                    - img [ref=e6877]
+              - generic [ref=e6881]:
+                - generic [ref=e6882]:
+                  - img [ref=e6884]
+                  - generic [ref=e6886]:
+                    - paragraph [ref=e6887]: revolut_business_sample.csv
+                    - paragraph [ref=e6888]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e6889]:
+                  - generic [ref=e6891]:
+                    - img [ref=e6892]
+                    - text: "0"
+                  - button "View details" [ref=e6896]:
+                    - img [ref=e6897]
+                  - button "Delete upload and transactions" [ref=e6900]:
+                    - img [ref=e6901]
+              - generic [ref=e6905]:
+                - generic [ref=e6906]:
+                  - img [ref=e6908]
+                  - generic [ref=e6910]:
+                    - paragraph [ref=e6911]: tide_sample.csv
+                    - paragraph [ref=e6912]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6913]:
+                  - generic [ref=e6915]:
+                    - img [ref=e6916]
+                    - text: "0"
+                  - button "View details" [ref=e6920]:
+                    - img [ref=e6921]
+                  - button "Delete upload and transactions" [ref=e6924]:
+                    - img [ref=e6925]
+              - generic [ref=e6929]:
+                - generic [ref=e6930]:
+                  - img [ref=e6932]
+                  - generic [ref=e6934]:
+                    - paragraph [ref=e6935]: tide_sample.csv
+                    - paragraph [ref=e6936]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6937]:
+                  - generic [ref=e6939]:
+                    - img [ref=e6940]
+                    - text: "0"
+                  - button "View details" [ref=e6944]:
+                    - img [ref=e6945]
+                  - button "Delete upload and transactions" [ref=e6948]:
+                    - img [ref=e6949]
+              - generic [ref=e6953]:
+                - generic [ref=e6954]:
+                  - img [ref=e6956]
+                  - generic [ref=e6958]:
+                    - paragraph [ref=e6959]: tide_sample.csv
+                    - paragraph [ref=e6960]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6961]:
+                  - generic [ref=e6963]:
+                    - img [ref=e6964]
+                    - text: "0"
+                  - button "View details" [ref=e6968]:
+                    - img [ref=e6969]
+                  - button "Delete upload and transactions" [ref=e6972]:
+                    - img [ref=e6973]
+              - generic [ref=e6977]:
+                - generic [ref=e6978]:
+                  - img [ref=e6980]
+                  - generic [ref=e6982]:
+                    - paragraph [ref=e6983]: tide_sample.csv
+                    - paragraph [ref=e6984]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e6985]:
+                  - generic [ref=e6987]:
+                    - img [ref=e6988]
+                    - text: "0"
+                  - button "View details" [ref=e6992]:
+                    - img [ref=e6993]
+                  - button "Delete upload and transactions" [ref=e6996]:
+                    - img [ref=e6997]
+              - generic [ref=e7001]:
+                - generic [ref=e7002]:
+                  - img [ref=e7004]
+                  - generic [ref=e7006]:
+                    - paragraph [ref=e7007]: tide_sample.csv
+                    - paragraph [ref=e7008]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7009]:
+                  - generic [ref=e7011]:
+                    - img [ref=e7012]
+                    - text: "0"
+                  - button "View details" [ref=e7016]:
+                    - img [ref=e7017]
+                  - button "Delete upload and transactions" [ref=e7020]:
+                    - img [ref=e7021]
+              - generic [ref=e7025]:
+                - generic [ref=e7026]:
+                  - img [ref=e7028]
+                  - generic [ref=e7030]:
+                    - paragraph [ref=e7031]: tide_sample.csv
+                    - paragraph [ref=e7032]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7033]:
+                  - generic [ref=e7035]:
+                    - img [ref=e7036]
+                    - text: "0"
+                  - button "View details" [ref=e7040]:
+                    - img [ref=e7041]
+                  - button "Delete upload and transactions" [ref=e7044]:
+                    - img [ref=e7045]
+              - generic [ref=e7049]:
+                - generic [ref=e7050]:
+                  - img [ref=e7052]
+                  - generic [ref=e7054]:
+                    - paragraph [ref=e7055]: tide_sample.csv
+                    - paragraph [ref=e7056]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7057]:
+                  - generic [ref=e7059]:
+                    - img [ref=e7060]
+                    - text: "0"
+                  - button "View details" [ref=e7064]:
+                    - img [ref=e7065]
+                  - button "Delete upload and transactions" [ref=e7068]:
+                    - img [ref=e7069]
+              - generic [ref=e7073]:
+                - generic [ref=e7074]:
+                  - img [ref=e7076]
+                  - generic [ref=e7078]:
+                    - paragraph [ref=e7079]: revolut_business_sample.csv
+                    - paragraph [ref=e7080]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e7081]:
+                  - generic [ref=e7083]:
+                    - img [ref=e7084]
+                    - text: "0"
+                  - button "View details" [ref=e7088]:
+                    - img [ref=e7089]
+                  - button "Delete upload and transactions" [ref=e7092]:
+                    - img [ref=e7093]
+              - generic [ref=e7097]:
+                - generic [ref=e7098]:
+                  - img [ref=e7100]
+                  - generic [ref=e7102]:
+                    - paragraph [ref=e7103]: tide_sample.csv
+                    - paragraph [ref=e7104]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7105]:
+                  - generic [ref=e7107]:
+                    - img [ref=e7108]
+                    - text: "0"
+                  - button "View details" [ref=e7112]:
+                    - img [ref=e7113]
+                  - button "Delete upload and transactions" [ref=e7116]:
+                    - img [ref=e7117]
+              - generic [ref=e7121]:
+                - generic [ref=e7122]:
+                  - img [ref=e7124]
+                  - generic [ref=e7126]:
+                    - paragraph [ref=e7127]: tide_sample.csv
+                    - paragraph [ref=e7128]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7129]:
+                  - generic [ref=e7131]:
+                    - img [ref=e7132]
+                    - text: "0"
+                  - button "View details" [ref=e7136]:
+                    - img [ref=e7137]
+                  - button "Delete upload and transactions" [ref=e7140]:
+                    - img [ref=e7141]
+              - generic [ref=e7145]:
+                - generic [ref=e7146]:
+                  - img [ref=e7148]
+                  - generic [ref=e7150]:
+                    - paragraph [ref=e7151]: tide_sample.csv
+                    - paragraph [ref=e7152]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7153]:
+                  - generic [ref=e7155]:
+                    - img [ref=e7156]
+                    - text: "0"
+                  - button "View details" [ref=e7160]:
+                    - img [ref=e7161]
+                  - button "Delete upload and transactions" [ref=e7164]:
+                    - img [ref=e7165]
+              - generic [ref=e7169]:
+                - generic [ref=e7170]:
+                  - img [ref=e7172]
+                  - generic [ref=e7174]:
+                    - paragraph [ref=e7175]: tide_sample.csv
+                    - paragraph [ref=e7176]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7177]:
+                  - generic [ref=e7179]:
+                    - img [ref=e7180]
+                    - text: "0"
+                  - button "View details" [ref=e7184]:
+                    - img [ref=e7185]
+                  - button "Delete upload and transactions" [ref=e7188]:
+                    - img [ref=e7189]
+              - generic [ref=e7193]:
+                - generic [ref=e7194]:
+                  - img [ref=e7196]
+                  - generic [ref=e7198]:
+                    - paragraph [ref=e7199]: revolut_business_sample.csv
+                    - paragraph [ref=e7200]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e7201]:
+                  - generic [ref=e7203]:
+                    - img [ref=e7204]
+                    - text: "0"
+                  - button "View details" [ref=e7208]:
+                    - img [ref=e7209]
+                  - button "Delete upload and transactions" [ref=e7212]:
+                    - img [ref=e7213]
+              - generic [ref=e7217]:
+                - generic [ref=e7218]:
+                  - img [ref=e7220]
+                  - generic [ref=e7222]:
+                    - paragraph [ref=e7223]: tide_sample.csv
+                    - paragraph [ref=e7224]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7225]:
+                  - generic [ref=e7227]:
+                    - img [ref=e7228]
+                    - text: "0"
+                  - button "View details" [ref=e7232]:
+                    - img [ref=e7233]
+                  - button "Delete upload and transactions" [ref=e7236]:
+                    - img [ref=e7237]
+              - generic [ref=e7241]:
+                - generic [ref=e7242]:
+                  - img [ref=e7244]
+                  - generic [ref=e7246]:
+                    - paragraph [ref=e7247]: tide_sample.csv
+                    - paragraph [ref=e7248]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7249]:
+                  - generic [ref=e7251]:
+                    - img [ref=e7252]
+                    - text: "0"
+                  - button "View details" [ref=e7256]:
+                    - img [ref=e7257]
+                  - button "Delete upload and transactions" [ref=e7260]:
+                    - img [ref=e7261]
+              - generic [ref=e7265]:
+                - generic [ref=e7266]:
+                  - img [ref=e7268]
+                  - generic [ref=e7270]:
+                    - paragraph [ref=e7271]: tide_sample.csv
+                    - paragraph [ref=e7272]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7273]:
+                  - generic [ref=e7275]:
+                    - img [ref=e7276]
+                    - text: "0"
+                  - button "View details" [ref=e7280]:
+                    - img [ref=e7281]
+                  - button "Delete upload and transactions" [ref=e7284]:
+                    - img [ref=e7285]
+              - generic [ref=e7289]:
+                - generic [ref=e7290]:
+                  - img [ref=e7292]
+                  - generic [ref=e7294]:
+                    - paragraph [ref=e7295]: tide_sample.csv
+                    - paragraph [ref=e7296]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7297]:
+                  - generic [ref=e7299]:
+                    - img [ref=e7300]
+                    - text: "0"
+                  - button "View details" [ref=e7304]:
+                    - img [ref=e7305]
+                  - button "Delete upload and transactions" [ref=e7308]:
+                    - img [ref=e7309]
+              - generic [ref=e7313]:
+                - generic [ref=e7314]:
+                  - img [ref=e7316]
+                  - generic [ref=e7318]:
+                    - paragraph [ref=e7319]: revolut_business_sample.csv
+                    - paragraph [ref=e7320]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e7321]:
+                  - generic [ref=e7323]:
+                    - img [ref=e7324]
+                    - text: "0"
+                  - button "View details" [ref=e7328]:
+                    - img [ref=e7329]
+                  - button "Delete upload and transactions" [ref=e7332]:
+                    - img [ref=e7333]
+              - generic [ref=e7337]:
+                - generic [ref=e7338]:
+                  - img [ref=e7340]
+                  - generic [ref=e7342]:
+                    - paragraph [ref=e7343]: tide_sample.csv
+                    - paragraph [ref=e7344]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7345]:
+                  - generic [ref=e7347]:
+                    - img [ref=e7348]
+                    - text: "0"
+                  - button "View details" [ref=e7352]:
+                    - img [ref=e7353]
+                  - button "Delete upload and transactions" [ref=e7356]:
+                    - img [ref=e7357]
+              - generic [ref=e7361]:
+                - generic [ref=e7362]:
+                  - img [ref=e7364]
+                  - generic [ref=e7366]:
+                    - paragraph [ref=e7367]: tide_sample.csv
+                    - paragraph [ref=e7368]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7369]:
+                  - generic [ref=e7371]:
+                    - img [ref=e7372]
+                    - text: "0"
+                  - button "View details" [ref=e7376]:
+                    - img [ref=e7377]
+                  - button "Delete upload and transactions" [ref=e7380]:
+                    - img [ref=e7381]
+              - generic [ref=e7385]:
+                - generic [ref=e7386]:
+                  - img [ref=e7388]
+                  - generic [ref=e7390]:
+                    - paragraph [ref=e7391]: tide_sample.csv
+                    - paragraph [ref=e7392]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7393]:
+                  - generic [ref=e7395]:
+                    - img [ref=e7396]
+                    - text: "0"
+                  - button "View details" [ref=e7400]:
+                    - img [ref=e7401]
+                  - button "Delete upload and transactions" [ref=e7404]:
+                    - img [ref=e7405]
+              - generic [ref=e7409]:
+                - generic [ref=e7410]:
+                  - img [ref=e7412]
+                  - generic [ref=e7414]:
+                    - paragraph [ref=e7415]: tide_sample.csv
+                    - paragraph [ref=e7416]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7417]:
+                  - generic [ref=e7419]:
+                    - img [ref=e7420]
+                    - text: "0"
+                  - button "View details" [ref=e7424]:
+                    - img [ref=e7425]
+                  - button "Delete upload and transactions" [ref=e7428]:
+                    - img [ref=e7429]
+              - generic [ref=e7433]:
+                - generic [ref=e7434]:
+                  - img [ref=e7436]
+                  - generic [ref=e7438]:
+                    - paragraph [ref=e7439]: revolut_business_sample.csv
+                    - paragraph [ref=e7440]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e7441]:
+                  - generic [ref=e7443]:
+                    - img [ref=e7444]
+                    - text: "0"
+                  - button "View details" [ref=e7448]:
+                    - img [ref=e7449]
+                  - button "Delete upload and transactions" [ref=e7452]:
+                    - img [ref=e7453]
+              - generic [ref=e7457]:
+                - generic [ref=e7458]:
+                  - img [ref=e7460]
+                  - generic [ref=e7462]:
+                    - paragraph [ref=e7463]: tide_sample.csv
+                    - paragraph [ref=e7464]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7465]:
+                  - generic [ref=e7467]:
+                    - img [ref=e7468]
+                    - text: "0"
+                  - button "View details" [ref=e7472]:
+                    - img [ref=e7473]
+                  - button "Delete upload and transactions" [ref=e7476]:
+                    - img [ref=e7477]
+              - generic [ref=e7481]:
+                - generic [ref=e7482]:
+                  - img [ref=e7484]
+                  - generic [ref=e7486]:
+                    - paragraph [ref=e7487]: tide_sample.csv
+                    - paragraph [ref=e7488]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7489]:
+                  - generic [ref=e7491]:
+                    - img [ref=e7492]
+                    - text: "0"
+                  - button "View details" [ref=e7496]:
+                    - img [ref=e7497]
+                  - button "Delete upload and transactions" [ref=e7500]:
+                    - img [ref=e7501]
+              - generic [ref=e7505]:
+                - generic [ref=e7506]:
+                  - img [ref=e7508]
+                  - generic [ref=e7510]:
+                    - paragraph [ref=e7511]: tide_sample.csv
+                    - paragraph [ref=e7512]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7513]:
+                  - generic [ref=e7515]:
+                    - img [ref=e7516]
+                    - text: "0"
+                  - button "View details" [ref=e7520]:
+                    - img [ref=e7521]
+                  - button "Delete upload and transactions" [ref=e7524]:
+                    - img [ref=e7525]
+              - generic [ref=e7529]:
+                - generic [ref=e7530]:
+                  - img [ref=e7532]
+                  - generic [ref=e7534]:
+                    - paragraph [ref=e7535]: tide_sample.csv
+                    - paragraph [ref=e7536]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7537]:
+                  - generic [ref=e7539]:
+                    - img [ref=e7540]
+                    - text: "0"
+                  - button "View details" [ref=e7544]:
+                    - img [ref=e7545]
+                  - button "Delete upload and transactions" [ref=e7548]:
+                    - img [ref=e7549]
+              - generic [ref=e7553]:
+                - generic [ref=e7554]:
+                  - img [ref=e7556]
+                  - generic [ref=e7558]:
+                    - paragraph [ref=e7559]: revolut_business_sample.csv
+                    - paragraph [ref=e7560]: May 28, 2026 · bank statement csv · GBP
+                - generic [ref=e7561]:
+                  - generic [ref=e7563]:
+                    - img [ref=e7564]
+                    - text: "0"
+                  - button "View details" [ref=e7568]:
+                    - img [ref=e7569]
+                  - button "Delete upload and transactions" [ref=e7572]:
+                    - img [ref=e7573]
+              - generic [ref=e7577]:
+                - generic [ref=e7578]:
+                  - img [ref=e7580]
+                  - generic [ref=e7582]:
+                    - paragraph [ref=e7583]: tide_sample.csv
+                    - paragraph [ref=e7584]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7585]:
+                  - generic [ref=e7587]:
+                    - img [ref=e7588]
+                    - text: "0"
+                  - button "View details" [ref=e7592]:
+                    - img [ref=e7593]
+                  - button "Delete upload and transactions" [ref=e7596]:
+                    - img [ref=e7597]
+              - generic [ref=e7601]:
+                - generic [ref=e7602]:
+                  - img [ref=e7604]
+                  - generic [ref=e7606]:
+                    - paragraph [ref=e7607]: tide_sample.csv
+                    - paragraph [ref=e7608]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7609]:
+                  - generic [ref=e7611]:
+                    - img [ref=e7612]
+                    - text: "0"
+                  - button "View details" [ref=e7616]:
+                    - img [ref=e7617]
+                  - button "Delete upload and transactions" [ref=e7620]:
+                    - img [ref=e7621]
+              - generic [ref=e7625]:
+                - generic [ref=e7626]:
+                  - img [ref=e7628]
+                  - generic [ref=e7630]:
+                    - paragraph [ref=e7631]: tide_sample.csv
+                    - paragraph [ref=e7632]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7633]:
+                  - generic [ref=e7635]:
+                    - img [ref=e7636]
+                    - text: "0"
+                  - button "View details" [ref=e7640]:
+                    - img [ref=e7641]
+                  - button "Delete upload and transactions" [ref=e7644]:
+                    - img [ref=e7645]
+              - generic [ref=e7649]:
+                - generic [ref=e7650]:
+                  - img [ref=e7652]
+                  - generic [ref=e7654]:
+                    - paragraph [ref=e7655]: tide_sample.csv
+                    - paragraph [ref=e7656]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7657]:
+                  - generic [ref=e7659]:
+                    - img [ref=e7660]
+                    - text: "0"
+                  - button "View details" [ref=e7664]:
+                    - img [ref=e7665]
+                  - button "Delete upload and transactions" [ref=e7668]:
+                    - img [ref=e7669]
+              - generic [ref=e7673]:
+                - generic [ref=e7674]:
+                  - img [ref=e7676]
+                  - generic [ref=e7678]:
+                    - paragraph [ref=e7679]: tide_sample.csv
+                    - paragraph [ref=e7680]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7681]:
+                  - generic [ref=e7683]:
+                    - img [ref=e7684]
+                    - text: "0"
+                  - button "View details" [ref=e7688]:
+                    - img [ref=e7689]
+                  - button "Delete upload and transactions" [ref=e7692]:
+                    - img [ref=e7693]
+              - generic [ref=e7697]:
+                - generic [ref=e7698]:
+                  - img [ref=e7700]
+                  - generic [ref=e7702]:
+                    - paragraph [ref=e7703]: tide_sample.csv
+                    - paragraph [ref=e7704]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7705]:
+                  - generic [ref=e7707]:
+                    - img [ref=e7708]
+                    - text: "0"
+                  - button "View details" [ref=e7712]:
+                    - img [ref=e7713]
+                  - button "Delete upload and transactions" [ref=e7716]:
+                    - img [ref=e7717]
+              - generic [ref=e7721]:
+                - generic [ref=e7722]:
+                  - img [ref=e7724]
+                  - generic [ref=e7726]:
+                    - paragraph [ref=e7727]: tide_sample.csv
+                    - paragraph [ref=e7728]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7729]:
+                  - generic [ref=e7731]:
+                    - img [ref=e7732]
+                    - text: "0"
+                  - button "View details" [ref=e7736]:
+                    - img [ref=e7737]
+                  - button "Delete upload and transactions" [ref=e7740]:
+                    - img [ref=e7741]
+              - generic [ref=e7745]:
+                - generic [ref=e7746]:
+                  - img [ref=e7748]
+                  - generic [ref=e7750]:
+                    - paragraph [ref=e7751]: tide_sample.csv
+                    - paragraph [ref=e7752]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7753]:
+                  - generic [ref=e7755]:
+                    - img [ref=e7756]
+                    - text: "0"
+                  - button "View details" [ref=e7760]:
+                    - img [ref=e7761]
+                  - button "Delete upload and transactions" [ref=e7764]:
+                    - img [ref=e7765]
+              - generic [ref=e7769]:
+                - generic [ref=e7770]:
+                  - img [ref=e7772]
+                  - generic [ref=e7774]:
+                    - paragraph [ref=e7775]: tide_sample.csv
+                    - paragraph [ref=e7776]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7777]:
+                  - generic [ref=e7779]:
+                    - img [ref=e7780]
+                    - text: "0"
+                  - button "View details" [ref=e7784]:
+                    - img [ref=e7785]
+                  - button "Delete upload and transactions" [ref=e7788]:
+                    - img [ref=e7789]
+              - generic [ref=e7793]:
+                - generic [ref=e7794]:
+                  - img [ref=e7796]
+                  - generic [ref=e7798]:
+                    - paragraph [ref=e7799]: tide_sample.csv
+                    - paragraph [ref=e7800]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7801]:
+                  - generic [ref=e7803]:
+                    - img [ref=e7804]
+                    - text: "0"
+                  - button "View details" [ref=e7808]:
+                    - img [ref=e7809]
+                  - button "Delete upload and transactions" [ref=e7812]:
+                    - img [ref=e7813]
+              - generic [ref=e7817]:
+                - generic [ref=e7818]:
+                  - img [ref=e7820]
+                  - generic [ref=e7822]:
+                    - paragraph [ref=e7823]: tide_sample.csv
+                    - paragraph [ref=e7824]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7825]:
+                  - generic [ref=e7827]:
+                    - img [ref=e7828]
+                    - text: "0"
+                  - button "View details" [ref=e7832]:
+                    - img [ref=e7833]
+                  - button "Delete upload and transactions" [ref=e7836]:
+                    - img [ref=e7837]
+              - generic [ref=e7841]:
+                - generic [ref=e7842]:
+                  - img [ref=e7844]
+                  - generic [ref=e7846]:
+                    - paragraph [ref=e7847]: tide_sample.csv
+                    - paragraph [ref=e7848]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7849]:
+                  - generic [ref=e7851]:
+                    - img [ref=e7852]
+                    - text: "0"
+                  - button "View details" [ref=e7856]:
+                    - img [ref=e7857]
+                  - button "Delete upload and transactions" [ref=e7860]:
+                    - img [ref=e7861]
+              - generic [ref=e7865]:
+                - generic [ref=e7866]:
+                  - img [ref=e7868]
+                  - generic [ref=e7873]:
+                    - paragraph [ref=e7874]: tide_sample.csv
+                    - paragraph [ref=e7875]: May 28, 2026 · bank statement csv
+                - generic [ref=e7876]:
+                  - generic [ref=e7878]:
+                    - img [ref=e7879]
+                    - text: "0"
+                  - button "View details" [ref=e7883]:
+                    - img [ref=e7884]
+                  - button "Delete upload and transactions" [ref=e7887]:
+                    - img [ref=e7888]
+              - generic [ref=e7892]:
+                - generic [ref=e7893]:
+                  - img [ref=e7895]
+                  - generic [ref=e7897]:
+                    - paragraph [ref=e7898]: tide_sample.csv
+                    - paragraph [ref=e7899]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7900]:
+                  - generic [ref=e7902]:
+                    - img [ref=e7903]
+                    - text: "0"
+                  - button "View details" [ref=e7907]:
+                    - img [ref=e7908]
+                  - button "Delete upload and transactions" [ref=e7911]:
+                    - img [ref=e7912]
+              - generic [ref=e7916]:
+                - generic [ref=e7917]:
+                  - img [ref=e7919]
+                  - generic [ref=e7921]:
+                    - paragraph [ref=e7922]: tide_sample.csv
+                    - paragraph [ref=e7923]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7924]:
+                  - generic [ref=e7926]:
+                    - img [ref=e7927]
+                    - text: "0"
+                  - button "View details" [ref=e7931]:
+                    - img [ref=e7932]
+                  - button "Delete upload and transactions" [ref=e7935]:
+                    - img [ref=e7936]
+              - generic [ref=e7940]:
+                - generic [ref=e7941]:
+                  - img [ref=e7943]
+                  - generic [ref=e7945]:
+                    - paragraph [ref=e7946]: tide_sample.csv
+                    - paragraph [ref=e7947]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7948]:
+                  - generic [ref=e7950]:
+                    - img [ref=e7951]
+                    - text: "0"
+                  - button "View details" [ref=e7955]:
+                    - img [ref=e7956]
+                  - button "Delete upload and transactions" [ref=e7959]:
+                    - img [ref=e7960]
+              - generic [ref=e7964]:
+                - generic [ref=e7965]:
+                  - img [ref=e7967]
+                  - generic [ref=e7970]:
+                    - paragraph [ref=e7971]: tide_sample.csv
+                    - paragraph [ref=e7972]: May 28, 2026 · bank statement csv · USD
+                - generic [ref=e7973]:
+                  - generic [ref=e7975]:
+                    - img [ref=e7976]
+                    - text: "3"
+                  - button "View details" [ref=e7980]:
+                    - img [ref=e7981]
+                  - button "Delete upload and transactions" [ref=e7984]:
+                    - img [ref=e7985]
+              - generic [ref=e7989]:
+                - generic [ref=e7990]:
+                  - img [ref=e7992]
+                  - generic [ref=e7994]:
+                    - paragraph [ref=e7995]: generic_money_in_out.csv
+                    - paragraph [ref=e7996]: May 28, 2026 · bank statement csv
+                - generic [ref=e7997]:
+                  - generic [ref=e7999]:
+                    - img [ref=e8000]
+                    - text: "0"
+                  - button "View details" [ref=e8004]:
+                    - img [ref=e8005]
+                  - button "Delete upload and transactions" [ref=e8008]:
+                    - img [ref=e8009]
+              - generic [ref=e8013]:
+                - generic [ref=e8014]:
+                  - img [ref=e8016]
+                  - generic [ref=e8019]:
+                    - paragraph [ref=e8020]: generic_money_in_out.csv
+                    - paragraph [ref=e8021]: May 28, 2026 · bank statement csv
+                - generic [ref=e8022]:
+                  - generic [ref=e8024]:
+                    - img [ref=e8025]
+                    - text: "3"
+                  - button "View details" [ref=e8029]:
+                    - img [ref=e8030]
+                  - button "Delete upload and transactions" [ref=e8033]:
+                    - img [ref=e8034]
+    - generic [ref=e8037]:
+      - generic [ref=e8038]:
+        - img "FounderAgent AI Orb" [ref=e8047]
+        - generic [ref=e8050]:
+          - heading "Ask FounderAgent" [level=3] [ref=e8051]
+          - paragraph [ref=e8052]: Your AI finance copilot is ready.
+        - button [ref=e8053]:
+          - img [ref=e8054]
+      - generic [ref=e8057]:
+        - generic [ref=e8058]:
+          - img "FounderAgent AI Orb" [ref=e8065]
+          - paragraph [ref=e8068]: What would you like to know?
+          - paragraph [ref=e8069]: Ask about runway, expenses, revenue trends, or anomalies. FounderAgent is watching your numbers.
+        - generic [ref=e8070]:
+          - paragraph [ref=e8071]: Recent Agent Tasks
+          - paragraph [ref=e8073]: No active agent tasks. Ask FounderAgent to analyse your finances.
+        - generic [ref=e8074]:
+          - paragraph [ref=e8075]: Quick Actions
+          - generic [ref=e8076]:
+            - button "Analyse runway" [ref=e8077]:
+              - img [ref=e8078]
+              - text: Analyse runway
+            - button "Find duplicates" [ref=e8080]:
+              - img [ref=e8081]
+              - text: Find duplicates
+            - button "Review alerts" [ref=e8083]:
+              - img [ref=e8084]
+              - text: Review alerts
+      - generic [ref=e8086]:
+        - generic [ref=e8087]:
+          - button "Where am I overspending?" [ref=e8088]:
+            - img [ref=e8089]
+            - text: Where am I overspending?
+          - button "What subscriptions should I cut?" [ref=e8092]:
+            - img [ref=e8093]
+            - text: What subscriptions should I cut?
+          - button "What is my runway?" [ref=e8096]:
+            - img [ref=e8097]
+            - text: What is my runway?
+          - button "Why did profit drop?" [ref=e8100]:
+            - img [ref=e8101]
+            - text: Why did profit drop?
+          - button "Show unusual transactions" [ref=e8104]:
+            - img [ref=e8105]
+            - text: Show unusual transactions
+          - button "What expenses increased this month?" [ref=e8108]:
+            - img [ref=e8109]
+            - text: What expenses increased this month?
+          - button "Which costs can I reduce safely?" [ref=e8112]:
+            - img [ref=e8113]
+            - text: Which costs can I reduce safely?
+        - generic [ref=e8116]:
+          - textbox "Ask anything about your finances..." [ref=e8117]
+          - button [disabled] [ref=e8118]:
+            - img [ref=e8119]
+  - alert [ref=e8122]
+```
+
+# Test source
+
+```ts
+  1   | import { test, expect, Page } from "@playwright/test";
+  2   | import { existsSync } from "fs";
+  3   | import { resolve } from "path";
+  4   | 
+  5   | const filePath = resolve(process.cwd(), "test_data/csv/revolut_694.csv");
+  6   | const url = process.env.BASE_URL || "http://localhost:3000";
+  7   | 
+  8   | test.use({ storageState: "playwright/.auth/user.json" });
+  9   | 
+  10  | test.describe.configure({ timeout: 300000 });
+  11  | 
+  12  | test.describe("694-row Revolut import", () => {
+  13  |   test.skip(!existsSync(filePath), "revolut_694.csv not found");
+  14  | 
+  15  |   async function uploadAndReachPreview(page: Page) {
+  16  |     await page.goto(`${url}/upload-centre`);
+  17  | 
+  18  |     const input = page.locator('input[type="file"]').first();
+  19  |     await input.waitFor({ state: "attached", timeout: 20000 });
+  20  |     await input.setInputFiles(filePath);
+  21  | 
+  22  |     // For 694 rows, processing may take up to 90 seconds
+  23  |     // Wait for actual content (mapping or preview step), not just step indicator
+> 24  |     await page.waitForSelector('text=/Column Mapping|Rows Detected|Preview Import/', { timeout: 90000 });
+      |                ^ TimeoutError: page.waitForSelector: Timeout 90000ms exceeded.
+  25  | 
+  26  |     // If on mapping step, scroll to and click Preview Import
+  27  |     const previewBtn = page.locator('button:has-text("Preview Import")');
+  28  |     const count = await previewBtn.count();
+  29  |     if (count > 0) {
+  30  |       await previewBtn.scrollIntoViewIfNeeded();
+  31  |       await previewBtn.click({ force: true });
+  32  |       await page.waitForTimeout(500);
+  33  |     }
+  34  | 
+  35  |     // Wait for preview table to appear (may take time for 694 rows)
+  36  |     await page.waitForSelector('table tbody tr', { timeout: 60000 });
+  37  |   }
+  38  | 
+  39  |   test("uploads 694 rows and imports successfully without session expired", async ({ page }) => {
+  40  |     // Capture console logs
+  41  |     const consoleLogs: string[] = [];
+  42  |     page.on("console", (msg) => {
+  43  |       consoleLogs.push(`[${msg.type()}] ${msg.text()}`);
+  44  |     });
+  45  | 
+  46  |     await uploadAndReachPreview(page);
+  47  | 
+  48  |     // Verify preview loaded with many rows
+  49  |     const rows = page.locator('table tbody tr');
+  50  |     const rowCount = await rows.count();
+  51  |     expect(rowCount).toBeGreaterThan(50);
+  52  | 
+  53  |     // Verify no "Session expired" error on preview
+  54  |     await expect(page.locator('text=Session expired')).not.toBeVisible();
+  55  | 
+  56  |     // Verify smart suggestions appear
+  57  |     const pageText = await page.locator('body').textContent() || "";
+  58  |     expect(pageText).toContain("suggestion");
+  59  | 
+  60  |     // Click Confirm and Import
+  61  |     const confirmBtn = page.locator('button:has-text("Confirm")').first();
+  62  |     await expect(confirmBtn).toBeEnabled();
+  63  |     await confirmBtn.click();
+  64  | 
+  65  |     // Wait for processing to complete (up to 3 minutes for 694 rows)
+  66  |     await page.waitForTimeout(30000);
+  67  | 
+  68  |     // CRITICAL: Verify no "Session expired" error during import
+  69  |     const bodyText = await page.locator('body').textContent() || "";
+  70  |     expect(bodyText).not.toContain("Session expired");
+  71  | 
+  72  |     // Check if we're on summary step (success) or back on preview with error
+  73  |     const isSummary = /Import Complete|Successfully imported|Rows Imported|Upload Another/i.test(bodyText);
+  74  |     const isProcessing = await page.locator('text=/Importing|Processing/i').isVisible().catch(() => false);
+  75  | 
+  76  |     if (!isSummary && !isProcessing) {
+  77  |       // If not summary and not processing, check for error
+  78  |       const errorTitle = await page.locator('text=/Import failed|Could not import|Error/i').count();
+  79  |       if (errorTitle > 0) {
+  80  |         // Try to get specific error message
+  81  |         const errorMsg = await page.locator('[class*="error"], [class*="toast"], [role="alert"]').textContent().catch(() => "Unknown error");
+  82  |         console.log("Console logs:", consoleLogs.slice(-20).join("\n"));
+  83  |         throw new Error(`Import failed with message: ${errorMsg}. Console: ${consoleLogs.slice(-10).join("; ")}`);
+  84  |       }
+  85  |     }
+  86  | 
+  87  |     // If still processing, poll for completion
+  88  |     const maxWait = 180; // seconds
+  89  |     for (let i = 0; i < maxWait; i++) {
+  90  |       const text = await page.locator('body').textContent() || "";
+  91  |       if (/Import Complete|Successfully imported|Rows Imported|Upload Another/i.test(text)) {
+  92  |         break;
+  93  |       }
+  94  |       if (text.includes("Session expired")) {
+  95  |         console.log("Console logs at failure:", consoleLogs.slice(-20).join("\n"));
+  96  |         throw new Error("Session expired appeared during import");
+  97  |       }
+  98  |       if (await page.locator('text=/Import failed|Could not import/i').count() > 0) {
+  99  |         const errorMsg = await page.locator('[class*="error"], [class*="toast"], [role="alert"]').textContent().catch(() => "Unknown error");
+  100 |         console.log("Console logs at failure:", consoleLogs.slice(-20).join("\n"));
+  101 |         throw new Error(`Import failed during polling: ${errorMsg}`);
+  102 |       }
+  103 |       await page.waitForTimeout(1000);
+  104 |     }
+  105 |   });
+  106 | 
+  107 |   test("categorises specific merchants correctly in preview", async ({ page }) => {
+  108 |     await uploadAndReachPreview(page);
+  109 | 
+  110 |     const pageText = await page.locator('body').textContent() || "";
+  111 | 
+  112 |     // Verify specific merchants appear in preview (not left as Unknown)
+  113 |     expect(pageText).toContain("Eventsconnecter");
+  114 |     expect(pageText).toContain("Marketing Commission");
+  115 |     expect(pageText).toContain("Highlevel");
+  116 |     expect(pageText).toContain("Apple.com");
+  117 |     expect(pageText).toContain("Stripe");
+  118 | 
+  119 |     // Verify no "Session expired" on preview
+  120 |     expect(pageText).not.toContain("Session expired");
+  121 |   });
+  122 | });
+  123 | 
+```

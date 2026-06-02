@@ -5,9 +5,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { Badge } from "@/components/ui/Badge";
 import { AgentOrb } from "@/components/AgentOrb";
+import { useAssistant } from "@/components/layout/AssistantContext";
 import type { AgentTask } from "@/lib/types";
 import {
-  Bot, Clock, CheckCircle2, AlertCircle, Loader2, XCircle,
+  Bot, Clock, CheckCircle2, Loader2,
   Sparkles, Zap, TrendingDown, TrendingUp, ShieldAlert,
   FileText, Search, RefreshCw, ChevronRight
 } from "lucide-react";
@@ -71,6 +72,7 @@ interface AgentTasksContentProps {
 
 export default function AgentTasksContent({ tasks, stats }: AgentTasksContentProps) {
   const [filter, setFilter] = useState<string>("all");
+  const { setOpen } = useAssistant();
 
   const filteredTasks = filter === "all"
     ? tasks
@@ -91,7 +93,10 @@ export default function AgentTasksContent({ tasks, stats }: AgentTasksContentPro
         title="Agent Tasks"
         subtitle="FounderAgent autonomously monitors, detects, and acts on your financial data."
         action={
-          <button className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--highlight)] to-[#7c3aed] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[var(--highlight)]/20 hover:shadow-[var(--highlight)]/30 transition-all">
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--highlight)] to-[#7c3aed] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[var(--highlight)]/20 hover:shadow-[var(--highlight)]/30 transition-all"
+          >
             <Sparkles className="h-4 w-4" />
             New Task
           </button>

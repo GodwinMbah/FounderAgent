@@ -72,9 +72,7 @@ export async function getActiveCompanyForUser(): Promise<CompanyContext | null> 
     return null;
   }
 
-  if (!membership) {
-    return null;
-  }
+  if (!membership) return null;
 
   return {
     userId: user.id,

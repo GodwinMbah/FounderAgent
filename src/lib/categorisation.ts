@@ -208,7 +208,7 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
   // Office & Equipment
   {
     keywords: ["office depot", "staples"],
-    category: "Office",
+    category: "Office Costs",
     confidence: 90,
   },
 
@@ -239,18 +239,25 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
   { keywords: ["zoom"], category: "Software", confidence: 95 },
   { keywords: ["cloudflare"], category: "Cloud Infrastructure", confidence: 90 },
   { keywords: ["instagram"], category: "Advertising", confidence: 90 },
-  { keywords: ["amazon"], category: "Office", confidence: 60, action: "review" },
+  { keywords: ["amazon"], category: "Office Costs", confidence: 60, action: "review" },
   { keywords: ["airbnb"], category: "Travel", confidence: 60, action: "review" },
-  { keywords: ["capital on tap"], category: "Bank Fees", confidence: 85 },
+  { keywords: ["capital on tap"], category: "Credit Card Payment", confidence: 85 },
+  { keywords: ["capital one"], category: "Credit Card Payment", confidence: 85 },
+  { keywords: ["amex", "american express"], category: "Credit Card Payment", confidence: 85 },
+  { keywords: ["barclaycard"], category: "Credit Card Payment", confidence: 85 },
+  { keywords: ["lloyds card"], category: "Credit Card Payment", confidence: 85 },
+  { keywords: ["tide credit"], category: "Credit Card Payment", confidence: 85 },
+  { keywords: ["credit card fee", "card fee", "annual fee"], category: "Credit Card Fees", confidence: 85 },
+  { keywords: ["interest charge", "card interest"], category: "Interest Charges", confidence: 85 },
   { keywords: ["klarna"], category: "Payment Processor Fees", confidence: 70, action: "review" },
 ];
 
 function suggestCategoryFromMcc(mcc: string): { category: TransactionCategoryType; confidence: number } | null {
   const map: Record<string, TransactionCategoryType> = {
-    "5411": "Office", "5812": "Travel", "5813": "Travel", "5814": "Travel",
+    "5411": "Office Costs", "5812": "Travel", "5813": "Travel", "5814": "Travel",
     "7011": "Travel", "4111": "Travel", "4121": "Travel",
     "7372": "Software", "7375": "Software", "7392": "Professional Services",
-    "5942": "Office", "5999": "One Time Purchases", "7299": "One Time Purchases",
+    "5942": "Office Costs", "5999": "Office Costs", "7299": "Office Costs",
   };
   const cat = map[mcc];
   return cat ? { category: cat, confidence: 65 } : null;
@@ -343,10 +350,10 @@ export function suggestTransactionCategory(
     };
   }
 
-  // Step 5: Flag as unknown - needs review
+  // Step 5: Flag as uncategorised - needs review
   return {
     transactionId: transaction.id,
-    suggestedCategory: "Unknown",
+    suggestedCategory: "Uncategorised Review",
     confidenceScore: 0,
     reason: "No matching patterns found",
     status: "Needs Review",
@@ -502,7 +509,7 @@ export function detectUnusualTransaction(
     return { isUnusual: false, reason: "No historical data", severity: "low" };
   }
 
-  const { averageAmount, maxAmount, categoryAverages } = historicalAverages;
+  const { averageAmount, maxAmount } = historicalAverages;
 
   // Check if amount is significantly higher than historical average
   if (transaction.amount > averageAmount * 2) {

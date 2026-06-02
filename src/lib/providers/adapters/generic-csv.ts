@@ -1,0 +1,43 @@
+import type { ProviderAdapter } from "../adapter-types";
+
+export const genericCsvAdapter: ProviderAdapter = {
+  id: "manual_csv",
+  displayName: "Generic CSV",
+  type: "generic",
+  detection: {
+    requiredHeaders: [],
+    optionalHeaders: ["Date", "Description", "Amount", "Merchant", "Balance", "Reference"],
+    minRequiredMatches: 0,
+    minScore: 5,
+  },
+  headerAliases: [
+    // Very broad aliases to catch almost anything
+    { field: "transactionDate", aliases: ["Date", "Transaction Date", "Posted Date", "Posting Date", "Value Date", "Booking Date", "Completed Date", "Date Completed", "TransactionDate", "Trans Date"], required: true },
+    { field: "postedDate", aliases: ["Posted Date", "Posting Date", "Value Date", "Booking Date", "Settlement Date"] },
+    { field: "description", aliases: ["Description", "Details", "Narrative", "Memo", "Transaction Details", "Payment Details", "Trans Desc", "Detail", "Notes"], required: true },
+    { field: "amount", aliases: ["Amount", "Value", "Transaction Amount", "Total", "Sum", "TransactionAmount", "Trans Amount", "Gross"], required: true },
+    { field: "debitAmount", aliases: ["Debit", "Money Out", "Paid Out", "Withdrawal", "Outflow", "MoneyOut", "PaidOut", "Dr", "Debit Amount"] },
+    { field: "creditAmount", aliases: ["Credit", "Money In", "Paid In", "Deposit", "Inflow", "MoneyIn", "PaidIn", "Cr", "Credit Amount"] },
+    { field: "merchantName", aliases: ["Merchant", "Payee", "Name", "Counter Party", "Counterparty", "Vendor", "Supplier", "Recipient", "To", "From", "Party"] },
+    { field: "reference", aliases: ["Reference", "Ref", "Transaction Reference", "Payment Reference", "Ref No", "Reference Number", "Txn Ref"] },
+    { field: "transactionType", aliases: ["Type", "Transaction Type", "Txn Type", "Trans Type", "Direction", "TransactionType"] },
+    { field: "status", aliases: ["Status", "State", "Transaction Status"] },
+    { field: "currency", aliases: ["Currency", "Currency Code", "CCY", "Curr", "CurrencyCode", "Txn Currency"] },
+    { field: "originalCurrency", aliases: ["Original Currency", "Orig Currency", "Foreign Currency", "FX Currency"] },
+    { field: "originalAmount", aliases: ["Original Amount", "Orig Amount", "Foreign Amount", "FX Amount"] },
+    { field: "feeAmount", aliases: ["Fee", "Fees", "Transaction Fee", "Charges", "Service Charge", "Processing Fee"] },
+    { field: "feeCurrency", aliases: ["Fee Currency"] },
+    { field: "runningBalance", aliases: ["Balance", "Running Balance", "Account Balance", "Closing Balance", "Available Balance", "Current Balance", "Bal"] },
+    { field: "accountName", aliases: ["Account", "Account Name", "AccountName", "Bank Account"] },
+    { field: "accountNumber", aliases: ["Account Number", "AccountNumber", "Account No", "Acct No", "Sort Code", "Account ID"] },
+    { field: "category", aliases: ["Category", "Trans Category", "Transaction Category", "Spend Category", "Spending Category"] },
+    { field: "merchantCategoryCode", aliases: ["MCC", "Merchant Category Code", "Category Code"] },
+    { field: "counterpartyName", aliases: ["Counterparty", "Counter Party", "Recipient", "Sender", "Payee", "Payer"] },
+    { field: "externalTransactionId", aliases: ["ID", "Transaction ID", "Txn ID", "Reference ID", "Payment ID", "Trans ID"] },
+    { field: "exchangeRate", aliases: ["Exchange Rate", "FX Rate", "Rate", "Conversion Rate"] },
+  ],
+  signConvention: "unknown",
+  feeHandling: "included_in_amount",
+  hasSplitAmountColumns: false,
+  detectionWeight: 0.3,
+};

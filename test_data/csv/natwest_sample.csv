@@ -1,0 +1,4 @@
+Date,Type,Description,Value,Balance,Account Name,Account Number
+02/01/2024,BAC,ACME Corp Invoice 001,1500.00,3500.00,Business Current,12345678
+05/01/2024,DEB,Shell Petrol Station,-45.67,3454.33,Business Current,12345678
+09/01/2024,SO,Office Rent,-850.00,2604.33,Business Current,12345678

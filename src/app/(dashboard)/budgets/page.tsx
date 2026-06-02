@@ -1,16 +1,21 @@
-import { getBudgets, getBudgetStats, getTransactions, requireAuthCompany } from "@/lib/db";
+import { getBudgets, getBudgetStats, getTransactions, requireAuthCompany, getCompanyById } from "@/lib/db";
+import { getGlobalDateRange } from "@/lib/date-range-server";
+import { formatCurrency } from "@/lib/utils/formatters";
 import BudgetsClient from "./BudgetsClient";
 
-export default async function BudgetsPage() {
+interface Props {
+  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+}
+
+export default async function BudgetsPage({ searchParams }: Props) {
   const { companyId } = await requireAuthCompany();
+  const company = await getCompanyById(companyId);
 
-  // Budgets: current month transactions for accurate comparison
-  const now = new Date();
-  const fromDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
 
-  const transactions = await getTransactions(companyId, { startDate: fromDate, endDate: toDate });
-  const [budgets, stats] = await Promise.all([
+  const transactions = await getTransactions(companyId, { startDate: from, endDate: to });
+  const [, stats] = await Promise.all([
     getBudgets(companyId),
     getBudgetStats(companyId, transactions),
   ]);
@@ -28,7 +33,7 @@ export default async function BudgetsPage() {
     if (c.percentUsed > 100) {
       alerts.push({
         category: c.category,
-        message: `${c.category} is over budget by ${(c.spent - c.amount).toLocaleString("en-US", { style: "currency", currency: "USD" })}`,
+        message: `${c.category} is over budget by ${formatCurrency(c.spent - c.amount, 0, company?.currency || "USD")}`,
         severity: "warning" as const,
       });
     } else if (c.percentUsed > 80) {
@@ -48,6 +53,9 @@ export default async function BudgetsPage() {
       percentUsed={stats.percentUsed}
       categories={categories}
       alerts={alerts}
+      initialPreset={preset}
+      initialFrom={from}
+      initialTo={to}
     />
   );
 }

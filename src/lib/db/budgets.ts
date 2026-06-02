@@ -2,6 +2,7 @@
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
+import { isExpense } from "@/lib/reporting/filters";
 import type { Budget } from "@/lib/types";
 
 function mapRow(row: Record<string, unknown>): Budget {
@@ -58,7 +59,7 @@ export async function getBudgetStats(
   let overBudgetCount = 0;
   const categories = budgets.map((b) => {
     const spent = transactions
-      .filter((t) => t.type === "expense" && t.category === b.category)
+      .filter((t) => isExpense(t) && t.category === b.category)
       .reduce((s, t) => s + t.amount, 0);
     const percentUsed = b.amount > 0 ? (spent / b.amount) * 100 : 0;
     totalBudget += b.amount;

@@ -1,25 +1,4 @@
-export const CATEGORY_COLORS: Record<string, string> = {
-  Revenue: "var(--success)",
-  Advertising: "var(--danger)",
-  Software: "var(--sky-blue)",
-  Subscriptions: "var(--soft-lilac)",
-  Payroll: "var(--warning)",
-  Contractors: "var(--neon-cyan)",
-  Refunds: "var(--danger)",
-  Tax: "var(--highlight)",
-  "Bank Fees": "var(--muted-foreground)",
-  "Payment Processor Fees": "var(--danger)",
-  Office: "var(--sky-blue)",
-  Travel: "var(--accent)",
-  Training: "var(--soft-lilac)",
-  "Professional Services": "var(--neon-cyan)",
-  "Owner Drawings": "var(--warning)",
-  "Cloud Infrastructure": "var(--sky-blue)",
-  "Marketing Tools": "var(--danger)",
-  "AI Tools": "var(--highlight)",
-  "One Time Purchases": "var(--accent)",
-  Unknown: "var(--muted-foreground)",
-};
+export { CATEGORY_COLORS } from "@/lib/categories";
 
 export const STATUS_VARIANTS: Record<string, "success" | "warning" | "danger" | "info" | "accent"> = {
   Categorised: "success",

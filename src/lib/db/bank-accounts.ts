@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveCompanyForUser } from "./company";
 
 export interface BankAccount {
   id: string;
@@ -30,21 +31,6 @@ function mapRow(row: Record<string, unknown>): BankAccount {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
-}
-
-export async function getBankAccounts(companyId: string): Promise<BankAccount[]> {
-  const admin = createAdminClient();
-  if (!admin) throw new Error("Admin client not available");
-
-  const { data, error } = await admin
-    .from("bank_accounts")
-    .select("*")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
-
-  if (error) throw error;
-  return (data ?? []).map(mapRow);
 }
 
 export async function getOrCreateBankAccount(
@@ -114,6 +100,10 @@ export async function updateBankAccountBalance(
 }
 
 export async function getTotalCashBalance(companyId: string): Promise<number> {
+  const ctx = await getActiveCompanyForUser();
+  if (!ctx) throw new Error("Unauthorized");
+  if (companyId !== ctx.companyId) throw new Error("Forbidden: company mismatch");
+
   const admin = createAdminClient();
   if (!admin) return 0;
 

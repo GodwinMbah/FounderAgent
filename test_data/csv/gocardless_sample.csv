@@ -1,0 +1,4 @@
+Charge Date,Amount,Currency,Status,Reference,Customer Name,Mandate ID,Transaction ID,Payout Date,Fee
+2024-01-03,150.00,GBP,confirmed,INV-2024-001,Acme Corp,MD001,PMT001,2024-01-05,1.50
+2024-01-08,299.99,GBP,confirmed,INV-2024-002,Widgets Ltd,MD002,PMT002,2024-01-10,2.00
+2024-01-12,75.00,GBP,confirmed,INV-2024-003,TechStart Inc,MD003,PMT003,2024-01-15,0.75

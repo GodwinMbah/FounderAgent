@@ -1,0 +1,4 @@
+id,Description,Amount,Fee,Net,Currency,Created (UTC),Available On (UTC),Status
+po_001,Sales Payout 1,2450.00,24.50,2425.50,GBP,2024-01-02 00:00:00,2024-01-04 00:00:00,paid
+po_002,Sales Payout 2,1890.00,18.90,1871.10,GBP,2024-01-05 00:00:00,2024-01-07 00:00:00,paid
+po_003,Sales Payout 3,3200.00,32.00,3168.00,GBP,2024-01-09 00:00:00,2024-01-11 00:00:00,paid

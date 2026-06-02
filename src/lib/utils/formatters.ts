@@ -1,11 +1,29 @@
-export function formatCurrency(value: number, fractionDigits = 0): string {
+import { type CurrencyCode, getCurrencySymbol } from "@/lib/hooks/useCompanyCurrency";
+
+export function formatCurrency(
+  value: number,
+  fractionDigits = 0,
+  currency: CurrencyCode = "USD"
+): string {
   if (!Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(value);
+}
+
+export function formatCurrencyCompact(value: number, currency: CurrencyCode = "USD"): string {
+  if (!Number.isFinite(value)) return "—";
+  const symbol = getCurrencySymbol(currency);
+  if (Math.abs(value) >= 1_000_000) {
+    return `${symbol}${(value / 1_000_000).toFixed(1)}m`;
+  }
+  if (Math.abs(value) >= 1_000) {
+    return `${symbol}${(value / 1_000).toFixed(0)}k`;
+  }
+  return `${symbol}${value.toFixed(0)}`;
 }
 
 export function formatPercent(value: number, fractionDigits = 1): string {

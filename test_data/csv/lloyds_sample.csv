@@ -1,0 +1,4 @@
+Transaction Date,Transaction Type,Sort Code,Account Number,Transaction Description,Debit Amount,Credit Amount,Balance
+02/01/2024,BAC,30-00-00,87654321,Salary Payment,,2500.00,5500.00
+04/01/2024,DEB,30-00-00,87654321,Tesco Store 0042,52.30,,5447.70
+07/01/2024,TFR,30-00-00,87654321,Transfer to Savings,300.00,,5147.70

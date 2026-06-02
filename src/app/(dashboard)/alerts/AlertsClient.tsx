@@ -28,7 +28,6 @@ import {
   Bell,
   Mail,
   MessageSquare,
-  Activity,
 } from "lucide-react";
 
 const SEVERITY_COLORS = {
@@ -41,7 +40,7 @@ interface AlertItem {
   id: string;
   title: string;
   description: string;
-  severity: "critical" | "warning" | "info";
+  severity: "critical" | "warning" | "info" | "resolved";
   category: string;
   date: string;
   status: "open" | "resolved";
@@ -150,7 +149,7 @@ export default function AlertsClient({
         <MetricCard
           label="Resolved"
           value={String(resolvedCount)}
-          change="Closed this month"
+          change="Total resolved"
           changeType="positive"
           icon={<CheckCircle2 className="h-5 w-5" />}
           iconColor="#22C55E"
@@ -243,7 +242,57 @@ export default function AlertsClient({
 
       {/* Alert Feed */}
       <SectionCard title="Alert Feed" subtitle="All alerts from FounderAgent">
-        <DataTable columns={columns} data={alertsData} keyExtractor={(row: AlertItem) => row.id} />
+        {/* Desktop Table */}
+        <div className="hidden sm:block">
+          <DataTable columns={columns} data={alertsData} keyExtractor={(row: AlertItem) => row.id} />
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="sm:hidden space-y-3">
+          {alertsData.map((alert) => (
+            <div key={alert.id} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className="mt-0.5 h-2 w-2 rounded-full shrink-0"
+                  style={{
+                    background:
+                      alert.severity === "critical"
+                        ? SEVERITY_COLORS.critical
+                        : alert.severity === "warning"
+                        ? SEVERITY_COLORS.warning
+                        : SEVERITY_COLORS.info,
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-[var(--foreground)] truncate">{alert.title}</p>
+                    <StatusBadge
+                      variant={
+                        alert.severity === "critical"
+                          ? "danger"
+                          : alert.severity === "warning"
+                          ? "warning"
+                          : "info"
+                      }
+                    >
+                      {alert.severity}
+                    </StatusBadge>
+                  </div>
+                  <p className="text-xs text-[var(--muted-foreground)] mt-0.5 line-clamp-2">{alert.description}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[11px] text-[var(--muted-foreground)] bg-[var(--secondary)] px-1.5 py-0.5 rounded">{alert.category}</span>
+                    <StatusBadge variant={alert.status === "resolved" ? "success" : "neutral"}>
+                      {alert.status}
+                    </StatusBadge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {alertsData.length === 0 && (
+            <p className="text-center text-[var(--muted-foreground)] text-sm py-10">No alerts found</p>
+          )}
+        </div>
       </SectionCard>
 
       {/* Monitoring Card & Settings */}

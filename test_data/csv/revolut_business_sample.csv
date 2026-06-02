@@ -1,0 +1,4 @@
+Date Started (UTC),Date Completed (UTC),ID,Description,Reference,Type,State,Amount,Total Amount,Fee,Balance,Account,MCC,Orig Currency,Orig Amount,Payment Currency,Related Transaction ID
+01/01/2024,01/01/2024,tx-001-abc,Acme Office Supplies,REF001,card_payment,completed,-45.67,-45.67,0.00,1954.33,Business GBP,,GBP,,GBP,
+05/01/2024,05/01/2024,tx-002-def,Transfer to Marketing Budget,REF002,transfer,completed,-500.00,-500.00,0.00,1454.33,Business GBP,,GBP,,GBP,tx-002-def-rel
+10/01/2024,10/01/2024,tx-003-ghi,Top Up from Business Savings,REF003,topup,completed,2000.00,2000.00,0.00,3454.33,Business GBP,,GBP,,GBP,

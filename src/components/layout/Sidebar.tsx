@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home,
   Wallet,
@@ -58,12 +58,14 @@ function NavGroup({
   title,
   items,
   pathname,
+  searchParams,
   onClose,
   accent = "teal",
 }: {
   title: string;
   items: { href: string; label: string; icon: React.ElementType }[];
   pathname: string;
+  searchParams: string;
   onClose?: () => void;
   accent?: "teal" | "violet";
 }) {
@@ -83,7 +85,7 @@ function NavGroup({
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={`${item.href}${searchParams}`}
             onClick={onClose}
             className={`
               group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200
@@ -148,7 +150,7 @@ function SidebarWorkspace() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3 rounded-xl bg-[var(--sidebar-accent)]/50 px-3 py-2.5 border border-[var(--border)] hover:border-[var(--accent)]/20 transition-colors cursor-pointer">
+      <Link href="/settings" className="flex items-center gap-3 rounded-xl bg-[var(--sidebar-accent)]/50 px-3 py-2.5 border border-[var(--border)] hover:border-[var(--accent)]/20 transition-colors cursor-pointer">
         <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[var(--accent)]/15 to-[var(--highlight)]/10 flex items-center justify-center text-[var(--accent)] text-xs font-bold border border-[var(--accent)]/20 shadow-[0_0_8px_rgba(20,184,166,0.08)] shrink-0">
           {initials}
         </div>
@@ -157,7 +159,7 @@ function SidebarWorkspace() {
           <span className="text-[11px] text-[var(--muted-foreground)] truncate">{emailLabel || planLabel}</span>
         </div>
         <ChevronRight className="h-4 w-4 ml-auto text-[var(--muted-foreground)] shrink-0" />
-      </div>
+      </Link>
 
       {user && (
         <form action={signOut}>
@@ -249,6 +251,8 @@ function AskAgentCard({ onClose }: { onClose?: () => void }) {
 
 export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString() ? `?${searchParams.toString()}` : "";
 
   return (
     <aside
@@ -260,8 +264,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       `}
     >
       {/* Logo */}
-      <div className="flex items-center h-[64px] px-5 border-b border-[var(--sidebar-border)]">
-        <BrandLogo className="max-w-[180px]" />
+      <div className="flex items-center h-[64px] px-5">
+        <BrandLogo className="max-w-[170px]" />
         {onClose && (
           <button onClick={onClose} className="ml-auto md:hidden text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
             <X className="h-5 w-5" />
@@ -271,9 +275,9 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
-        <NavGroup title="Main" items={mainNav} pathname={pathname} onClose={onClose} accent="teal" />
-        <NavGroup title="Intelligence" items={intelNav} pathname={pathname} onClose={onClose} accent="violet" />
-        <NavGroup title="System" items={systemNav} pathname={pathname} onClose={onClose} accent="teal" />
+        <NavGroup title="Main" items={mainNav} pathname={pathname} searchParams={queryString} onClose={onClose} accent="teal" />
+        <NavGroup title="Intelligence" items={intelNav} pathname={pathname} searchParams={queryString} onClose={onClose} accent="violet" />
+        <NavGroup title="System" items={systemNav} pathname={pathname} searchParams={queryString} onClose={onClose} accent="teal" />
       </nav>
 
       {/* Ask FounderAgent Card */}

@@ -3,6 +3,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import type { Transaction } from "@/lib/types";
+import { isIncome, isExpense } from "@/lib/reporting/filters";
 
 function mapRow(row: Record<string, unknown>): Transaction {
   return {
@@ -69,8 +70,8 @@ export async function getTransactions(
 
 export async function getTransactionStats(companyId?: string) {
   const txs = await getTransactions(companyId);
-  const total = txs.reduce((s, t) => s + (t.type === "income" ? t.amount : 0), 0);
-  const expenses = txs.reduce((s, t) => s + (t.type === "expense" ? t.amount : 0), 0);
+  const total = txs.reduce((s, t) => s + (isIncome(t) ? t.amount : 0), 0);
+  const expenses = txs.reduce((s, t) => s + (isExpense(t) ? t.amount : 0), 0);
   const categorized = txs.filter((t) => t.status === "categorised").length;
   const needsReview = txs.filter((t) => t.status === "needs_review").length;
   return { total, expenses, count: txs.length, categorized, needsReview };
@@ -120,25 +121,13 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
   };
 }
 
-export async function createTransactions(
-  transactions: TransactionInsert[]
-): Promise<{ count: number; data?: Transaction[]; error?: string }> {
-  if (transactions.length === 0) return { count: 0 };
+const CHUNK_SIZE = 300;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 500;
 
-  const admin = createAdminClient();
-  if (!admin) throw new Error("Admin client not available");
-
-  const rows = transactions.map(toDbRow);
-  const { data, error } = await admin.from("transactions").insert(rows).select("*");
-
-  if (error) {
-    return { count: 0, error: error.message };
-  }
-
-  return { count: data?.length ?? 0, data: (data ?? []).map(mapRow) };
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-const CHUNK_SIZE = 500;
 
 export async function createTransactionsChunked(
   transactions: TransactionInsert[]
@@ -152,13 +141,28 @@ export async function createTransactionsChunked(
 
   for (let i = 0; i < transactions.length; i += CHUNK_SIZE) {
     const chunk = transactions.slice(i, i + CHUNK_SIZE).map(toDbRow);
-    const { error } = await admin.from("transactions").insert(chunk);
+    let lastError: string | undefined;
 
-    if (error) {
-      return { count: totalInserted, error: error.message };
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const { error } = await admin.from("transactions").insert(chunk);
+
+      if (!error) {
+        totalInserted += chunk.length;
+        lastError = undefined;
+        break;
+      }
+
+      lastError = error.message;
+      console.error(`[createTransactionsChunked] Chunk ${i / CHUNK_SIZE + 1} attempt ${attempt} failed: ${error.message}`);
+
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS * attempt);
+      }
     }
 
-    totalInserted += chunk.length;
+    if (lastError) {
+      return { count: totalInserted, error: lastError };
+    }
   }
 
   return { count: totalInserted };

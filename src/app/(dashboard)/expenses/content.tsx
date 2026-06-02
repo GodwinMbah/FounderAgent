@@ -6,34 +6,47 @@ import { MetricCard } from "@/components/ui/MetricCard";
 import { ChartCard } from "@/components/ui/ChartCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { AgentInsightCard } from "@/components/ui/AgentInsightCard";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import type { Transaction, MonthlyMetric } from "@/lib/types";
+import { getDateRange, type DateRangePreset } from "@/lib/date-range";
+import { calculateChangePercent } from "@/lib/reporting/kpis";
+import { isExpense } from "@/lib/reporting/filters";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { TrendingDown, DollarSign, Search, AlertTriangle, Scissors } from "lucide-react";
+import MerchantLogo from "@/components/features/transaction/MerchantLogo";
+import { TrendingDown, DollarSign, Search, AlertTriangle } from "lucide-react";
 
 const COLORS = ["#14B8A6", "#8B5CF6", "#38BDF8", "#FBBF24", "#F43F5E", "#22C55E"];
 
 interface ExpensesContentProps {
   transactions: Transaction[];
   monthlyMetrics: MonthlyMetric[];
+  initialPreset: DateRangePreset;
+  initialFrom: string;
+  initialTo: string;
 }
 
-export default function ExpensesContent({ transactions, monthlyMetrics }: ExpensesContentProps) {
+export default function ExpensesContent({
+  transactions,
+  monthlyMetrics,
+  initialPreset,
+  initialFrom,
+  initialTo,
+}: ExpensesContentProps) {
+  const { currency } = useCompanyCurrency();
   const [search, setSearch] = useState("");
 
-  const expenseTransactions = useMemo(() =>
-    transactions.filter((t) => t.type === "expense"),
-  [transactions]);
+  const expenseTransactions = useMemo(
+    () => transactions.filter((t) => isExpense(t)),
+    [transactions]
+  );
 
-  const totalExpenses = useMemo(() =>
-    expenseTransactions.reduce((s, t) => s + t.amount, 0),
-  [expenseTransactions]);
-
-  const largestExpense = useMemo(() =>
-    expenseTransactions.reduce((max, t) => t.amount > max.amount ? t : max, expenseTransactions[0]),
-  [expenseTransactions]);
+  const totalExpenses = useMemo(
+    () => expenseTransactions.reduce((s, t) => s + t.amount, 0),
+    [expenseTransactions]
+  );
 
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, number>();
@@ -45,29 +58,61 @@ export default function ExpensesContent({ transactions, monthlyMetrics }: Expens
       .sort((a, b) => b.amount - a.amount);
   }, [expenseTransactions, totalExpenses]);
 
-  const filteredTransactions = useMemo(() =>
-    expenseTransactions.filter((t) =>
-      (t.merchant?.toLowerCase() || "").includes(search.toLowerCase()) ||
-      (t.description?.toLowerCase() || "").includes(search.toLowerCase()) ||
-      (t.category?.toLowerCase() || "").includes(search.toLowerCase())
-    ),
-  [expenseTransactions, search]);
+  const filteredTransactions = useMemo(
+    () =>
+      expenseTransactions.filter((t) =>
+        (t.merchant?.toLowerCase() || "").includes(search.toLowerCase()) ||
+        (t.description?.toLowerCase() || "").includes(search.toLowerCase()) ||
+        (t.category?.toLowerCase() || "").includes(search.toLowerCase())
+      ),
+    [expenseTransactions, search]
+  );
 
   const expenseTrend = monthlyMetrics.map((m) => ({
     month: m.month.slice(5),
     total: m.expenses,
   }));
 
+  // Real MoM change
+  const sorted = [...monthlyMetrics].sort((a, b) => a.month.localeCompare(b.month));
+  const currMonth = sorted[sorted.length - 1];
+  const prevMonth = sorted[sorted.length - 2];
+  const expChange = calculateChangePercent(currMonth?.expenses, prevMonth?.expenses, true);
+
   return (
     <div className="space-y-8">
       <PageHeader title="Expenses" subtitle="Track, analyse, and optimise your spending" />
 
+      {/* Date Range Label */}
+      <div className="flex items-center justify-end">
+        <span className="text-xs text-[var(--muted-foreground)] hidden sm:inline">
+          {getDateRange(initialPreset, initialFrom, initialTo).label}
+        </span>
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Total Expenses" value={formatCurrency(totalExpenses)} changeType="negative" icon={<TrendingDown className="h-5 w-5" />} />
-        <MetricCard label="Largest Category" value={categoryBreakdown[0]?.name || "N/A"} change={formatCurrency(categoryBreakdown[0]?.amount || 0)} changeType="neutral" icon={<DollarSign className="h-5 w-5" />} />
+        <MetricCard
+          label="Total Expenses"
+          value={formatCurrency(totalExpenses, 0, currency)}
+          change={expChange.text}
+          changeType={expChange.type}
+          icon={<TrendingDown className="h-5 w-5" />}
+        />
+        <MetricCard
+          label="Largest Category"
+          value={categoryBreakdown[0]?.name || "N/A"}
+          change={formatCurrency(categoryBreakdown[0]?.amount || 0, 0, currency)}
+          changeType="neutral"
+          icon={<DollarSign className="h-5 w-5" />}
+        />
         <MetricCard label="Transactions" value={expenseTransactions.length.toString()} changeType="neutral" icon={<Search className="h-5 w-5" />} />
-        <MetricCard label="Flagged" value={expenseTransactions.filter((t) => t.status === "unusual_spend").length.toString()} changeType="negative" icon={<AlertTriangle className="h-5 w-5" />} />
+        <MetricCard
+          label="Flagged"
+          value={expenseTransactions.filter((t) => t.status === "unusual_spend").length.toString()}
+          changeType="negative"
+          icon={<AlertTriangle className="h-5 w-5" />}
+        />
       </div>
 
       {/* Charts */}
@@ -83,8 +128,8 @@ export default function ExpensesContent({ transactions, monthlyMetrics }: Expens
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-              <YAxis stroke="#64748b" fontSize={12} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ background: "#111827", border: "1px solid rgba(148,163,184,0.16)", borderRadius: "8px", fontSize: "12px", color: "#f1f5f9" }} />
+              <YAxis stroke="#64748b" fontSize={12} tickFormatter={(v) => formatCurrencyCompact(Number(v), currency)} />
+              <Tooltip formatter={(value) => formatCurrency(Number(value), 0, currency)} contentStyle={{ background: "#111827", border: "1px solid rgba(148,163,184,0.16)", borderRadius: "8px", fontSize: "12px", color: "#f1f5f9" }} />
               <Area type="monotone" dataKey="total" stroke="#F43F5E" fill="url(#expenseGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -100,7 +145,7 @@ export default function ExpensesContent({ transactions, monthlyMetrics }: Expens
                     <span className="text-xs font-medium text-[var(--foreground)] truncate">{cat.name}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className="text-xs font-bold text-[var(--foreground)]">{formatCurrency(cat.amount)}</span>
+                    <span className="text-xs font-bold text-[var(--foreground)]">{formatCurrency(cat.amount, 0, currency)}</span>
                     <span className="text-[11px] text-[var(--muted-foreground)] w-8 text-right">{cat.percentage.toFixed(0)}%</span>
                   </div>
                 </div>
@@ -132,16 +177,14 @@ export default function ExpensesContent({ transactions, monthlyMetrics }: Expens
           {filteredTransactions.slice(0, 10).map((t) => (
             <div key={t.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[#0a0a12] px-4 py-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="h-8 w-8 rounded-lg bg-[var(--danger)]/10 flex items-center justify-center text-[var(--danger)] shrink-0">
-                  <TrendingDown className="h-4 w-4" />
-                </div>
+                <MerchantLogo name={t.merchant || ""} size="sm" />
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-[var(--foreground)] truncate">{t.merchant || t.description}</p>
                   <p className="text-[11px] text-[var(--muted-foreground)]">{t.category} · {new Date(t.date).toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs font-bold text-[var(--danger)]">-{formatCurrency(t.amount)}</span>
+                <span className="text-xs font-bold text-[var(--danger)]">-{formatCurrency(t.amount, 0, currency)}</span>
                 <StatusBadge variant={t.status === "categorised" ? "success" : t.status === "ai_suggested" ? "highlight" : "warning"}>{t.status}</StatusBadge>
               </div>
             </div>
@@ -151,9 +194,9 @@ export default function ExpensesContent({ transactions, monthlyMetrics }: Expens
 
       <AgentInsightCard title="Spending Intelligence">
         <div className="space-y-2 text-xs text-[var(--muted-foreground)]">
-          <p>• Payroll is your largest expense at {formatCurrency(categoryBreakdown.find((c) => c.name === "Payroll")?.amount || 0)} ({((categoryBreakdown.find((c) => c.name === "Payroll")?.amount || 0) / totalExpenses * 100).toFixed(0)}% of total)</p>
-          <p>• Cloud Infrastructure grew 12% month-over-month</p>
-          <p>• 3 transactions flagged as unusual spend</p>
+          <p>• Largest expense category is {categoryBreakdown[0]?.name || "N/A"} at {formatCurrency(categoryBreakdown[0]?.amount || 0, 0, currency)}</p>
+          <p>• {expenseTransactions.filter((t) => t.status === "unusual_spend").length} transactions flagged as unusual spend</p>
+          <p>• Total expenses {expChange.text === "—" ? "stable" : expChange.type === "positive" ? "increasing" : "decreasing"} vs prior month</p>
         </div>
       </AgentInsightCard>
     </div>

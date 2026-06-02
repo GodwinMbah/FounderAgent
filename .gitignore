@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# playwright auth state
+/playwright/.auth/
+
 # next.js
 /.next/
 /out/

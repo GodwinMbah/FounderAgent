@@ -1,0 +1,4 @@
+TransferWise ID,Date,Amount,Currency,Description,Payment Reference,Running Balance,Exchange From,Exchange To,Exchange Rate,Total Fees
+TW-001-2024,01/01/2024,1500.00,GBP,Payment from EU Client,INV-EU-001,1500.00,EUR,GBP,0.8550,4.50
+TW-002-2024,03/01/2024,-850.00,GBP,Payment to US Vendor,PO-2024-002,650.00,GBP,USD,1.2700,3.20
+TW-003-2024,08/01/2024,200.00,GBP,Refund from Supplier,RET-005,850.00,,,,1.00

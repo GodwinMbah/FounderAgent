@@ -1,18 +1,32 @@
 import { getTransactions, getTransactionStats, requireAuthCompany } from "@/lib/db";
+import { getGlobalDateRange } from "@/lib/date-range-server";
+import { getUploads } from "@/lib/db/uploads";
 import TransactionsContent from "./content";
 
-export default async function TransactionsPage() {
+interface Props {
+  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+}
+
+export default async function TransactionsPage({ searchParams }: Props) {
   const { companyId } = await requireAuthCompany();
 
-  // Default: last 6 months, limited to 500 rows
-  const toDate = new Date().toISOString().slice(0, 10);
-  const fromDate = new Date();
-  fromDate.setMonth(fromDate.getMonth() - 6);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
 
-  const [transactions, stats] = await Promise.all([
-    getTransactions(companyId, { startDate: fromDate.toISOString().slice(0, 10), endDate: toDate, limit: 500 }),
+  const [transactions, stats, uploads] = await Promise.all([
+    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
     getTransactionStats(companyId),
+    getUploads(companyId),
   ]);
 
-  return <TransactionsContent transactions={transactions} stats={stats} />;
+  return (
+    <TransactionsContent
+      transactions={transactions}
+      stats={stats}
+      uploads={uploads.map((u) => ({ id: u.id, fileName: u.fileName, uploadedAt: u.uploadedAt }))}
+      initialPreset={preset}
+      initialFrom={from}
+      initialTo={to}
+    />
+  );
 }

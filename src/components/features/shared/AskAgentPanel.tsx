@@ -1,7 +1,7 @@
 "use client";
 
 import { AgentAvatar } from "@/components/ui/AgentAvatar";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 const prompts = [
   "Where am I overspending?",

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
 import type { AgentRecommendation } from "@/lib/types";
 
@@ -82,6 +83,47 @@ export async function createAgentRecommendation(data: {
 
   if (error) throw error;
   return mapRow(row as Record<string, unknown>);
+}
+
+export async function createAgentRecommendationsBatch(
+  items: {
+    companyId: string;
+    taskId?: string;
+    title: string;
+    description: string;
+    category?: string;
+    potentialSavings?: number;
+    impactScore?: number;
+    effortScore?: number;
+    status?: string;
+    metadata?: Record<string, unknown>;
+  }[]
+): Promise<{ count: number; error?: string }> {
+  if (items.length === 0) return { count: 0 };
+
+  const admin = createAdminClient();
+  if (!admin) throw new Error("Admin client not available");
+
+  const payloads = items.map((data) => ({
+    company_id: data.companyId,
+    task_id: data.taskId,
+    title: data.title,
+    description: data.description,
+    category: data.category,
+    potential_savings: data.potentialSavings,
+    impact_score: data.impactScore,
+    effort_score: data.effortScore,
+    status: data.status ?? "new",
+    metadata: data.metadata ?? {},
+  }));
+
+  const { error } = await admin.from("agent_recommendations").insert(payloads);
+
+  if (error) {
+    return { count: 0, error: error.message };
+  }
+
+  return { count: payloads.length };
 }
 
 export async function getRecommendationsByCategory(

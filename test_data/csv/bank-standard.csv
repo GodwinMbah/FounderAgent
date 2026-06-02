@@ -1,11 +1,11 @@
-Date,Description,Amount
-2024-01-15,Stripe Payout,2500.00
-2024-01-16,AWS Services,-89.50
-2024-01-17,OpenAI Subscription,-20.00
-2024-01-18,Notion Subscription,-15.00
-2024-01-19,Meta Ads,-350.00
-2024-01-20,Google Workspace,-12.99
-2024-01-21,Customer Payment,450.00
-2024-01-22,Slack Subscription,-8.75
-2024-01-23,Heroku Hosting,-25.00
-2024-01-24,Figma Subscription,-12.00
+Date,Description,Amount,Balance,Reference
+2024-01-15,Stripe Payout,2500.00,2500.00,REF-001
+2024-01-16,AWS Services,-89.50,2410.50,REF-002
+2024-01-17,OpenAI Subscription,-20.00,2390.50,REF-003
+2024-01-18,Notion Subscription,-15.00,2375.50,REF-004
+2024-01-19,Meta Ads,-350.00,2025.50,REF-005
+2024-01-20,Google Workspace,-12.99,2012.51,REF-006
+2024-01-21,Customer Payment,450.00,2462.51,REF-007
+2024-01-22,Slack Subscription,-8.75,2453.76,REF-008
+2024-01-23,Heroku Hosting,-25.00,2428.76,REF-009
+2024-01-24,Figma Subscription,-12.00,2416.76,REF-010

@@ -7,8 +7,13 @@ import { DataTable } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import type { Transaction } from "@/lib/types";
-import { Search, ListFilter, Tag, ArrowUpDown, CreditCard, CheckCircle2, Brain, AlertCircle } from "lucide-react";
+import MerchantLogo from "@/components/features/transaction/MerchantLogo";
+import { getDateRange, type DateRangePreset } from "@/lib/date-range";
+import { updateTransactionCategory } from "@/lib/actions/transactions";
+import { ALL_CATEGORIES } from "@/lib/categories";
+import { Search, ListFilter, Tag, ArrowUpDown, CreditCard, CheckCircle2, Brain, AlertCircle, Check } from "lucide-react";
 
 function formatStatusLabel(status: string) {
   return status
@@ -24,21 +29,37 @@ function getStatusVariant(status: string) {
   return "warning";
 }
 
+interface UploadSummary {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+}
+
 interface TransactionsContentProps {
   transactions: Transaction[];
   stats: { total: number; expenses: number; count: number; categorized: number; needsReview: number };
+  uploads: UploadSummary[];
+  initialPreset: string;
+  initialFrom: string;
+  initialTo: string;
 }
 
-export default function TransactionsContent({ transactions, stats }: TransactionsContentProps) {
+export default function TransactionsContent({ transactions: initialTransactions, stats, uploads, initialPreset, initialFrom, initialTo }: TransactionsContentProps) {
+  const { currency } = useCompanyCurrency();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [uploadFilter, setUploadFilter] = useState("all");
   const [sort, setSort] = useState("newest");
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const total = transactions.length;
-  const categorised = transactions.filter((t) => t.status.toLowerCase() === "categorised" || t.status.toLowerCase() === "categorized").length;
+  // Use DB stats for total count (not limited to 500 rows), but derive filtered counts from visible transactions
+  const total = stats.count ?? transactions.length;
+  const categorised = stats.categorized ?? transactions.filter((t) => t.status.toLowerCase() === "categorised" || t.status.toLowerCase() === "categorized").length;
   const aiSuggested = transactions.filter((t) => t.status.toLowerCase() === "ai_suggested").length;
-  const needsReview = transactions.filter((t) => (t.confidenceScore ?? 0) < 90).length;
+  const needsReview = stats.needsReview ?? transactions.filter((t) => (t.confidenceScore ?? 0) < 90).length;
 
   const categories = useMemo(
     () => Array.from(new Set(transactions.map((t) => t.category).filter(Boolean))),
@@ -66,6 +87,10 @@ export default function TransactionsContent({ transactions, stats }: Transaction
       data = data.filter((t) => t.category === categoryFilter);
     }
 
+    if (uploadFilter !== "all") {
+      data = data.filter((t) => t.uploadId === uploadFilter);
+    }
+
     if (sort === "newest") {
       data.sort((a, b) => +new Date(b.date) - +new Date(a.date));
     } else if (sort === "oldest") {
@@ -77,14 +102,48 @@ export default function TransactionsContent({ transactions, stats }: Transaction
     }
 
     return data;
-  }, [search, typeFilter, categoryFilter, sort, transactions]);
+  }, [search, typeFilter, categoryFilter, uploadFilter, sort, transactions]);
+
+  async function handleCategoryChange(transactionId: string, newCategory: string) {
+    setSavingId(transactionId);
+    setSaveMessage(null);
+    const result = await updateTransactionCategory(transactionId, newCategory);
+    setSavingId(null);
+    if (result.success) {
+      setSaveMessage(result.message);
+      // Optimistically update local data
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === transactionId ? { ...t, category: newCategory } : t))
+      );
+    } else {
+      setSaveMessage(result.message);
+    }
+  }
+
+  const categorySelectClass =
+    "min-h-[44px] w-full max-w-[180px] rounded-lg border bg-[#09090B] py-2 px-3 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none cursor-pointer disabled:opacity-50";
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Transactions"
-        subtitle="Smart transaction intelligence with AI categorisation and anomaly detection."
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <PageHeader
+          title="Transactions"
+          subtitle="Smart transaction intelligence with AI categorisation and anomaly detection."
+        />
+        <div className="shrink-0 flex items-center gap-2">
+          <span className="text-sm text-[var(--muted-foreground)]">
+            {getDateRange(initialPreset as DateRangePreset, initialFrom, initialTo).label}
+          </span>
+          {initialPreset !== "allTime" && (
+            <a
+              href="/transactions?preset=allTime"
+              className="text-xs px-2 py-1 rounded-md border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--accent)]/30 transition-colors"
+            >
+              All Time
+            </a>
+          )}
+        </div>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -94,6 +153,11 @@ export default function TransactionsContent({ transactions, stats }: Transaction
           icon={<CreditCard className="h-5 w-5" />}
           iconColor="#8B5CF6"
         />
+        {transactions.length < total && (
+          <p className="text-xs text-[var(--muted-foreground)] col-span-full">
+            Showing {transactions.length} of {total} total transactions for the selected date range.
+          </p>
+        )}
         <MetricCard
           label="Categorised"
           value={String(categorised)}
@@ -113,6 +177,14 @@ export default function TransactionsContent({ transactions, stats }: Transaction
           iconColor="#FBBF24"
         />
       </div>
+
+      {/* Save message toast */}
+      {saveMessage && (
+        <div className="flex items-center gap-2 rounded-lg border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm text-[#22C55E]">
+          <Check className="h-4 w-4" />
+          {saveMessage}
+        </div>
+      )}
 
       {/* Filters */}
       <SectionCard>
@@ -162,6 +234,23 @@ export default function TransactionsContent({ transactions, stats }: Transaction
             </div>
 
             <div className="relative">
+              <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <select
+                value={uploadFilter}
+                onChange={(e) => setUploadFilter(e.target.value)}
+                className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
+                style={{ borderColor: "rgba(148,163,184,0.16)" }}
+              >
+                <option value="all">All Uploads</option>
+                {uploads.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fileName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
               <ArrowUpDown className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
               <select
                 value={sort}
@@ -181,75 +270,152 @@ export default function TransactionsContent({ transactions, stats }: Transaction
 
       {/* Data Table */}
       <SectionCard title="Transaction List" subtitle={`${filtered.length} transactions`}>
-        <DataTable
-          columns={[
-            {
-              key: "date",
-              header: "Date",
-              width: "110px",
-              render: (row) => formatDate(row.date),
-            },
-            {
-              key: "merchant",
-              header: "Merchant",
-              render: (row) => (
-                <div>
-                  <p className="text-sm font-medium text-[#F1F5F9]">{row.merchant}</p>
-                  <p className="text-xs text-[#94A3B8]">{row.description}</p>
-                </div>
-              ),
-            },
-            { key: "category", header: "Category" },
-            {
-              key: "amount",
-              header: "Amount",
-              align: "right",
-              width: "120px",
-              render: (row) => (
-                <span className={row.type === "income" ? "text-[#22C55E]" : "text-[#F1F5F9]"}>
-                  {row.type === "income" ? "+" : "-"}
-                  {formatCurrency(row.amount)}
-                </span>
-              ),
-            },
-            {
-              key: "status",
-              header: "Status",
-              width: "130px",
-              render: (row) => (
-                <StatusBadge variant={getStatusVariant(row.status)}>
-                  {formatStatusLabel(row.status)}
-                </StatusBadge>
-              ),
-            },
-            {
-              key: "confidenceScore",
-              header: "Confidence",
-              width: "140px",
-              render: (row) => (
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 flex-1 rounded-full bg-[#18181B] overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${row.confidenceScore ?? 0}%`,
-                        background:
-                          (row.confidenceScore ?? 0) >= 95
-                            ? "#22C55E"
-                            : (row.confidenceScore ?? 0) >= 85
-                            ? "#FBBF24"
-                            : "#F43F5E",
-                      }}
-                    />
+        {/* Desktop Table */}
+        <div className="hidden sm:block">
+          <DataTable
+            columns={[
+              {
+                key: "date",
+                header: "Date",
+                width: "110px",
+                render: (row) => formatDate(row.date),
+              },
+              {
+                key: "merchant",
+                header: "Merchant",
+                render: (row) => (
+                  <div className="flex items-center gap-2">
+                    <MerchantLogo name={row.merchant || ""} size="sm" />
+                    <div>
+                      <p className="text-sm font-medium text-[#F1F5F9]">{row.merchant}</p>
+                      <p className="text-xs text-[#94A3B8]">{row.description}</p>
+                    </div>
                   </div>
-                  <span className="text-xs text-[#94A3B8] w-8 text-right">{row.confidenceScore}%</span>
+                ),
+              },
+              {
+                key: "category",
+                header: "Category",
+                render: (row) => (
+                  <select
+                    value={row.category || "Uncategorised"}
+                    onChange={(e) => handleCategoryChange(row.id, e.target.value)}
+                    disabled={savingId === row.id}
+                    className={categorySelectClass}
+                    style={{ borderColor: "rgba(148,163,184,0.16)" }}
+                  >
+                    <option value="Uncategorised">Uncategorised</option>
+                    {ALL_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                ),
+              },
+              {
+                key: "amount",
+                header: "Amount",
+                align: "right",
+                width: "120px",
+                render: (row) => (
+                  <span className={row.type === "income" ? "text-[#22C55E]" : "text-[#F1F5F9]"}>
+                    {row.type === "income" ? "+" : "-"}
+                    {formatCurrency(row.amount, 0, currency)}
+                  </span>
+                ),
+              },
+              {
+                key: "status",
+                header: "Status",
+                width: "130px",
+                render: (row) => (
+                  <StatusBadge variant={getStatusVariant(row.status)}>
+                    {formatStatusLabel(row.status)}
+                  </StatusBadge>
+                ),
+              },
+              {
+                key: "confidenceScore",
+                header: "Confidence",
+                width: "140px",
+                render: (row) => (
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-[#18181B] overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${row.confidenceScore ?? 0}%`,
+                          background:
+                            (row.confidenceScore ?? 0) >= 95
+                              ? "#22C55E"
+                              : (row.confidenceScore ?? 0) >= 85
+                              ? "#FBBF24"
+                              : "#F43F5E",
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-[#94A3B8] w-8 text-right">{row.confidenceScore}%</span>
+                  </div>
+                ),
+              },
+            ]}
+            data={filtered}
+            keyExtractor={(row) => row.id}
+          />
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="sm:hidden space-y-3">
+          {filtered.map((t) => (
+            <div key={t.id} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <MerchantLogo name={t.merchant || ""} size="sm" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-[var(--foreground)] truncate text-sm">{t.merchant || t.description}</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">{formatDate(t.date)}</p>
+                  </div>
                 </div>
-              ),
-            },
-          ]}
-          data={filtered}
-          keyExtractor={(row) => row.id}
-        />
+                <span className={`text-sm font-semibold whitespace-nowrap ml-2 ${t.type === "income" ? "text-[#22C55E]" : "text-[var(--foreground)]"}`}>
+                  {t.type === "income" ? "+" : "-"}{formatCurrency(t.amount, 0, currency)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <select
+                  value={t.category || "Uncategorised"}
+                  onChange={(e) => handleCategoryChange(t.id, e.target.value)}
+                  disabled={savingId === t.id}
+                  className={`${categorySelectClass} max-w-none`}
+                  style={{ borderColor: "rgba(148,163,184,0.16)" }}
+                >
+                  <option value="Uncategorised">Uncategorised</option>
+                  {ALL_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                <StatusBadge variant={getStatusVariant(t.status)}>{formatStatusLabel(t.status)}</StatusBadge>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="h-1.5 flex-1 rounded-full bg-[#18181B]">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${t.confidenceScore ?? 0}%`,
+                      background: (t.confidenceScore ?? 0) >= 95 ? "#22C55E" : (t.confidenceScore ?? 0) >= 85 ? "#FBBF24" : "#F43F5E",
+                    }}
+                  />
+                </div>
+                <span className="text-xs text-[#94A3B8] w-8 text-right">{t.confidenceScore}%</span>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <p className="text-center text-[var(--muted-foreground)] text-sm py-10">No transactions found</p>
+          )}
+        </div>
       </SectionCard>
     </div>
   );

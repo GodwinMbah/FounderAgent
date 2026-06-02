@@ -1,75 +1,33 @@
+/**
+ * Provider/source detection from CSV headers.
+ * Now delegates to the adapter registry for multi-provider support.
+ * Kept for backward compatibility — new code should use adapter-registry directly.
+ */
+
+import type { ParsedCsv } from "./csv-core";
+import { detectProvider } from "@/lib/providers/adapter-registry";
 import type { UploadSource } from "@/lib/types";
 
 export function detectCsvSource(headers: string[]): UploadSource {
-  const h = headers.map((h) => h.toLowerCase().trim());
+  // Build a minimal ParsedCsv for the adapter registry
+  const parsed: ParsedCsv = {
+    headers,
+    rows: [],
+    delimiter: ",",
+    rowCount: 0,
+    columnCount: headers.length,
+  };
 
-  // Stripe
-  if (
-    h.includes("id") &&
-    h.includes("amount") &&
-    h.includes("currency") &&
-    h.includes("created")
-  ) {
-    return "stripe";
-  }
+  const matches = detectProvider(parsed);
+  if (matches.length > 0) {
+    const providerId = matches[0].provider.id;
+    const bankProviders = ["revolut_business_csv", "tide", "monzo", "starling", "wise", "barclays", "hsbc", "lloyds", "natwest", "chase", "generic_bank"];
+    const paymentProviders = ["stripe_csv", "paypal_csv", "square_csv", "gocardless_csv", "shopify_payouts_csv"];
+    const accountingProviders = ["quickbooks", "xero"];
 
-  // PayPal
-  if (
-    (h.includes("transaction id") || h.includes("transaction_id")) &&
-    (h.includes("gross") || h.includes("fee")) &&
-    h.includes("currency")
-  ) {
-    return "paypal";
-  }
-
-  // QuickBooks
-  if (h.includes("txn_type") || (h.includes("account") && h.includes("split"))) {
-    return "quickbooks";
-  }
-
-  // Xero
-  if (
-    h.includes("amount") &&
-    h.includes("reference") &&
-    (h.includes("bank_account") || h.includes("bank account"))
-  ) {
-    return "xero";
-  }
-
-  // Revolut Business
-  const revolutColumns = [
-    "date started utc",
-    "date completed utc",
-    "orig currency",
-    "orig amount",
-    "payment currency",
-    "total amount",
-    "balance",
-    "mcc",
-    "type",
-    "state",
-    "related transaction id",
-  ];
-  const revolutMatchCount = revolutColumns.filter((col) => h.includes(col)).length;
-  if (revolutMatchCount >= 4) {
-    return "revolut_business_csv";
-  }
-
-  // Bank statement CSV
-  if (
-    (h.includes("date") ||
-      h.includes("transaction date") ||
-      h.includes("posting date")) &&
-    (h.includes("description") ||
-      h.includes("payee") ||
-      h.includes("memo") ||
-      h.includes("name")) &&
-    (h.includes("amount") ||
-      h.includes("debit") ||
-      h.includes("credit") ||
-      h.includes("transaction amount"))
-  ) {
-    return "bank_statement_csv";
+    if (bankProviders.includes(providerId)) return "bank_statement_csv";
+    if (paymentProviders.includes(providerId)) return "payment_processor_csv";
+    if (accountingProviders.includes(providerId)) return "accounting_export_csv";
   }
 
   return "manual_csv";

@@ -13,11 +13,28 @@ export type WizardStep =
 export type SourceType =
   | "auto_detect"
   | "bank_statement_csv"
+  | "payment_processor_csv"
+  | "accounting_export_csv"
+  | "manual_csv"
+  | "generic_bank";
+
+export type DetectedProvider =
   | "revolut_business_csv"
-  | "stripe"
-  | "paypal"
-  | "quickbooks"
-  | "xero"
+  | "tide"
+  | "monzo"
+  | "starling"
+  | "wise"
+  | "barclays"
+  | "hsbc"
+  | "lloyds"
+  | "natwest"
+  | "chase"
+  | "stripe_csv"
+  | "paypal_csv"
+  | "square_csv"
+  | "gocardless_csv"
+  | "shopify_payouts_csv"
+  | "generic_bank"
   | "manual_csv";
 
 export interface ColumnMapping {
@@ -63,6 +80,7 @@ export interface PreviewRow {
   status: string;
   issues: string[];
   rawData: Record<string, string>;
+  isPossibleDuplicate?: boolean;
 }
 
 export interface WizardValidation {
@@ -78,6 +96,8 @@ export interface WizardValidation {
 
 export interface WizardPreview {
   sourceType: SourceType;
+  detectedProvider?: string;
+  providerConfidence?: number;
   detectedDelimiter: string;
   detectedCurrency: string;
   detectedDateFormat: string;
@@ -85,10 +105,23 @@ export interface WizardPreview {
   columnSamples: ColumnSampleValues[];
   previewRows: PreviewRow[];
   failedRows: { rowNumber: number; errors: string[]; rawRow: string[] }[];
+  parsedHeaders?: string[];
   incomeTotal: number;
   expenseTotal: number;
   netMovement: number;
   mappingConfidence: number;
+  latestBalance?: number;
+  matchedHeaders?: string[];
+  missingHeaders?: string[];
+  estimatedImpact?: {
+    incomeToAdd: number;
+    expensesToAdd: number;
+    netMovement: number;
+    duplicatesToSkip: number;
+    failedRows: number;
+    subscriptionsDetected: number;
+    latestBalanceDetected?: number;
+  };
 }
 
 export interface ProcessingProgress {
@@ -113,12 +146,19 @@ export interface ImportSummary {
   success: boolean;
   fileName: string;
   sourceType: SourceType;
-  rowsProcessed: number;
+  rowsInFile: number;
+  rowsParsed: number;
   rowsImported: number;
   rowsSkipped: number;
   rowsFailed: number;
+  rowsNeedReview: number;
+  rowsCategorised: number;
+  rowsTransfer: number;
+  rowsDuplicate: number;
   incomeTotal: number;
   expenseTotal: number;
+  sourceCurrency: string;
+  baseCurrency: string;
   subscriptionsDetected: number;
   unknownTransactions: number;
   alertsCreated: number;

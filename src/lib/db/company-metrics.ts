@@ -5,6 +5,16 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import { getTotalCashBalance } from "./bank-accounts";
 import { getSubscriptions } from "./subscriptions";
+import { isIncome, isExpense, isCOGS } from "@/lib/reporting/filters";
+import {
+  calculateARR,
+  calculateGrossMargin,
+  calculateBurnMultiple,
+  calculateYoYGrowth,
+  calculateRuleOf40,
+} from "@/lib/reporting/strategic-kpis";
+import { normalizeSubscriptionSpend } from "@/lib/reporting/subscriptions";
+import { profitMargin as calcProfitMargin, monthlyBurn as calcMonthlyBurn, runwayMonths as calcRunwayMonths } from "@/lib/reporting/kpis";
 
 export interface CompanyMetrics {
   id: string;
@@ -24,6 +34,11 @@ export interface CompanyMetrics {
   flaggedSubscriptions: number;
   healthScore: number;
   profitMargin: number;
+  arr: number;
+  grossMargin: number;
+  netNewARR: number;
+  burnMultiple: number;
+  ruleOf40: number;
   calculatedFrom?: string;
   calculatedTo?: string;
   updatedAt: string;
@@ -48,6 +63,11 @@ function mapRow(row: Record<string, unknown>): CompanyMetrics {
     flaggedSubscriptions: Number(row.flagged_subscriptions) || 0,
     healthScore: Number(row.health_score) || 75,
     profitMargin: Number(row.profit_margin) || 0,
+    arr: Number(row.arr) || 0,
+    grossMargin: Number(row.gross_margin) || 0,
+    netNewARR: Number(row.net_new_arr) || 0,
+    burnMultiple: Number(row.burn_multiple) || 0,
+    ruleOf40: Number(row.rule_of_40) || 0,
     calculatedFrom: row.calculated_from as string | undefined,
     calculatedTo: row.calculated_to as string | undefined,
     updatedAt: row.updated_at as string,
@@ -104,7 +124,7 @@ export async function recalculateCompanyMetrics(
   // 1. Fetch transactions in date range
   const { data: txs, error: txError } = await admin
     .from("transactions")
-    .select("amount, type, status, date")
+    .select("amount, type, status, date, category, tags")
     .eq("company_id", companyId)
     .gte("date", from)
     .lte("date", to);
@@ -112,60 +132,126 @@ export async function recalculateCompanyMetrics(
   if (txError) throw txError;
 
   const revenue = (txs ?? [])
-    .filter((t: { type: string }) => t.type === "income")
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const expenses = (txs ?? [])
-    .filter((t: { type: string }) => t.type === "expense")
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const netProfit = revenue - expenses;
-  const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+  const profitMargin = calcProfitMargin(revenue, expenses);
+
+  // COGS for gross margin
+  const cogsTotal = (txs ?? [])
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isCOGS(t))
+    .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   // 2. Cash balance from bank accounts (REAL, not derived)
   const cashBalance = await getTotalCashBalance(companyId);
 
-  // 3. Monthly burn = average monthly expenses over last 3 months
+  // 3. Monthly burn = average net burn over last 3 months
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const burnFrom = threeMonthsAgo.toISOString().slice(0, 10);
 
   const { data: burnTxs, error: burnError } = await admin
     .from("transactions")
-    .select("amount, date")
+    .select("amount, date, category, tags, type")
     .eq("company_id", companyId)
-    .eq("type", "expense")
+    .in("type", ["income", "expense"])
     .gte("date", burnFrom);
 
   let monthlyBurn = 0;
   if (!burnError && burnTxs && burnTxs.length > 0) {
-    const totalBurn = burnTxs.reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
-    monthlyBurn = totalBurn / 3;
+    const monthsCount = 3;
+    const totalRevenue3M = burnTxs
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
+    const totalExpenses3M = burnTxs
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+      .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
+    const avgMonthlyRevenue = totalRevenue3M / monthsCount;
+    const avgMonthlyExpenses = totalExpenses3M / monthsCount;
+    monthlyBurn = calcMonthlyBurn(avgMonthlyRevenue, avgMonthlyExpenses);
   }
 
   // 4. Runway = cashBalance / monthlyBurn (Infinity if profitable/break-even)
-  let runwayMonths = 0;
-  if (monthlyBurn > 0) {
-    runwayMonths = cashBalance / monthlyBurn;
-  } else if (cashBalance >= 0) {
-    runwayMonths = Infinity;
-  }
+  const runwayMonths = calcRunwayMonths(cashBalance, monthlyBurn);
 
   // 5. Subscription metrics
   const subs = await getSubscriptions(companyId);
   const activeSubs = subs.filter((s) => s.status === "active");
-  const monthlySubscriptionSpend = activeSubs.reduce((sum, s) => {
-    if (s.billingCycle === "monthly") return sum + s.amount;
-    if (s.billingCycle === "quarterly") return sum + s.amount / 3;
-    if (s.billingCycle === "yearly") return sum + s.amount / 12;
-    return sum + s.amount;
-  }, 0);
+  const monthlySubscriptionSpend = normalizeSubscriptionSpend(activeSubs);
   const flaggedSubs = subs.filter((s) => s.isFlagged).length;
 
-  // 6. Health score
+  // 6. Strategic KPIs
+  const arr = calculateARR(activeSubs);
+  const grossMargin = calculateGrossMargin(revenue, cogsTotal);
+
+  // Net New ARR: proxy from period-over-period revenue change
+  // since historical ARR snapshots are not persisted
+  let netNewARR = 0;
+  try {
+    const periodMs = new Date(to).getTime() - new Date(from).getTime();
+    const periodDays = Math.max(1, Math.ceil(periodMs / (1000 * 60 * 60 * 24)));
+    const priorFromDate = new Date(from);
+    priorFromDate.setDate(priorFromDate.getDate() - periodDays);
+    const priorToDate = new Date(to);
+    priorToDate.setDate(priorToDate.getDate() - periodDays);
+
+    const { data: priorTxs } = await admin
+      .from("transactions")
+      .select("amount, type, status, date, category, tags")
+      .eq("company_id", companyId)
+      .gte("date", priorFromDate.toISOString().slice(0, 10))
+      .lte("date", priorToDate.toISOString().slice(0, 10));
+
+    const priorRevenue = (priorTxs ?? [])
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
+
+    // Only compute if we have prior revenue data to compare against
+    if (priorRevenue > 0) {
+      netNewARR = Math.max(0, revenue - priorRevenue);
+    }
+  } catch {
+    netNewARR = 0;
+  }
+
+  const burnMultiple = calculateBurnMultiple(monthlyBurn, netNewARR);
+
+  // Rule of 40: needs YoY revenue growth
+  let ruleOf40 = 0;
+  try {
+    const priorFromDate = new Date(from);
+    priorFromDate.setMonth(priorFromDate.getMonth() - 12);
+    const priorToDate = new Date(to);
+    priorToDate.setMonth(priorToDate.getMonth() - 12);
+    const priorFrom = priorFromDate.toISOString().slice(0, 10);
+    const priorTo = priorToDate.toISOString().slice(0, 10);
+
+    const { data: priorTxs } = await admin
+      .from("transactions")
+      .select("amount, type, status, date, category, tags")
+      .eq("company_id", companyId)
+      .gte("date", priorFrom)
+      .lte("date", priorTo);
+
+    const priorRevenue = (priorTxs ?? [])
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
+
+    const yoyGrowth = calculateYoYGrowth(revenue, priorRevenue);
+    ruleOf40 = calculateRuleOf40(yoyGrowth, profitMargin);
+  } catch {
+    ruleOf40 = 0;
+  }
+
+  // 7. Health score
   let healthScore = 75;
   if (expenses > 0) {
-    const margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
+    const margin = calcProfitMargin(revenue, expenses);
     healthScore = Math.min(100, Math.max(0, Math.round(50 + margin)));
   }
   // Adjust for runway
@@ -175,7 +261,37 @@ export async function recalculateCompanyMetrics(
 
   const uncategorizedCount = (txs ?? []).filter((t: { status: string }) => t.status === "needs_review").length;
 
-  // 7. Upsert cached metrics
+  // 7. Upsert cached metrics (skip for custom ranges to avoid cache collisions)
+  if (periodType === "custom") {
+    return {
+      id: "custom-" + Date.now(),
+      companyId,
+      metricDate: new Date().toISOString().slice(0, 10),
+      periodType,
+      totalRevenue: revenue,
+      totalExpenses: expenses,
+      netProfit,
+      cashBalance,
+      monthlyBurn,
+      runwayMonths,
+      transactionCount: txs?.length ?? 0,
+      uncategorizedCount,
+      activeSubscriptionCount: activeSubs.length,
+      monthlySubscriptionSpend,
+      flaggedSubscriptions: flaggedSubs,
+      healthScore,
+      profitMargin,
+      arr,
+      grossMargin,
+      netNewARR,
+      burnMultiple,
+      ruleOf40,
+      calculatedFrom: from,
+      calculatedTo: to,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   const metricDate = new Date().toISOString().slice(0, 10);
 
   const { data: row, error: upsertError } = await admin
@@ -200,6 +316,7 @@ export async function recalculateCompanyMetrics(
         profit_margin: profitMargin,
         calculated_from: from,
         calculated_to: to,
+        metadata: {},
       },
       { onConflict: "company_id, metric_date, period_type" }
     )

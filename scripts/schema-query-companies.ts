@@ -1,0 +1,5 @@
+import { createClient } from '@supabase/supabase-js'\n
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("Missing Supabase environment variables");
+}
+\n\nconst supabase = createClient(\n  process.env.NEXT_PUBLIC_SUPABASE_URL!,\n  process.env.SUPABASE_SERVICE_ROLE_KEY!\n)\n\nasync function main() {\n  for (const table of ['companies', 'company_settings', 'profiles', 'agent_activity_logs', 'mapping_profiles']) {\n    console.log(`\n=== ${table} ===`)\n    const { data, error } = await supabase.from(table).select('*').limit(1)\n    if (error) {\n      console.log(`ERROR: ${error.message}`)\n    } else if (data && data.length > 0) {\n      console.log('Columns:', Object.keys(data[0]).sort().join(', '))\n    } else {\n      console.log('No rows found')\n    }\n  }\n}\nmain()\n

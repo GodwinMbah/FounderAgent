@@ -12,7 +12,7 @@ export default async function AlertsPage() {
     severity: a.severity as "critical" | "warning" | "info",
     category: a.category,
     date: a.createdAt.slice(0, 10),
-    status: (a.isDismissed ? "resolved" : "open") as "open" | "resolved",
+    status: (a.status || (a.isDismissed ? "resolved" : "open")) as "open" | "resolved",
   }));
 
   const criticalCount = mappedAlerts.filter((a) => a.severity === "critical").length;

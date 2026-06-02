@@ -1,0 +1,45 @@
+import type { ProviderAdapter } from "../adapter-types";
+
+export const shopifyAdapter: ProviderAdapter = {
+  id: "shopify_payouts_csv",
+  displayName: "Shopify Payouts",
+  type: "payment_processor",
+  detection: {
+    requiredHeaders: ["Payout date", "Payout ID", "Net amount", "Currency"],
+    optionalHeaders: [
+      "Payout status",
+      "Total sales",
+      "Discounts",
+      "Refunds",
+      "Shipping",
+      "Taxes",
+      "Total fees",
+    ],
+    minRequiredMatches: 3,
+    minScore: 40,
+  },
+  headerAliases: [
+    { field: "transactionDate", aliases: ["Payout date"], required: true },
+    { field: "description", aliases: ["Payout status"], required: true },
+    { field: "amount", aliases: ["Net amount", "Total sales"], required: true },
+    { field: "feeAmount", aliases: ["Total fees"] },
+    { field: "currency", aliases: ["Currency"] },
+    { field: "status", aliases: ["Payout status"] },
+    { field: "externalTransactionId", aliases: ["Payout ID"] },
+    { field: "originalAmount", aliases: ["Total sales"] },
+    { field: "reference", aliases: ["Payout ID"] },
+  ],
+  signConvention: "accounting",
+  feeHandling: "separate_column",
+  hasSplitAmountColumns: false,
+  knownTransactionTypes: {
+    "scheduled": { direction: "transfer", category: "Payout" },
+    "in_transit": { direction: "transfer", category: "Payout" },
+    "paid": { direction: "transfer", category: "Payout" },
+    "failed": { direction: "neutral" },
+    "canceled": { direction: "neutral" },
+  },
+  transferPatterns: ["Transfer", "Payout", "Withdrawal"],
+  dateFormatHints: ["YYYY-MM-DD", "MM/DD/YYYY"],
+  detectionWeight: 1.0,
+};

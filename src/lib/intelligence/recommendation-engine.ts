@@ -5,6 +5,7 @@
 import type { CategorisedRow } from "./categoriser";
 import type { DetectedSubscription } from "./subscription-detector";
 import type { AnomalyFinding } from "./anomaly-detector";
+import { isIncome, isExpense } from "@/lib/reporting/filters";
 
 export interface UploadRecommendation {
   title: string;
@@ -29,8 +30,8 @@ export function generateRecommendations(findings: UploadFindings): UploadRecomme
   const recommendations: UploadRecommendation[] = [];
   const { rows, subscriptions, duplicateTools, anomalies, categoryBreakdown } = findings;
 
-  const totalExpenses = rows.filter((r) => r.type === "expense").reduce((s, r) => s + r.amount, 0);
-  const totalIncome = rows.filter((r) => r.type === "income").reduce((s, r) => s + r.amount, 0);
+  const totalExpenses = rows.filter((r) => isExpense(r)).reduce((s, r) => s + r.amount, 0);
+  const totalIncome = rows.filter((r) => isIncome(r)).reduce((s, r) => s + r.amount, 0);
 
   // 1. Software spend increased
   const softwareSpend = categoryBreakdown.find((c) => c.category === "Software" || c.category === "AI Tools" || c.category === "Subscriptions")?.amount ?? 0;
@@ -79,11 +80,11 @@ export function generateRecommendations(findings: UploadFindings): UploadRecomme
     }
   }
 
-  // 4. Unknown transactions
-  const unknownCount = rows.filter((r) => r.category === "Unknown").length;
+  // 4. Uncategorised transactions
+  const unknownCount = rows.filter((r) => r.category === "Uncategorised Review").length;
   if (unknownCount > 0) {
     recommendations.push({
-      title: `${unknownCount} unknown transaction${unknownCount > 1 ? "s" : ""} need review`,
+      title: `${unknownCount} uncategorised transaction${unknownCount > 1 ? "s" : ""} need review`,
       description: `Found ${unknownCount} transaction${unknownCount > 1 ? "s" : ""} that could not be automatically categorised. Review and assign categories to improve accuracy.`,
       category: "categorisation",
       severity: "info",
@@ -152,11 +153,11 @@ export function generateRecommendations(findings: UploadFindings): UploadRecomme
   }
 
   // 9. Runway impact (if large new expenses)
-  const oneTimePurchases = categoryBreakdown.find((c) => c.category === "One Time Purchases")?.amount ?? 0;
+  const oneTimePurchases = categoryBreakdown.find((c) => c.category === "Office Costs")?.amount ?? 0;
   if (oneTimePurchases > 2000) {
     recommendations.push({
-      title: "Large one-time purchase detected",
-      description: `One-time purchase of ${formatCurrency(oneTimePurchases)} may affect cash runway. Review timing and necessity.`,
+      title: "Large office cost detected",
+      description: `Office cost of ${formatCurrency(oneTimePurchases)} may affect cash runway. Review timing and necessity.`,
       category: "cash_flow",
       severity: oneTimePurchases > 5000 ? "warning" : "info",
       impactScore: 65,

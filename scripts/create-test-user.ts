@@ -8,7 +8,6 @@
 
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 

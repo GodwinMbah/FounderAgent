@@ -1,0 +1,47 @@
+import type { ProviderAdapter } from "../adapter-types";
+
+export const wiseAdapter: ProviderAdapter = {
+  id: "wise",
+  displayName: "Wise",
+  type: "bank",
+  detection: {
+    requiredHeaders: ["Date", "Amount", "Currency", "Description"],
+    optionalHeaders: [
+      "TransferWise ID",
+      "Payment Reference",
+      "Running Balance",
+      "Exchange From",
+      "Exchange To",
+      "Exchange Rate",
+      "Total Fees",
+    ],
+    minRequiredMatches: 2,
+    minScore: 30,
+  },
+  headerAliases: [
+    { field: "transactionDate", aliases: ["Date", "date", "Transaction Date", "transaction_date", "completed date"], required: true },
+    { field: "externalTransactionId", aliases: ["TransferWise ID", "transferwise id", "transferwise_id", "id", "transaction id"] },
+    { field: "amount", aliases: ["Amount", "amount", "transaction amount", "value"], required: true },
+    { field: "currency", aliases: ["Currency", "currency", "ccy", "curr", "currency code", "Exchange To", "exchange to", "exchange_to"], required: true },
+    { field: "description", aliases: ["Description", "description", "details", "narrative", "memo", "payment details"], required: true },
+    { field: "reference", aliases: ["Payment Reference", "payment reference", "payment_reference", "ref", "reference"] },
+    { field: "runningBalance", aliases: ["Running Balance", "running balance", "running_balance", "balance", "account balance"] },
+    { field: "originalCurrency", aliases: ["Exchange From", "exchange from", "exchange_from", "original currency", "orig currency"] },
+    { field: "exchangeRate", aliases: ["Exchange Rate", "exchange rate", "exchange_rate", "rate"] },
+    { field: "feeAmount", aliases: ["Total Fees", "total fees", "total_fees", "fee", "fees", "transaction fee"] },
+  ],
+  signConvention: "uk_bank",
+  feeHandling: "separate_column",
+  hasSplitAmountColumns: false,
+  knownTransactionTypes: {
+    transfer: { direction: "transfer" },
+    conversion: { direction: "neutral" },
+    "BALANCE-CONVERSION": { direction: "neutral" },
+    fee: { direction: "fee", category: "Bank Fees" },
+    deposit: { direction: "income" },
+    refund: { direction: "income" },
+  },
+  transferPatterns: ["transfer", "to ", "from ", "between balances"],
+  dateFormatHints: ["DD/MM/YYYY"],
+  detectionWeight: 1.0,
+};

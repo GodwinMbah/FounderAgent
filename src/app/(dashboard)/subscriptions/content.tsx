@@ -7,18 +7,14 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { AgentInsightCard } from "@/components/ui/AgentInsightCard";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import type { Subscription } from "@/lib/types";
 import {
   PieChart,
   Pie,
   Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
 } from "recharts";
 import {
   CreditCard,
@@ -27,6 +23,7 @@ import {
   AlertTriangle,
   Scissors,
   Lightbulb,
+  BarChart3,
 } from "lucide-react";
 
 const PIE_COLORS = ["#14B8A6", "#8B5CF6", "#22C55E", "#FBBF24", "#F43F5E", "#0EA5E9", "#EC4899"];
@@ -43,6 +40,7 @@ interface SubscriptionsContentProps {
 }
 
 export default function SubscriptionsContent({ subscriptions, stats }: SubscriptionsContentProps) {
+  const { currency } = useCompanyCurrency();
   const categoryMap = new Map<string, number>();
   subscriptions.forEach((s) => {
     categoryMap.set(s.category || "Other", (categoryMap.get(s.category || "Other") || 0) + s.amount);
@@ -51,19 +49,37 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
 
   const totalCategorySpend = categoryData.reduce((s, c) => s + c.value, 0);
 
-  const monthlyTrendData = [
-    { month: "Jan", spend: Math.round(stats.monthlySpend * 0.88) },
-    { month: "Feb", spend: Math.round(stats.monthlySpend * 0.92) },
-    { month: "Mar", spend: Math.round(stats.monthlySpend * 0.94) },
-    { month: "Apr", spend: Math.round(stats.monthlySpend * 0.97) },
-    { month: "May", spend: Math.round(stats.monthlySpend * 0.99) },
-    { month: "Jun", spend: Math.round(stats.monthlySpend) },
-  ];
-
   const flaggedSubs = subscriptions.filter((s) => s.isFlagged);
   const upcomingRenewals = [...subscriptions]
     .sort((a, b) => new Date(a.nextBillingDate).getTime() - new Date(b.nextBillingDate).getTime())
     .slice(0, 5);
+
+  // Dynamic insights based on real subscription data
+  const insights: string[] = [];
+  if (flaggedSubs.length > 0) {
+    flaggedSubs.slice(0, 3).forEach((sub) => {
+      insights.push(
+        `Review ${sub.name} — ${sub.flagReason || "flagged for review"}. Potential savings: ${formatCurrency(
+          sub.billingCycle === "yearly" ? sub.amount / 12 : sub.billingCycle === "quarterly" ? sub.amount / 3 : sub.amount, 0, currency
+        )}/month`
+      );
+    });
+  } else {
+    insights.push("No flagged subscriptions. FounderAgent is monitoring for duplicates and unused tools.");
+  }
+
+  const topSub = [...subscriptions].sort((a, b) => b.amount - a.amount)[0];
+  if (topSub) {
+    insights.push(
+      `${topSub.name} is your largest subscription at ${formatCurrency(
+        topSub.billingCycle === "yearly" ? topSub.amount / 12 : topSub.billingCycle === "quarterly" ? topSub.amount / 3 : topSub.amount, 0, currency
+      )}/month`
+    );
+  }
+
+  insights.push(
+    `You have ${stats.count} active subscriptions with a combined monthly spend of ${formatCurrency(stats.monthlySpend, 0, currency)}.`
+  );
 
   return (
     <div className="space-y-8">
@@ -76,15 +92,15 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <MetricCard
           label="Monthly Spend"
-          value={formatCurrency(stats.monthlySpend)}
-          change="+3.2%"
-          changeType="negative"
+          value={formatCurrency(stats.monthlySpend, 0, currency)}
+          change="—"
+          changeType="neutral"
           icon={<CreditCard className="h-5 w-5" />}
           iconColor="#14B8A6"
         />
         <MetricCard
           label="Annualized"
-          value={formatCurrency(stats.annualized)}
+          value={formatCurrency(stats.annualized, 0, currency)}
           change="Projected"
           changeType="neutral"
           icon={<Calendar className="h-5 w-5" />}
@@ -100,7 +116,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
         />
         <MetricCard
           label="Potential Savings"
-          value={formatCurrency(stats.potentialSavings)}
+          value={formatCurrency(stats.potentialSavings, 0, currency)}
           change="/ month"
           changeType="positive"
           icon={<Scissors className="h-5 w-5" />}
@@ -131,7 +147,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => value !== undefined ? formatCurrency(Number(value)) : ""}
+                    formatter={(value) => value !== undefined ? formatCurrency(Number(value), 0, currency) : ""}
                     contentStyle={{
                       background: "#111827",
                       border: "1px solid rgba(148,163,184,0.16)",
@@ -145,7 +161,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
               {/* Center label */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center">
-                  <p className="text-base font-bold text-[var(--foreground)]">{formatCurrency(totalCategorySpend)}</p>
+                  <p className="text-base font-bold text-[var(--foreground)]">{formatCurrency(totalCategorySpend, 0, currency)}</p>
                   <p className="text-[10px] text-[var(--muted-foreground)]">per month</p>
                 </div>
               </div>
@@ -168,31 +184,17 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
         </ChartCard>
 
         <ChartCard title="Monthly Trend" subtitle="Subscription spend over time">
-          <div className="w-full h-full min-h-0 min-w-0">
-            <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
-              <BarChart data={monthlyTrendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" />
-              <XAxis dataKey="month" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis
-                tick={{ fill: "#94A3B8", fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `$${v}`}
-              />
-              <Tooltip
-                formatter={(value) => value !== undefined ? formatCurrency(Number(value)) : ""}
-                contentStyle={{
-                  background: "#111827",
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  color: "#f1f5f9",
-                }}
-              />
-              <Bar dataKey="spend" fill="#14B8A6" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+          <div className="w-full h-full min-h-0 min-w-0 flex items-center justify-center">
+            <div className="text-center space-y-3">
+              <BarChart3 className="h-10 w-10 text-[var(--muted-foreground)] mx-auto" />
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Historical subscription spend trend will appear here once multiple billing cycles are recorded.
+              </p>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Current monthly spend: {formatCurrency(stats.monthlySpend, 0, currency)}
+              </p>
+            </div>
+          </div>
         </ChartCard>
       </div>
 
@@ -223,7 +225,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
               </div>
               <div className="flex items-center gap-4 shrink-0 ml-4">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount)}</p>
+                  <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount, 0, currency)}</p>
                   <p className="text-xs text-[var(--muted-foreground)]">Next: {formatDate(sub.nextBillingDate)}</p>
                 </div>
                 <StatusBadge variant={sub.isFlagged ? "warning" : "success"}>
@@ -256,7 +258,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-[var(--foreground)]">{sub.name}</p>
-                    <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount)}</p>
+                    <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount, 0, currency)}</p>
                   </div>
                   <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{sub.flagReason}</p>
                 </div>
@@ -291,7 +293,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-4">
-                  <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount)}</p>
+                  <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount, 0, currency)}</p>
                   <p className="text-xs text-[var(--muted-foreground)]">{formatDate(sub.nextBillingDate)}</p>
                 </div>
               </div>
@@ -303,18 +305,18 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
       {/* Agent Card */}
       <AgentInsightCard title="FounderAgent Subscription Analysis" orbSize={56}>
         <ul className="mt-3 space-y-2">
-          <li className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
-            <Lightbulb className="h-4 w-4 text-[#FBBF24] shrink-0 mt-0.5" />
-            Consolidate HubSpot and Linear with existing tools to save ~$996/month.
-          </li>
-          <li className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
-            <TrendingUp className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
-            Annual billing for AWS and Datadog could cut 15–20% off infrastructure costs.
-          </li>
-          <li className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
-            <AlertTriangle className="h-4 w-4 text-[#F43F5E] shrink-0 mt-0.5" />
-            Zoom usage is below 10% — downgrade or cancel to recover $199/month.
-          </li>
+          {insights.map((insight, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
+              {i === 0 && flaggedSubs.length > 0 ? (
+                <AlertTriangle className="h-4 w-4 text-[#F43F5E] shrink-0 mt-0.5" />
+              ) : i === 0 ? (
+                <Lightbulb className="h-4 w-4 text-[#FBBF24] shrink-0 mt-0.5" />
+              ) : (
+                <TrendingUp className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
+              )}
+              {insight}
+            </li>
+          ))}
         </ul>
       </AgentInsightCard>
     </div>

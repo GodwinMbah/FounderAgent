@@ -8,7 +8,7 @@
 
 import { requireAuthCompany } from "@/lib/db/company";
 import { createUpload } from "@/lib/db/uploads";
-import { createUploadSession, getUploadSession, updateUploadSession, deleteUploadSession } from "@/lib/db/upload-sessions";
+import { createUploadSession, getUploadSession, updateUploadSession, deleteUploadSession, refreshUploadSession } from "@/lib/db/upload-sessions";
 import { uploadFileToStorage } from "@/lib/upload/storage";
 import { validateFile } from "@/lib/upload/validator";
 import { smartMapCsv } from "@/lib/upload/smart-mapper";
@@ -170,6 +170,8 @@ export async function applyMappingOverrides(
     const session = await getUploadSession(sessionId, companyId);
 
     if (!session) {
+      // Distinguish between genuinely expired and query failure
+      // getUploadSession now logs DB errors, so if we reach here it's likely expired
       return { success: false, error: "Session expired. Please upload again." };
     }
 
@@ -223,7 +225,8 @@ export async function applyMappingOverrides(
 
 export async function confirmAndProcess(
   sessionId: string,
-  overrides?: MappingOverrides
+  overrides?: MappingOverrides,
+  categoryOverrides?: Record<number, string>
 ): Promise<{
   success: boolean;
   uploadId?: string;
@@ -294,31 +297,45 @@ export async function confirmAndProcess(
         detected_currency: finalPreview.detectedCurrency,
         detected_date_format: finalPreview.detectedDateFormat,
         detected_delimiter: finalPreview.detectedDelimiter,
+        detected_provider: finalPreview.detectedProvider,
+        provider_confidence: finalPreview.providerConfidence,
         preview_income_total: finalPreview.incomeTotal,
         preview_expense_total: finalPreview.expenseTotal,
         preview_row_count: finalPreview.previewRows.length,
         failed_row_count: finalPreview.failedRows.length,
+        category_overrides: categoryOverrides,
       },
     });
 
-    // Delete upload session (clean up temp state)
-    await deleteUploadSession(sessionId, companyId);
-
     // Run pipeline
+    console.log(`[confirmAndProcess] Starting pipeline for upload ${upload.id}`);
     const pipelineResult = await runUploadPipeline(upload.id, companyId);
+    console.log(`[confirmAndProcess] Pipeline result: success=${pipelineResult.success}, error=${pipelineResult.error}, inserted=${pipelineResult.transactionsInserted}`);
+
+    // Delete upload session only on success (so user can retry if pipeline fails)
+    if (pipelineResult.success) {
+      await deleteUploadSession(sessionId, companyId);
+    }
 
     const summary: ImportSummary = {
       success: pipelineResult.success,
       fileName: session.fileName,
       sourceType: finalPreview.sourceType,
-      rowsProcessed: pipelineResult.transactionsInserted + pipelineResult.transactionsFailed,
+      rowsInFile: finalPreview.previewRows.length + finalPreview.failedRows.length,
+      rowsParsed: pipelineResult.totalParsed,
       rowsImported: pipelineResult.transactionsInserted,
-      rowsSkipped: 0,
+      rowsSkipped: pipelineResult.duplicateCount,
       rowsFailed: pipelineResult.transactionsFailed,
+      rowsNeedReview: pipelineResult.needReviewCount,
+      rowsCategorised: pipelineResult.categorisedCount,
+      rowsTransfer: pipelineResult.transferCount,
+      rowsDuplicate: pipelineResult.duplicateCount,
       incomeTotal: finalPreview.incomeTotal,
       expenseTotal: finalPreview.expenseTotal,
+      sourceCurrency: finalPreview.detectedCurrency,
+      baseCurrency: companyCurrency || finalPreview.detectedCurrency,
       subscriptionsDetected: pipelineResult.subscriptionsDetected,
-      unknownTransactions: finalPreview.previewRows.filter((r) => r.category === "Unknown").length,
+      unknownTransactions: finalPreview.previewRows.filter((r) => r.category === "Uncategorised Review").length,
       alertsCreated: pipelineResult.alertsCreated,
       recommendationsCreated: pipelineResult.recommendationsCreated,
       error: pipelineResult.error,
@@ -328,7 +345,7 @@ export async function confirmAndProcess(
   } catch (err) {
     const raw = err instanceof Error ? err.message : "Processing failed";
     console.error("[confirmAndProcess] Failed:", raw);
-    return { success: false, error: translateError(raw) };
+    return { success: false, error: raw };
   }
 }
 
@@ -384,6 +401,20 @@ export async function saveCurrentMappingProfile(
 }
 
 /* ─── Get Upload Status ─── */
+
+export async function refreshSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { companyId } = await requireAuthCompany();
+    const ok = await refreshUploadSession(sessionId, companyId);
+    if (!ok) {
+      return { success: false, error: "Session refresh failed. The upload session may have expired." };
+    }
+    return { success: true };
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Refresh failed";
+    return { success: false, error: raw };
+  }
+}
 
 export async function getUploadStatus(uploadId: string): Promise<{
   status: string;

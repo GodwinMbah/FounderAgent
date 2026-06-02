@@ -1,0 +1,45 @@
+import type { ProviderAdapter } from "../adapter-types";
+
+export const lloydsAdapter: ProviderAdapter = {
+  id: "lloyds",
+  displayName: "Lloyds Bank",
+  type: "bank",
+  detection: {
+    requiredHeaders: ["Transaction Date", "Debit Amount", "Credit Amount"],
+    optionalHeaders: [
+      "Transaction Type",
+      "Sort Code",
+      "Account Number",
+      "Transaction Description",
+      "Balance",
+    ],
+    minRequiredMatches: 2,
+    minScore: 30,
+  },
+  headerAliases: [
+    { field: "transactionDate", aliases: ["Transaction Date", "transaction date", "transaction_date", "date"], required: true },
+    { field: "transactionType", aliases: ["Transaction Type", "transaction type", "transaction_type", "type", "category"] },
+    { field: "accountNumber", aliases: ["Account Number", "account number", "account_number", "account no", "acc no"] },
+    { field: "description", aliases: ["Transaction Description", "transaction description", "transaction_description", "description", "details", "narrative", "memo"], required: true },
+    { field: "debitAmount", aliases: ["Debit Amount", "debit amount", "debit_amount", "paid out", "money out", "money_out"], required: true },
+    { field: "creditAmount", aliases: ["Credit Amount", "credit amount", "credit_amount", "paid in", "money in", "money_in"], required: true },
+    { field: "runningBalance", aliases: ["Balance", "balance", "running balance", "running_balance", "Account Balance"] },
+    { field: "reference", aliases: ["Sort Code", "sort code", "sort_code", "reference", "ref"] },
+  ],
+  signConvention: "uk_bank",
+  feeHandling: "included_in_amount",
+  hasSplitAmountColumns: true,
+  knownTransactionTypes: {
+    "Direct Debit": { direction: "expense" },
+    "Standing Order": { direction: "expense" },
+    Transfer: { direction: "transfer" },
+    Deposit: { direction: "income" },
+    "Card Payment": { direction: "expense" },
+    Withdrawal: { direction: "expense" },
+    Fee: { direction: "fee", category: "Bank Fees" },
+    Refund: { direction: "income" },
+  },
+  transferPatterns: ["transfer", "between accounts", "lloyds to lloyds"],
+  dateFormatHints: ["DD/MM/YYYY"],
+  detectionWeight: 1.0,
+};

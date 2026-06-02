@@ -1,19 +1,29 @@
 import { getMonthlyMetrics, getTransactions, requireAuthCompany } from "@/lib/db";
+import { getGlobalDateRange } from "@/lib/date-range-server";
 import PLReportClient from "./PLReportClient";
 
-export default async function PLReportPage() {
+interface Props {
+  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+}
+
+export default async function PLReportPage({ searchParams }: Props) {
   const { companyId } = await requireAuthCompany();
 
-  // P&L: current year to date
-  const toDate = new Date().toISOString().slice(0, 10);
-  const fromDate = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
 
   const [monthlyMetrics, transactions] = await Promise.all([
-    getMonthlyMetrics(companyId, fromDate, toDate),
-    getTransactions(companyId, { startDate: fromDate, endDate: toDate, limit: 500 }),
+    getMonthlyMetrics(companyId, from, to),
+    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
   ]);
 
   return (
-    <PLReportClient monthlyMetrics={monthlyMetrics} transactions={transactions} />
+    <PLReportClient
+      monthlyMetrics={monthlyMetrics}
+      transactions={transactions}
+      initialPreset={preset}
+      initialFrom={from}
+      initialTo={to}
+    />
   );
 }

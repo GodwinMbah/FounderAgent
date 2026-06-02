@@ -186,9 +186,6 @@ export function mapColumns(parsed: ParsedCsv): MappingReport {
   }
 
   // Calculate overall confidence
-  const requiredFields = ["date", "description", "amount"] as const;
-  const hasRequired = requiredFields.every((f) => mapping[f] || (f === "description" && mapping["merchant"]));
-
   const scores: number[] = [];
   for (const m of Object.values(mapping)) {
     if (m) scores.push(m.confidence);

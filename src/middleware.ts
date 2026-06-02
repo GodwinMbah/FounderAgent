@@ -31,15 +31,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated users without a company to onboarding
-  if (hasSession && !isPublicRoute && !request.cookies.has("fa_has_company")) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
-  }
-
-  // Redirect authenticated users away from login/signup
-  if (hasSession && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
+  // NOTE: We intentionally do NOT redirect authenticated users away from
+  // /login or /signup here. Stale/invalid sb-* cookies can cause a redirect
+  // loop (/login → /dashboard → /login). Let server components and page-level
+  // guards handle auth state properly.
 
   return response;
 }

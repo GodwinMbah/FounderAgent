@@ -4,12 +4,12 @@
  */
 
 import { suggestTransactionCategory } from "@/lib/categorisation";
-import type { Transaction, TransactionCategoryType, TransactionStatus } from "@/lib/types";
+import type { Transaction } from "@/lib/types";
 import type { NormalisedRow } from "@/lib/parser/adapters/generic-csv";
 
 export interface CategorisedRow extends NormalisedRow {
-  category: TransactionCategoryType;
-  status: TransactionStatus;
+  category: string;
+  status: string;
   confidenceScore: number;
   categoryReason: string;
 }
@@ -40,8 +40,8 @@ export function categoriseRows(rows: NormalisedRow[]): CategorisedRow[] {
   });
 }
 
-export function getCategoryBreakdown(rows: CategorisedRow[]) {
-  const map = new Map<TransactionCategoryType, { count: number; amount: number }>();
+export function getCategoryBreakdown(rows: Array<{ category: string; amount: number }>) {
+  const map = new Map<string, { count: number; amount: number }>();
 
   for (const row of rows) {
     const existing = map.get(row.category) || { count: 0, amount: 0 };

@@ -14,11 +14,16 @@ export default function SignupPage() {
   async function handleSubmit(formData: FormData) {
     setError(null);
     setLoading(true);
-    const result = await signUpAndRedirect(formData);
-    setLoading(false);
-    if (result?.error) {
-      setError(result.error);
+    try {
+      const result = await signUpAndRedirect(formData);
+      if (result?.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Signup failed. Please try again.";
+      setError(message);
     }
+    setLoading(false);
   }
 
   return (

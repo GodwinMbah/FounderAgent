@@ -9,13 +9,13 @@ import { mapColumns, type MappingReport } from "../column-mapper";
 import { parseDate, type DateParseResult } from "../date-parser";
 import { parseAmount, parseDebitCredit, parseAmountWithType, type AmountParseResult, type SignConvention } from "../amount-parser";
 import { detectCurrency, type CurrencyDetectionResult } from "../currency-detector";
-import { parseRevolutCsv } from "./revolut-csv";
 
 export interface NormalisedRow {
   rowNumber: number;
   date: string;
   merchant: string;
   description: string;
+  reference?: string;
   amount: number;
   type: "income" | "expense";
   currency?: string;
@@ -50,10 +50,6 @@ export function parseGenericCsv(
   parsed: ParsedCsv,
   context: ParseContext
 ): GenericParseResult {
-  if (context.source === "revolut_business_csv") {
-    return parseRevolutCsv(parsed, context);
-  }
-
   const mappingReport = mapColumns(parsed);
   const { mapping } = mappingReport;
   const failedRows: { rowNumber: number; rawRow: string[]; errors: string[] }[] = [];
@@ -110,6 +106,12 @@ export function parseGenericCsv(
     if (!merchant && description) merchant = extractMerchant(description);
     if (!description) errors.push("Missing description");
 
+    // Parse reference
+    let reference: string | undefined;
+    if (mapping.reference !== undefined) {
+      reference = row[mapping.reference.index]?.trim() || undefined;
+    }
+
     // Parse amount
     let amountResult: AmountParseResult | null = null;
     if (mapping.debit !== undefined || mapping.credit !== undefined) {
@@ -161,6 +163,7 @@ export function parseGenericCsv(
       date: dateResult?.date || new Date().toISOString().slice(0, 10),
       merchant,
       description,
+      reference,
       amount: amountResult?.amount ?? 0,
       type: amountResult?.type ?? "expense",
       currency: rowCurrency,

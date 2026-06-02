@@ -1,0 +1,6 @@
+Date Started (UTC),Date Completed (UTC),ID,Description,Reference,Type,State,Amount,Total Amount,Fee,Balance,Account,MCC,Orig Currency,Orig Amount,Payment Currency,Related Transaction ID
+28/05/2026,28/05/2026,tx-001-abc,Acme Office Supplies,REF001,card_payment,completed,-45.67,-45.67,0.00,1954.33,Business GBP,,GBP,,GBP,
+25/05/2026,25/05/2026,tx-002-def,Transfer to Marketing Budget,REF002,transfer,completed,-500.00,-500.00,0.00,1454.33,Business GBP,,GBP,,GBP,tx-002-def-rel
+23/05/2026,23/05/2026,tx-003-ghi,Top Up from Business Savings,REF003,topup,completed,2000.00,2000.00,0.00,3454.33,Business GBP,,GBP,,GBP,
+20/05/2026,20/05/2026,tx-004-jkl,STARBUCKS LONDON,REF004,card_payment,completed,-5.40,-5.40,0.00,3448.93,Business GBP,,GBP,,GBP,
+18/05/2026,18/05/2026,tx-005-mno,Monthly Account Fee,REF005,fee,completed,-12.99,-12.99,0.00,3435.94,Business GBP,,GBP,,GBP,

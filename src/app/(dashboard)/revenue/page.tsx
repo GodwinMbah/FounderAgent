@@ -1,17 +1,22 @@
-import { getTransactions, getMonthlyMetrics, requireAuthCompany } from "@/lib/db";
+import { getTransactions, getMonthlyMetrics, getSubscriptions, requireAuthCompany } from "@/lib/db";
+import { getGlobalDateRange } from "@/lib/date-range-server";
 import RevenueContent from "./content";
 
-export default async function RevenuePage() {
+interface Props {
+  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+}
+
+export default async function RevenuePage({ searchParams }: Props) {
   const { companyId } = await requireAuthCompany();
 
-  // Default: current year to date
-  const toDate = new Date().toISOString().slice(0, 10);
-  const fromDate = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
 
-  const [transactions, monthlyMetrics] = await Promise.all([
-    getTransactions(companyId, { startDate: fromDate, endDate: toDate, limit: 500 }),
-    getMonthlyMetrics(companyId, fromDate, toDate),
+  const [transactions, monthlyMetrics, subscriptions] = await Promise.all([
+    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
+    getMonthlyMetrics(companyId, from, to),
+    getSubscriptions(companyId),
   ]);
 
-  return <RevenueContent transactions={transactions} monthlyMetrics={monthlyMetrics} />;
+  return <RevenueContent transactions={transactions} monthlyMetrics={monthlyMetrics} subscriptions={subscriptions} initialPreset={preset} initialFrom={from} initialTo={to} />;
 }

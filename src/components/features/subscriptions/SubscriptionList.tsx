@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { STATUS_VARIANTS } from "@/lib/utils/constants";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import { Repeat, Calendar, CheckCircle, AlertTriangle } from "lucide-react";
 
 interface SubscriptionItem {
@@ -17,6 +18,7 @@ interface SubscriptionItem {
 }
 
 export function SubscriptionList({ items }: { items: SubscriptionItem[] }) {
+  const { currency } = useCompanyCurrency();
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
@@ -46,7 +48,7 @@ export function SubscriptionList({ items }: { items: SubscriptionItem[] }) {
                 Next: {formatDate(sub.nextBillingDate)}
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount)}</p>
+                <p className="text-sm font-bold text-[var(--foreground)]">{formatCurrency(sub.amount, 0, currency)}</p>
                 <p className="text-xs text-[var(--muted-foreground)]">
                   /{sub.billingCycle === "monthly" ? "mo" : sub.billingCycle === "yearly" ? "yr" : "qtr"}
                 </p>

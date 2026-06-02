@@ -5,6 +5,7 @@ import OnboardingWizard from "./content";
 
 export default async function OnboardingPage() {
   const userData = await getUserWithProfile();
+
   if (!userData?.user) {
     redirect("/login");
   }

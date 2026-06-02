@@ -3,6 +3,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import type { Subscription } from "@/lib/types";
+import { toMonthly } from "@/lib/reporting/subscriptions";
 
 function mapRow(row: Record<string, unknown>): Subscription {
   return {
@@ -62,7 +63,7 @@ export async function getSubscriptionStats(companyId?: string) {
   const flagged = subs.filter((s) => s.isFlagged).length;
   const potentialSavings = subs
     .filter((s) => s.isFlagged)
-    .reduce((s, sub) => s + sub.amount, 0);
+    .reduce((s, sub) => s + toMonthly(sub), 0);
   return { monthlySpend, annualized, flagged, potentialSavings, count: subs.length };
 }
 

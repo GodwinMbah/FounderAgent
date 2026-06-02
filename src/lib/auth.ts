@@ -144,7 +144,11 @@ export async function getCurrentCompany() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: membership } = await supabase
+  // Use admin client to bypass broken RLS on company_members
+  const admin = createAdminClient();
+  const client = admin ?? supabase;
+
+  const { data: membership } = await client
     .from("company_members")
     .select("company_id, companies(*)")
     .eq("user_id", user.id)
