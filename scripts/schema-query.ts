@@ -1,49 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'https://xuhelthxbytxafnsccso.supabase.co',
-  'sb_secret_mMPvIBqWERfsjrV1uKRTWw_XeUSAvxV'
-)
-
-const tables = [
-  'transactions',
-  'uploads', 
-  'bank_accounts',
-  'company_metrics',
-  'subscriptions',
-  'alerts',
-  'agent_recommendations',
-  'agent_tasks'
-]
-
-async function main() {
-  for (const table of tables) {
-    console.log(`\n=== ${table} ===`)
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .limit(1)
-    
-    if (error) {
-      console.log(`ERROR: ${error.message}`)
-    } else if (data && data.length > 0) {
-      console.log('Columns:', Object.keys(data[0]).sort().join(', '))
-    } else {
-      const { data: anyData, error: anyError } = await supabase
-        .from(table)
-        .select('*')
-        .eq('company_id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')
-        .limit(1)
-      
-      if (anyError) {
-        console.log(`ERROR with company_id filter: ${anyError.message}`)
-      } else if (anyData && anyData.length > 0) {
-        console.log('Columns:', Object.keys(anyData[0]).sort().join(', '))
-      } else {
-        console.log('No rows found, cannot determine columns from data')
-      }
-    }
-  }
+import { createClient } from '@supabase/supabase-js'\n
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("Missing Supabase environment variables");
 }
-
-main()
+\n\nconst supabase = createClient(\n  process.env.NEXT_PUBLIC_SUPABASE_URL!,\n  process.env.SUPABASE_SERVICE_ROLE_KEY!\n)\n\nconst tables = [\n  'transactions',\n  'uploads', \n  'bank_accounts',\n  'company_metrics',\n  'subscriptions',\n  'alerts',\n  'agent_recommendations',\n  'agent_tasks'\n]\n\nasync function main() {\n  for (const table of tables) {\n    console.log(`\n=== ${table} ===`)\n    const { data, error } = await supabase\n      .from(table)\n      .select('*')\n      .limit(1)\n    \n    if (error) {\n      console.log(`ERROR: ${error.message}`)\n    } else if (data && data.length > 0) {\n      console.log('Columns:', Object.keys(data[0]).sort().join(', '))\n    } else {\n      const { data: anyData, error: anyError } = await supabase\n        .from(table)\n        .select('*')\n        .eq('company_id', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')\n        .limit(1)\n      \n      if (anyError) {\n        console.log(`ERROR with company_id filter: ${anyError.message}`)\n      } else if (anyData && anyData.length > 0) {\n        console.log('Columns:', Object.keys(anyData[0]).sort().join(', '))\n      } else {\n        console.log('No rows found, cannot determine columns from data')\n      }\n    }\n  }\n}\n\nmain()\n
