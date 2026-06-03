@@ -43,21 +43,33 @@ interface TransactionsContentProps {
   initialPreset: string;
   initialFrom: string;
   initialTo: string;
+  initialFilters?: {
+    type?: string;
+    uploadId?: string;
+    category?: string;
+    status?: string;
+    duplicateStatus?: DuplicateFilter;
+    kpiTreatment?: "all" | "included" | "excluded";
+    currency?: string;
+    sourceProvider?: string;
+  };
 }
 
 const PAGE_SIZE = 100;
 
 type DuplicateFilter = "all" | "duplicates" | "not_duplicates";
 
-export default function TransactionsContent({ transactions: initialTransactions, totalTransactions: initialTotalTransactions, uploads, initialPreset, initialFrom, initialTo }: TransactionsContentProps) {
+export default function TransactionsContent({ transactions: initialTransactions, totalTransactions: initialTotalTransactions, uploads, initialPreset, initialFrom, initialTo, initialFilters }: TransactionsContentProps) {
   const { currency } = useCompanyCurrency();
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [uploadFilter, setUploadFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [duplicateFilter, setDuplicateFilter] = useState<DuplicateFilter>("all");
-  const [currencyFilter, setCurrencyFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState(initialFilters?.type ?? "all");
+  const [categoryFilter, setCategoryFilter] = useState(initialFilters?.category ?? "all");
+  const [uploadFilter, setUploadFilter] = useState(initialFilters?.uploadId ?? "all");
+  const [statusFilter, setStatusFilter] = useState(initialFilters?.status ?? "all");
+  const [duplicateFilter, setDuplicateFilter] = useState<DuplicateFilter>(initialFilters?.duplicateStatus ?? "all");
+  const [kpiTreatmentFilter, setKpiTreatmentFilter] = useState<"all" | "included" | "excluded">(initialFilters?.kpiTreatment ?? "all");
+  const [currencyFilter, setCurrencyFilter] = useState(initialFilters?.currency ?? "all");
+  const [sourceProviderFilter, setSourceProviderFilter] = useState(initialFilters?.sourceProvider ?? "all");
   const [sort, setSort] = useState("newest");
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [totalCount, setTotalCount] = useState(initialTotalTransactions);
@@ -76,6 +88,11 @@ export default function TransactionsContent({ transactions: initialTransactions,
     () => Array.from(new Set([currency, ...transactions.map((t) => t.currency).filter(Boolean)])),
     [currency, transactions]
   );
+  const sourceProviders = useMemo(
+    () => Array.from(new Set(transactions.map((t) => t.sourceProvider).filter(Boolean))),
+    [transactions]
+  );
+  const selectedUpload = uploads.find((u) => u.id === uploadFilter);
 
   const serverFilters = useMemo(() => ({
     type: typeFilter,
@@ -83,8 +100,10 @@ export default function TransactionsContent({ transactions: initialTransactions,
     category: categoryFilter,
     status: statusFilter,
     duplicateStatus: duplicateFilter,
+    kpiTreatment: kpiTreatmentFilter,
     currency: currencyFilter,
-  }), [typeFilter, uploadFilter, categoryFilter, statusFilter, duplicateFilter, currencyFilter]);
+    sourceProvider: sourceProviderFilter,
+  }), [typeFilter, uploadFilter, categoryFilter, statusFilter, duplicateFilter, kpiTreatmentFilter, currencyFilter, sourceProviderFilter]);
 
   async function fetchTransactions(
     nextFilters: typeof serverFilters,
@@ -116,7 +135,9 @@ export default function TransactionsContent({ transactions: initialTransactions,
     if (next.category !== undefined) setCategoryFilter(next.category);
     if (next.status !== undefined) setStatusFilter(next.status);
     if (next.duplicateStatus !== undefined) setDuplicateFilter(next.duplicateStatus);
+    if (next.kpiTreatment !== undefined) setKpiTreatmentFilter(next.kpiTreatment);
     if (next.currency !== undefined) setCurrencyFilter(next.currency);
+    if (next.sourceProvider !== undefined) setSourceProviderFilter(next.sourceProvider);
     void fetchTransactions(merged, 0, false);
   }
 
@@ -197,7 +218,8 @@ export default function TransactionsContent({ transactions: initialTransactions,
         />
         {transactions.length < total && (
           <p className="text-xs text-[var(--muted-foreground)] col-span-full">
-            Showing {transactions.length} of {total} total transactions for the selected date range.
+            Showing {transactions.length} of {total} total transactions
+            {selectedUpload ? ` from ${selectedUpload.fileName}` : " for the selected filters"}.
           </p>
         )}
         <MetricCard
@@ -326,6 +348,20 @@ export default function TransactionsContent({ transactions: initialTransactions,
             <div className="relative">
               <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
               <select
+                value={kpiTreatmentFilter}
+                onChange={(e) => applyServerFilter({ kpiTreatment: e.target.value as "all" | "included" | "excluded" })}
+                className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
+                style={{ borderColor: "rgba(148,163,184,0.16)" }}
+              >
+                <option value="all">All KPI Treatments</option>
+                <option value="included">KPI Included</option>
+                <option value="excluded">KPI Excluded</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <select
                 value={currencyFilter}
                 onChange={(e) => applyServerFilter({ currency: e.target.value })}
                 className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
@@ -334,6 +370,21 @@ export default function TransactionsContent({ transactions: initialTransactions,
                 <option value="all">All Currencies</option>
                 {currencies.map((code) => (
                   <option key={code} value={code}>{code}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
+              <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <select
+                value={sourceProviderFilter}
+                onChange={(e) => applyServerFilter({ sourceProvider: e.target.value })}
+                className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
+                style={{ borderColor: "rgba(148,163,184,0.16)" }}
+              >
+                <option value="all">All Providers</option>
+                {sourceProviders.map((provider) => (
+                  <option key={provider} value={provider}>{provider}</option>
                 ))}
               </select>
             </div>

@@ -79,7 +79,7 @@ export async function getMonthlyMetrics(
 
   const { data: rawData, error } = await supabase
     .from("transactions")
-    .select("date, amount, type, category, tags, metadata")
+    .select("date, amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", effectiveCompanyId)
     .gte("date", from)
     .lte("date", to)
@@ -132,7 +132,7 @@ export async function getMetricsForRange(
 
   const { data: txs, error } = await admin
     .from("transactions")
-    .select("amount, type, category, tags, metadata")
+    .select("amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .gte("date", fromDate)
     .lte("date", toDate);

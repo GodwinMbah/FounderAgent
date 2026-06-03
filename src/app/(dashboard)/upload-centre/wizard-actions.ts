@@ -319,6 +319,7 @@ export async function confirmAndProcess(
 
     const summary: ImportSummary = {
       success: pipelineResult.success,
+      uploadId: upload.id,
       fileName: session.fileName,
       sourceType: finalPreview.sourceType,
       rowsInFile: pipelineResult.reconciliation?.rowsInFile ?? finalPreview.previewRows.length + finalPreview.failedRows.length,
@@ -328,11 +329,22 @@ export async function confirmAndProcess(
       rowsSkipped: pipelineResult.reconciliation?.rowsSkippedDuplicate ?? pipelineResult.duplicateCount,
       rowsFailed: pipelineResult.reconciliation?.rowsFailed ?? pipelineResult.transactionsFailed,
       rowsNeedReview: pipelineResult.needReviewCount,
+      rowsUncategorised: pipelineResult.reconciliation?.rowsUncategorised ?? 0,
+      rowsAmbiguous: pipelineResult.reconciliation?.rowsAmbiguous ?? 0,
       rowsCategorised: pipelineResult.categorisedCount,
+      rowsHighConfidence: pipelineResult.reconciliation?.rowsHighConfidence ?? 0,
+      rowsCategorisedByUserRule: pipelineResult.reconciliation?.rowsCategorisedByUserRule ?? 0,
+      rowsCategorisedBySystemIntelligence: pipelineResult.reconciliation?.rowsCategorisedBySystemIntelligence ?? pipelineResult.categorisedCount,
+      rowsIncludedInRevenue: pipelineResult.reconciliation?.rowsIncludedInRevenue ?? 0,
+      rowsIncludedInExpenses: pipelineResult.reconciliation?.rowsIncludedInExpenses ?? 0,
+      rowsIncludedInCashFlow: pipelineResult.reconciliation?.rowsIncludedInCashFlow ?? 0,
       rowsTransfer: pipelineResult.transferCount,
       rowsDuplicate: pipelineResult.duplicateCount,
       rowsKpiExcluded: pipelineResult.reconciliation?.rowsExcludedFromKpis ?? pipelineResult.transferCount + pipelineResult.duplicateCount,
       rowsLinkedToSubscriptions: pipelineResult.reconciliation?.rowsLinkedToSubscriptions ?? 0,
+      rowsWithFees: pipelineResult.reconciliation?.rowsWithFees ?? 0,
+      rowsWithRefunds: pipelineResult.reconciliation?.rowsWithRefunds ?? 0,
+      rowsWithCreditCardRepaymentTreatment: pipelineResult.reconciliation?.rowsWithCreditCardRepaymentTreatment ?? 0,
       reconciliationBalanced: pipelineResult.reconciliation?.reconciliationBalanced ?? pipelineResult.success,
       reconciliationExplanation: pipelineResult.reconciliation?.explanation,
       incomeTotal: finalPreview.incomeTotal,
@@ -340,7 +352,7 @@ export async function confirmAndProcess(
       sourceCurrency: finalPreview.detectedCurrency,
       baseCurrency: companyCurrency || finalPreview.detectedCurrency,
       subscriptionsDetected: pipelineResult.subscriptionsDetected,
-      unknownTransactions: finalPreview.previewRows.filter((r) => r.category === "Uncategorised Review").length,
+      unknownTransactions: pipelineResult.reconciliation?.rowsUncategorised ?? finalPreview.previewRows.filter((r) => r.category === "Uncategorised Review").length,
       alertsCreated: pipelineResult.alertsCreated,
       recommendationsCreated: pipelineResult.recommendationsCreated,
       error: pipelineResult.error,
@@ -430,6 +442,7 @@ export async function getUploadStatus(uploadId: string): Promise<{
   metadata?: Record<string, unknown>;
   fileName?: string;
   source?: string;
+  uploadId?: string;
 }> {
   try {
     const { companyId } = await requireAuthCompany();
@@ -456,6 +469,7 @@ export async function getUploadStatus(uploadId: string): Promise<{
       metadata: data.metadata as Record<string, unknown>,
       fileName: data.file_name,
       source: data.source,
+      uploadId,
     };
   } catch (err) {
     const raw = err instanceof Error ? err.message : "Unknown error";

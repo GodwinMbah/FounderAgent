@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { detectTransfer } from "../transfer-detector";
 
-function tx(description: string, amount: number, opts?: Partial<Parameters<typeof detectTransfer>[0]>) {
+function tx(
+  description: string,
+  amount: number,
+  opts?: Partial<Parameters<typeof detectTransfer>[0]>,
+  detectorOptions?: Parameters<typeof detectTransfer>[1]
+) {
   return detectTransfer({
     description,
     amount,
@@ -9,7 +14,7 @@ function tx(description: string, amount: number, opts?: Partial<Parameters<typeo
     currency: "GBP",
     transactionDate: "2024-01-01",
     ...opts,
-  });
+  }, detectorOptions);
 }
 
 describe("credit card repayment detection", () => {
@@ -61,6 +66,47 @@ describe("payment processor top-up detection", () => {
       transactionType: "TRANSFER",
       merchantName: "Internal Transfer",
       counterpartyName: "British Pound",
+    }, {
+      sourceProvider: "revolut_business_csv",
+    });
+
+    expect(result.isTransfer).toBe(true);
+  });
+});
+
+describe("Revolut Business transfer type handling", () => {
+  it("does NOT flag commission payouts as transfers just because the raw type is TRANSFER", () => {
+    const result = tx("Marketing Commission Payout", -35, {
+      transactionType: "TRANSFER",
+      merchantName: "Catherine Bull",
+      counterpartyName: "Catherine Bull",
+      reference: "Marketing Commission Payout",
+    }, {
+      sourceProvider: "revolut_business_csv",
+    });
+
+    expect(result.isTransfer).toBe(false);
+  });
+
+  it("does NOT flag consultancy fees as transfers just because the raw type is TRANSFER", () => {
+    const result = tx("Director Consultancy Fee", -100, {
+      transactionType: "TRANSFER",
+      merchantName: "Godwin Mbah",
+      reference: "Director Consultancy Fee",
+    }, {
+      sourceProvider: "revolut_business_csv",
+    });
+
+    expect(result.isTransfer).toBe(false);
+  });
+
+  it("detects Revolut credit card repayments as transfers", () => {
+    const result = tx("Capital On Tap", -1933.66, {
+      transactionType: "TRANSFER",
+      merchantName: "Capital On Tap",
+      reference: "6B7EV3F",
+    }, {
+      sourceProvider: "revolut_business_csv",
     });
 
     expect(result.isTransfer).toBe(true);

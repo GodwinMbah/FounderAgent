@@ -14,6 +14,7 @@ function mapRow(row: Record<string, unknown>): Transaction {
     accountId: row.bank_account_id as string | undefined,
     sourceRowNumber: (row.source_row_number as number | undefined) ?? (metadata?.source_row_number as number | undefined),
     externalTransactionId: (row.external_transaction_id as string | undefined) ?? (metadata?.external_transaction_id as string | undefined),
+    postedDate: (row.posted_date as string | undefined) ?? (metadata?.posted_date as string | undefined),
     currency: (row.currency as string | undefined) ?? (metadata?.currency as string | undefined),
     sourceProvider: (row.source_provider as string | undefined) ?? (metadata?.source_provider as string | undefined),
     rawRowHash: (row.raw_row_hash as string | undefined) ?? (metadata?.raw_row_hash as string | undefined),
@@ -22,10 +23,23 @@ function mapRow(row: Record<string, unknown>): Transaction {
     kpiExcluded: (row.kpi_excluded as boolean | undefined) ?? (metadata?.kpi_excluded as boolean | undefined),
     kpiExclusionReason: (row.kpi_exclusion_reason as string | undefined) ?? (metadata?.kpi_exclusion_reason as string | undefined),
     duplicateOfTransactionId: (row.duplicate_of_transaction_id as string | undefined) ?? (metadata?.duplicate_of_transaction_id as string | undefined),
+    originalAmount: metadata?.original_amount as number | undefined,
+    originalCurrency: metadata?.original_currency as string | undefined,
+    feeAmount: (row.fee_amount as number | undefined) ?? (metadata?.fee_amount as number | undefined),
+    feeCurrency: metadata?.fee_currency as string | undefined,
+    runningBalance: (row.running_balance as number | undefined) ?? (metadata?.running_balance as number | undefined),
     date: row.date as string,
     merchant: row.merchant as string | undefined,
     description: row.description as string,
     category: row.category as string | undefined,
+    subcategory: metadata?.detected_subcategory as string | undefined,
+    categoryReason: metadata?.category_reason as string | undefined,
+    categoryConfidence: metadata?.category_confidence as number | undefined,
+    groupingConfidence: metadata?.grouping_confidence as number | undefined,
+    categoryEvidence: metadata?.category_evidence as Transaction["categoryEvidence"] | undefined,
+    businessMeaning: metadata?.business_meaning as string | undefined,
+    kpiTreatment: metadata?.kpi_treatment as Transaction["kpiTreatment"] | undefined,
+    isCreditCardRepayment: metadata?.is_credit_card_repayment as boolean | undefined,
     amount: Number(row.amount),
     type: row.type as "income" | "expense",
     status: row.status as string,
@@ -49,7 +63,9 @@ export interface GetTransactionsOptions {
   category?: string;
   status?: string;
   duplicateStatus?: "all" | "duplicates" | "not_duplicates";
+  kpiTreatment?: "all" | "included" | "excluded";
   currency?: string;
+  sourceProvider?: string;
   limit?: number;
   offset?: number;
 }
@@ -80,8 +96,11 @@ export async function getTransactions(
   if (options?.category) query = query.eq("category", options.category);
   if (options?.status) query = query.eq("status", options.status);
   if (options?.currency) query = query.eq("currency", options.currency);
+  if (options?.sourceProvider) query = query.eq("source_provider", options.sourceProvider);
   if (options?.duplicateStatus === "duplicates") query = query.not("duplicate_of_transaction_id", "is", null);
   if (options?.duplicateStatus === "not_duplicates") query = query.is("duplicate_of_transaction_id", null);
+  if (options?.kpiTreatment === "excluded") query = query.eq("kpi_excluded", true);
+  if (options?.kpiTreatment === "included") query = query.eq("kpi_excluded", false);
   if (options?.offset !== undefined) {
     const limit = options.limit ?? 100;
     query = query.range(options.offset, options.offset + limit - 1);
@@ -124,8 +143,11 @@ export async function getTransactionsPage(
   if (options?.category) query = query.eq("category", options.category);
   if (options?.status) query = query.eq("status", options.status);
   if (options?.currency) query = query.eq("currency", options.currency);
+  if (options?.sourceProvider) query = query.eq("source_provider", options.sourceProvider);
   if (options?.duplicateStatus === "duplicates") query = query.not("duplicate_of_transaction_id", "is", null);
   if (options?.duplicateStatus === "not_duplicates") query = query.is("duplicate_of_transaction_id", null);
+  if (options?.kpiTreatment === "excluded") query = query.eq("kpi_excluded", true);
+  if (options?.kpiTreatment === "included") query = query.eq("kpi_excluded", false);
 
   const limit = options?.limit ?? 500;
   const offset = options?.offset ?? 0;
@@ -160,6 +182,7 @@ export interface TransactionInsert {
   bankAccountId?: string;
   sourceRowNumber?: number;
   externalTransactionId?: string;
+  postedDate?: string;
   currency?: string;
   sourceProvider?: string;
   rawRowHash?: string;
@@ -168,6 +191,8 @@ export interface TransactionInsert {
   kpiExcluded?: boolean;
   kpiExclusionReason?: string;
   duplicateOfTransactionId?: string;
+  feeAmount?: number;
+  runningBalance?: number;
   date: string;
   merchant?: string;
   description: string;
@@ -190,6 +215,7 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
     bank_account_id: t.bankAccountId,
     source_row_number: t.sourceRowNumber,
     external_transaction_id: t.externalTransactionId,
+    posted_date: t.postedDate,
     currency: t.currency,
     source_provider: t.sourceProvider,
     raw_row_hash: t.rawRowHash,
@@ -198,6 +224,8 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
     kpi_excluded: t.kpiExcluded ?? false,
     kpi_exclusion_reason: t.kpiExclusionReason,
     duplicate_of_transaction_id: t.duplicateOfTransactionId,
+    fee_amount: t.feeAmount,
+    running_balance: t.runningBalance,
     date: t.date,
     merchant: t.merchant,
     description: t.description,
@@ -217,9 +245,22 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
 const CHUNK_SIZE = 300;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
+const OPTIONAL_PROOF_COLUMNS = ["posted_date", "fee_amount", "running_balance"];
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isOptionalProofColumnError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return OPTIONAL_PROOF_COLUMNS.some((column) => lower.includes(column)) &&
+    (lower.includes("column") || lower.includes("schema cache"));
+}
+
+function stripOptionalProofColumns(row: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...row };
+  for (const column of OPTIONAL_PROOF_COLUMNS) delete next[column];
+  return next;
 }
 
 export async function createTransactionsChunked(
@@ -249,12 +290,14 @@ export async function createTransactionsChunked(
 
   for (let i = 0; i < transactions.length; i += CHUNK_SIZE) {
     const chunk = transactions.slice(i, i + CHUNK_SIZE).map(toDbRow);
+    let chunkForAttempt = chunk;
+    let strippedOptionalProofColumns = false;
     let lastError: string | undefined;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       const { data, error } = await admin
         .from("transactions")
-        .insert(chunk)
+        .insert(chunkForAttempt)
         .select("id, source_row_number, raw_row_hash, external_transaction_id");
 
       if (!error) {
@@ -273,6 +316,13 @@ export async function createTransactionsChunked(
       }
 
       lastError = error.message;
+      if (!strippedOptionalProofColumns && isOptionalProofColumnError(error.message)) {
+        console.warn("[createTransactionsChunked] Optional proof columns missing in live schema; falling back to metadata-only for posted_date, fee_amount, running_balance.");
+        chunkForAttempt = chunk.map(stripOptionalProofColumns);
+        strippedOptionalProofColumns = true;
+        continue;
+      }
+
       console.error(`[createTransactionsChunked] Chunk ${i / CHUNK_SIZE + 1} attempt ${attempt} failed: ${error.message}`);
 
       if (attempt < MAX_RETRIES) {

@@ -8,8 +8,11 @@ export interface TransactionLike {
   category?: string;
   tags?: string[];
   rowStatus?: string;
+  row_status?: string;
   kpiExcluded?: boolean;
+  kpi_excluded?: boolean;
   kpiExclusionReason?: string;
+  kpi_exclusion_reason?: string;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -18,7 +21,9 @@ export function isTransfer(t: TransactionLike): boolean {
   return (
     t.category === "Transfers" ||
     t.rowStatus === "transfer" ||
+    t.row_status === "transfer" ||
     t.kpiExclusionReason === "transfer" ||
+    t.kpi_exclusion_reason === "transfer" ||
     metadata.row_status === "transfer" ||
     metadata.kpi_exclusion_reason === "transfer" ||
     (Array.isArray(t.tags) && t.tags.includes("transfer"))
@@ -27,7 +32,7 @@ export function isTransfer(t: TransactionLike): boolean {
 
 export function isKpiExcluded(t: TransactionLike): boolean {
   const metadata = t.metadata ?? {};
-  return t.kpiExcluded === true || metadata.kpi_excluded === true;
+  return t.kpiExcluded === true || t.kpi_excluded === true || metadata.kpi_excluded === true;
 }
 
 export function isIncome(t: TransactionLike): boolean {
