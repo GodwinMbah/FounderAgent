@@ -7,7 +7,7 @@ export const natwestAdapter: ProviderAdapter = {
   detection: {
     requiredHeaders: ["Date", "Type", "Description", "Value"],
     optionalHeaders: ["Balance", "Account Name", "Account Number"],
-    minRequiredMatches: 2,
+    minRequiredMatches: 4,
     minScore: 30,
   },
   headerAliases: [

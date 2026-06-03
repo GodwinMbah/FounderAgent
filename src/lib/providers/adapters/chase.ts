@@ -9,6 +9,7 @@ export const chaseAdapter: ProviderAdapter = {
     optionalHeaders: ["Type", "Balance", "Check or Slip #"],
     minRequiredMatches: 2,
     minScore: 30,
+    preamblePatterns: ["Details", "Check or Slip #"],
   },
   headerAliases: [
     { field: "transactionDate", aliases: ["Posting Date"], required: true },

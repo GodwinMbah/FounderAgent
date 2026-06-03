@@ -21,6 +21,7 @@ export const monzoAdapter: ProviderAdapter = {
     ],
     minRequiredMatches: 2,
     minScore: 30,
+    preamblePatterns: ["Notes and tags", "Local amount", "Local currency", "Category split", "Round up"],
   },
   headerAliases: [
     { field: "transactionDate", aliases: ["Date", "date", "Transaction Date", "transaction_date", "created"], required: true },

@@ -9,6 +9,7 @@ export const starlingAdapter: ProviderAdapter = {
     optionalHeaders: ["Reference", "Type", "Spending category", "Notes"],
     minRequiredMatches: 2,
     minScore: 30,
+    preamblePatterns: ["Counter Party", "Spending category", "Starling"],
   },
   headerAliases: [
     { field: "transactionDate", aliases: ["Date", "date", "Transaction Date", "transaction_date"], required: true },

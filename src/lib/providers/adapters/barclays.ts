@@ -9,6 +9,7 @@ export const barclaysAdapter: ProviderAdapter = {
     optionalHeaders: ["Number", "Subcategory", "Memo"],
     minRequiredMatches: 2,
     minScore: 30,
+    preamblePatterns: ["Number", "Subcategory", "Memo"],
   },
   headerAliases: [
     { field: "transactionDate", aliases: ["Date", "date", "Transaction Date", "transaction_date"], required: true },

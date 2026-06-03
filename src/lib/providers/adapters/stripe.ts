@@ -29,7 +29,7 @@ export const stripeAdapter: ProviderAdapter = {
       "Transfer",
       "Transfer Group",
     ],
-    minRequiredMatches: 3,
+    minRequiredMatches: 4,
     minScore: 40,
   },
   headerAliases: [

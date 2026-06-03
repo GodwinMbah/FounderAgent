@@ -41,6 +41,9 @@ type DbTransaction = {
   kpi_excluded: boolean | null;
   kpi_exclusion_reason: string | null;
   duplicate_of_transaction_id: string | null;
+  posted_date: string | null;
+  fee_amount: number | null;
+  running_balance: number | null;
   metadata: Record<string, unknown> | null;
 };
 
@@ -218,13 +221,24 @@ function verifyFirstImport(result: Awaited<ReturnType<typeof uploadAndRun>>) {
   assertProof(result.transactions.every((tx) => tx.source_provider === "revolut_business_csv"), "every transaction source provider is Revolut Business");
   assertProof(result.transactions.every((tx) => Boolean(tx.raw_row_hash)), "every transaction has raw_row_hash");
   assertProof(result.transactions.every((tx) => Boolean(tx.category) || tx.status === "needs_review"), "every transaction has category or review status");
+  assertProof(result.transactions.every((tx) => Boolean(tx.posted_date)), "every transaction has promoted posted_date");
+  assertProof(result.transactions.every((tx) => tx.fee_amount !== null && tx.fee_amount !== undefined), "every transaction has promoted fee_amount when source fee column exists");
+  assertProof(result.transactions.every((tx) => tx.running_balance !== null && tx.running_balance !== undefined), "every transaction has promoted running_balance");
 
   const kpiProof = calculateKpiProof(result.transactions);
   assertProof(kpiProof.includedRevenueRows === rec!.rowsIncludedInRevenue, "dashboard revenue row count equals reconciliation");
   assertProof(kpiProof.includedExpenseRows === rec!.rowsIncludedInExpenses, "dashboard expense row count equals reconciliation");
   assertProof(kpiProof.kpiExcluded === result.transactions.filter((tx) => tx.kpi_excluded === true).length, "KPI excluded promoted column is queryable");
 
-  return { reconciliation: rec!, kpiProof };
+  return {
+    reconciliation: rec!,
+    kpiProof,
+    promotedColumnProof: {
+      postedDateRows: result.transactions.filter((tx) => Boolean(tx.posted_date)).length,
+      feeAmountRows: result.transactions.filter((tx) => tx.fee_amount !== null && tx.fee_amount !== undefined).length,
+      runningBalanceRows: result.transactions.filter((tx) => tx.running_balance !== null && tx.running_balance !== undefined).length,
+    },
+  };
 }
 
 function verifyDuplicateImport(result: Awaited<ReturnType<typeof uploadAndRun>>) {
@@ -276,6 +290,7 @@ async function main() {
       rowsWithCreditCardRepaymentTreatment: firstProof.reconciliation.rowsWithCreditCardRepaymentTreatment,
       currency: "GBP",
       kpiProof: firstProof.kpiProof,
+      promotedColumnProof: firstProof.promotedColumnProof,
     },
     duplicateUpload: {
       status: duplicate.upload.status,

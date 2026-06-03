@@ -59,6 +59,17 @@ const PAGE_SIZE = 100;
 
 type DuplicateFilter = "all" | "duplicates" | "not_duplicates";
 
+function mergeUniqueTransactions(current: Transaction[], nextPage: Transaction[]) {
+  const seen = new Set(current.map((transaction) => transaction.id));
+  const uniqueNextPage = nextPage.filter((transaction) => {
+    if (seen.has(transaction.id)) return false;
+    seen.add(transaction.id);
+    return true;
+  });
+
+  return [...current, ...uniqueNextPage];
+}
+
 export default function TransactionsContent({ transactions: initialTransactions, totalTransactions: initialTotalTransactions, uploads, initialPreset, initialFrom, initialTo, initialFilters }: TransactionsContentProps) {
   const { currency } = useCompanyCurrency();
   const [search, setSearch] = useState("");
@@ -121,7 +132,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
     setPageLoading(false);
 
     if (result.success && result.transactions) {
-      setTransactions((prev) => (append ? [...prev, ...(result.transactions ?? [])] : result.transactions ?? []));
+      setTransactions((prev) => (append ? mergeUniqueTransactions(prev, result.transactions ?? []) : result.transactions ?? []));
       setTotalCount(result.total ?? result.transactions.length);
     } else if (result.error) {
       setSaveMessage(result.error);

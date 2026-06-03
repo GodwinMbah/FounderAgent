@@ -460,7 +460,7 @@ export function parseUpload(csvText: string, options: ParseOptions): CanonicalPa
       const feeStr = getValue(row, feeIdx);
       if (feeStr) {
         const feeParsed = parseAmount(feeStr, adapter.signConvention);
-        if (feeParsed.amount > 0) feeAmount = feeParsed.amount;
+        feeAmount = feeParsed.amount;
       }
     }
 

@@ -5,7 +5,7 @@ export const wiseAdapter: ProviderAdapter = {
   displayName: "Wise",
   type: "bank",
   detection: {
-    requiredHeaders: ["Date", "Amount", "Currency", "Description"],
+    requiredHeaders: ["TransferWise ID", "Date", "Amount", "Currency", "Description"],
     optionalHeaders: [
       "TransferWise ID",
       "Payment Reference",
@@ -15,8 +15,9 @@ export const wiseAdapter: ProviderAdapter = {
       "Exchange Rate",
       "Total Fees",
     ],
-    minRequiredMatches: 2,
+    minRequiredMatches: 4,
     minScore: 30,
+    preamblePatterns: ["TransferWise ID", "Exchange From", "Exchange To", "Total Fees"],
   },
   headerAliases: [
     { field: "transactionDate", aliases: ["Date", "date", "Transaction Date", "transaction_date", "completed date"], required: true },

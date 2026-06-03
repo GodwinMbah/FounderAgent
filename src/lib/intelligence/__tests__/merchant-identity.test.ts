@@ -14,8 +14,9 @@ describe("resolveMerchantIdentity", () => {
     expect(identity.displayName).toBe("Stripe");
     expect(identity.normalisedKey).toBe("stripe");
     expect(identity.domain).toBe("stripe.com");
-    expect(identity.logoUrl).toBe("https://logo.clearbit.com/stripe.com");
-    expect(identity.logoSource).toBe("registry");
+    expect(identity.aliases).toContain("Stripe Payments UK LTD");
+    expect(identity.logoUrl).toBeUndefined();
+    expect(identity.logoSource).toBe("branded_identity");
     expect(identity.category).toBe("Revenue");
     expect(identity.confidence).toBe(95);
     expect(identity.fallbackInitials).toBe("ST");
@@ -30,7 +31,8 @@ describe("resolveMerchantIdentity", () => {
     expect(identity.displayName).toBe("Stripe");
     expect(identity.normalisedKey).toBe("stripe");
     expect(identity.isKnown).toBe(true);
-    expect(identity.logoUrl).toBe("https://logo.clearbit.com/stripe.com");
+    expect(identity.logoUrl).toBeUndefined();
+    expect(identity.aliases).toContain("Stripe Inc");
   });
 
   it("resolves an unknown merchant with fallback values", () => {
@@ -85,18 +87,17 @@ describe("resolveMerchantIdentity", () => {
       const identity = resolveMerchantIdentity(merchant);
       expect(identity.isKnown).toBe(true);
       expect(identity.confidence).toBe(95);
-      expect(identity.domain).toBeDefined();
-      expect(identity.logoUrl).toBeDefined();
+      expect(identity.aliases.length).toBeGreaterThan(0);
+      expect(identity.logoSource === "branded_identity" || identity.logoSource === "cached").toBe(true);
+      expect(identity.logoUrl).toBeUndefined();
     }
   });
 
-  it("sets logoSource to clearbit when only domain is present", () => {
-    // Create a scenario: we can simulate by modifying the expectation
-    // for a merchant that has domain but no explicit logoUrl.
-    // In our registry all top merchants have explicit logoUrl, so logoSource
-    // is "registry". Let's verify the fallback path by testing getMerchantLogoUrl.
+  it("does not synthesize external logo URLs from known domains", () => {
     const identity = resolveMerchantIdentity("Stripe");
-    expect(identity.logoSource).toBe("registry");
+    expect(identity.domain).toBe("stripe.com");
+    expect(identity.logoUrl).toBeUndefined();
+    expect(getMerchantLogoUrl(identity)).toBeUndefined();
   });
 
   it("returns correct fallback for completely unknown merchants", () => {
@@ -119,19 +120,22 @@ describe("resolveMerchantIdentity", () => {
 });
 
 describe("getMerchantLogoUrl", () => {
-  it("returns explicit logoUrl when available", () => {
-    const identity = resolveMerchantIdentity("Stripe");
-    const url = getMerchantLogoUrl(identity);
-    expect(url).toBe("https://logo.clearbit.com/stripe.com");
-  });
-
-  it("falls back to Clearbit when only domain is available", () => {
+  it("returns safe local logoUrl when available", () => {
     const identity = resolveMerchantIdentity("Stripe");
     const url = getMerchantLogoUrl({
       ...identity,
-      logoUrl: undefined,
+      logoUrl: "/merchant-logos/stripe.svg",
     });
-    expect(url).toBe("https://logo.clearbit.com/stripe.com");
+    expect(url).toBe("/merchant-logos/stripe.svg");
+  });
+
+  it("does not fall back to external logo providers in browser-rendered identity", () => {
+    const identity = resolveMerchantIdentity("Stripe");
+    const url = getMerchantLogoUrl({
+      ...identity,
+      logoUrl: "https://logo.clearbit.com/stripe.com",
+    });
+    expect(url).toBeUndefined();
   });
 
   it("returns undefined when no logo or domain is available", () => {
@@ -159,7 +163,7 @@ describe("getMerchantInitialsAvatar", () => {
 });
 
 describe("MerchantIdentitySchema", () => {
-  it("exports a structured schema object for P4 AI reasoning", () => {
+  it("exports a structured schema object for merchant identity rendering", () => {
     expect(MerchantIdentitySchema).toBeDefined();
     expect(MerchantIdentitySchema.type).toBe("object");
     expect(MerchantIdentitySchema.description).toContain("merchant identity");
@@ -170,12 +174,8 @@ describe("MerchantIdentitySchema", () => {
     expect(MerchantIdentitySchema.properties.logoSource.enum).toContain(
       "registry"
     );
-    expect(MerchantIdentitySchema.properties.logoSource.enum).toContain(
-      "clearbit"
-    );
-    expect(MerchantIdentitySchema.properties.logoSource.enum).toContain(
-      "generated"
-    );
+    expect(MerchantIdentitySchema.properties.logoSource.enum).toContain("branded_identity");
+    expect(MerchantIdentitySchema.properties.logoSource.enum).toContain("cached");
     expect(MerchantIdentitySchema.properties.logoSource.enum).toContain(
       "fallback"
     );
