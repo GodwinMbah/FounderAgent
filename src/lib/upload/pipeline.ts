@@ -237,6 +237,15 @@ export async function runUploadPipeline(
     } catch {
       // Settings may not exist
     }
+    if (!companyCurrency) {
+      const { data: companyRow } = await adminClient
+        .from("companies")
+        .select("currency")
+        .eq("id", companyId)
+        .maybeSingle();
+      companyCurrency = companyCurrency ?? ((companyRow?.currency as string | undefined) || undefined);
+    }
+    companyCurrency = (companyCurrency ?? "GBP").toUpperCase();
 
     // 4. Parse and normalise rows using unified parser
     await setPipelineStage(uploadId, companyId, "validating", 25);
@@ -356,6 +365,7 @@ export async function runUploadPipeline(
     // Filter out duplicates from insertion
     const deduplicatedRows = categorisedRows.filter((_, i) => !parseResult.transactions[i]?.isPossibleDuplicate);
     categorisedRows = deduplicatedRows;
+    const hasInsertableRows = categorisedRows.length > 0;
     duplicateCountSnapshot = parseResult.transactions.filter((tx) => tx.isPossibleDuplicate).length;
     transferCountSnapshot = parseResult.transactions.filter((tx) => tx.isTransfer).length;
     needReviewCountSnapshot = parseResult.transactions.filter((tx) => tx.status === "needs_review" && !tx.isPossibleDuplicate).length;
@@ -365,7 +375,7 @@ export async function runUploadPipeline(
     // 7. Detect anomalies
     await setPipelineStage(uploadId, companyId, "detecting_anomalies", 85);
 
-    const anomalies = await detectAnomalies(categorisedRows, { companyId });
+    const anomalies = hasInsertableRows ? await detectAnomalies(categorisedRows, { companyId }) : [];
 
     // 8. Prepare transaction inserts using canonical model
     await setPipelineStage(uploadId, companyId, "importing", 50);
@@ -424,7 +434,7 @@ export async function runUploadPipeline(
     }
 
     // Fetch historical transactions for merged subscription detection
-    const vendors = [...new Set(categorisedRows.map((r) => r.merchant))].filter(Boolean);
+    const vendors = hasInsertableRows ? [...new Set(categorisedRows.map((r) => r.merchant))].filter(Boolean) : [];
     let historicalRows: typeof categorisedRows = [];
     if (vendors.length > 0 && companyId) {
       try {
@@ -474,9 +484,9 @@ export async function runUploadPipeline(
     // 6. Detect subscriptions with historical data merged
     await setPipelineStage(uploadId, companyId, "detecting_subscriptions", 75);
 
-    const allRowsForSubs = [...historicalRows, ...categorisedRows];
-    detectedSubs = detectSubscriptions(allRowsForSubs);
-    const duplicateTools = detectDuplicateTools(detectedSubs);
+    const allRowsForSubs = hasInsertableRows ? [...historicalRows, ...categorisedRows] : [];
+    detectedSubs = hasInsertableRows ? detectSubscriptions(allRowsForSubs) : [];
+    const duplicateTools = hasInsertableRows ? detectDuplicateTools(detectedSubs) : [];
 
     // 10. Create/update subscriptions
     await setPipelineStage(uploadId, companyId, "generating_recommendations", 92);
@@ -563,21 +573,29 @@ export async function runUploadPipeline(
       });
     }
 
-    const foreignCurrencyRows = categorisedRows.filter(
-      (r) => r.originalCurrency && r.originalCurrency !== companyCurrency
-    );
+    const foreignCurrencyRows = categorisedRows.filter((r) => {
+      const originalCurrency = r.originalCurrency?.toUpperCase();
+      return Boolean(originalCurrency && originalCurrency !== companyCurrency);
+    });
     if (foreignCurrencyRows.length > 0) {
+      const foreignCurrencies = [...new Set(foreignCurrencyRows.map((r) => r.originalCurrency?.toUpperCase()).filter(Boolean))];
+      const sourceRowNumbers = foreignCurrencyRows
+        .map((r) => r.rowNumber)
+        .filter((rowNumber): rowNumber is number => typeof rowNumber === "number")
+        .slice(0, 20);
       alertInserts.push({
         companyId,
         title: "Foreign currency transactions detected",
-        description: `${foreignCurrencyRows.length} transaction(s) were imported in foreign currency and need conversion.`,
+        description: `${foreignCurrencyRows.length} transaction(s) have original currency ${foreignCurrencies.join(", ")} and settle into ${companyCurrency}. Source rows: ${sourceRowNumbers.join(", ") || "not available"}.`,
         severity: "warning",
         category: normalizeAlertCategory("currency"),
         resourceType: "upload",
         metadata: {
           upload_id: uploadId,
           foreign_count: foreignCurrencyRows.length,
-          currencies: [...new Set(foreignCurrencyRows.map((r) => r.originalCurrency))],
+          currencies: foreignCurrencies,
+          source_row_numbers: sourceRowNumbers,
+          base_currency: companyCurrency,
         },
       });
     }
@@ -604,7 +622,7 @@ export async function runUploadPipeline(
       categoryBreakdown,
     };
 
-    const recommendations = generateRecommendations(findings);
+    const recommendations = hasInsertableRows ? generateRecommendations(findings) : [];
     recommendationsCreated = 0;
     const recommendationInserts = recommendations.map((rec) => ({
       companyId,

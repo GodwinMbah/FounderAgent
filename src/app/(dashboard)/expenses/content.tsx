@@ -19,6 +19,8 @@ import MerchantLogo from "@/components/features/transaction/MerchantLogo";
 import { TrendingDown, Banknote, Search, AlertTriangle } from "lucide-react";
 
 const COLORS = ["#14B8A6", "#8B5CF6", "#38BDF8", "#FBBF24", "#F43F5E", "#22C55E"];
+const formatMonthLabel = (month: string) =>
+  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
 
 interface ExpensesContentProps {
   transactions: Transaction[];
@@ -70,7 +72,7 @@ export default function ExpensesContent({
   );
 
   const expenseTrend = monthlyMetrics.map((m) => ({
-    month: m.month.slice(5),
+    month: formatMonthLabel(m.month),
     total: m.expenses,
   }));
 

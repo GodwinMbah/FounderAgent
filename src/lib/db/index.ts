@@ -6,6 +6,7 @@ export * from "./reports";
 export * from "./agent-tasks";
 export * from "./agent-recommendations";
 export * from "./uploads";
+export * from "./data-source";
 export * from "./metrics";
 export * from "./company";
 export * from "./profile";

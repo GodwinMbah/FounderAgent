@@ -5,8 +5,12 @@ export const genericBankAdapter: ProviderAdapter = {
   displayName: "Generic Bank",
   type: "bank",
   detection: {
-    requiredHeaders: ["Date", "Description"],
+    requiredHeaders: ["Date"],
     optionalHeaders: [
+      "Description",
+      "Merchant",
+      "Payee",
+      "Name",
       "Amount",
       "Balance",
       "Reference",
@@ -19,7 +23,7 @@ export const genericBankAdapter: ProviderAdapter = {
       "Paid In",
       "Paid Out",
     ],
-    minRequiredMatches: 2,
+    minRequiredMatches: 1,
     minScore: 15,
   },
   headerAliases: [

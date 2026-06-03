@@ -31,6 +31,9 @@ const tooltipStyle = {
   color: "#f1f5f9",
 };
 
+const formatMonthLabel = (month: string) =>
+  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+
 interface MonthlyMetric {
   month: string;
   revenue: number;
@@ -86,7 +89,7 @@ export default function CashFlowClient({
   const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const monthly = monthlyMetrics.map((m) => ({
-    month: m.month.slice(5),
+    month: formatMonthLabel(m.month),
     inflow: m.cashIn,
     outflow: m.cashOut,
     net: m.cashIn - m.cashOut,

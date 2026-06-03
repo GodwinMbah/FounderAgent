@@ -119,7 +119,13 @@ export default function UploadHistoryList() {
   }
 
   async function handleDelete(uploadId: string) {
-    if (!confirm("Delete this upload and all its transactions? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Deleting this upload will remove the transactions, metrics, insights, alerts, and subscriptions generated from it.\n\nThis cannot be undone."
+      )
+    ) {
+      return;
+    }
     setDeletingId(uploadId);
     const result = await deleteUploadAndTransactions(uploadId);
     setDeletingId(null);

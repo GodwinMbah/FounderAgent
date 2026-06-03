@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import { normalizeAlertCategory } from "./alert-helpers";
 import type { Alert } from "@/lib/types";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { hasActiveAlertSource } from "./source-filters";
 
 function mapRow(row: Record<string, unknown>): Alert {
   return {
@@ -32,6 +34,7 @@ export async function getAlerts(companyId?: string): Promise<Alert[]> {
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   const { data, error } = await supabase
     .from("alerts")
@@ -44,7 +47,7 @@ export async function getAlerts(companyId?: string): Promise<Alert[]> {
     throw error;
   }
 
-  return (data ?? []).map(mapRow);
+  return (data ?? []).map(mapRow).filter((alert) => hasActiveAlertSource(alert, activeUploadIds));
 }
 
 export async function getAlertStats(companyId?: string) {

@@ -15,6 +15,8 @@ import {
 } from "@/lib/reporting/strategic-kpis";
 import { normalizeSubscriptionSpend } from "@/lib/reporting/subscriptions";
 import { profitMargin as calcProfitMargin, monthlyBurn as calcMonthlyBurn, runwayMonths as calcRunwayMonths } from "@/lib/reporting/kpis";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { applyActiveSourceFilter } from "./data-source-shared";
 
 export interface CompanyMetrics {
   id: string;
@@ -127,14 +129,19 @@ export async function recalculateCompanyMetrics(
     explicitFrom && explicitTo
       ? { from: explicitFrom, to: explicitTo }
       : getDateRange(periodType);
+  const activeUploadIds = await getActiveUploadIdsForCompany(companyId, admin);
 
   // 1. Fetch transactions in date range
-  const { data: txs, error: txError } = await admin
+  let txQuery = admin
     .from("transactions")
     .select("amount, type, status, date, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .gte("date", from)
     .lte("date", to);
+
+  txQuery = applyActiveSourceFilter(txQuery, activeUploadIds);
+
+  const { data: txs, error: txError } = await txQuery;
 
   if (txError) throw txError;
 
@@ -162,12 +169,16 @@ export async function recalculateCompanyMetrics(
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const burnFrom = threeMonthsAgo.toISOString().slice(0, 10);
 
-    const { data: burnTxs, error: burnError } = await admin
+    let burnQuery = admin
       .from("transactions")
       .select("amount, date, category, tags, type, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .in("type", ["income", "expense"])
     .gte("date", burnFrom);
+
+    burnQuery = applyActiveSourceFilter(burnQuery, activeUploadIds);
+
+    const { data: burnTxs, error: burnError } = await burnQuery;
 
   let monthlyBurn = 0;
   if (!burnError && burnTxs && burnTxs.length > 0) {
@@ -207,12 +218,16 @@ export async function recalculateCompanyMetrics(
     const priorToDate = new Date(to);
     priorToDate.setDate(priorToDate.getDate() - periodDays);
 
-    const { data: priorTxs } = await admin
+    let priorQuery = admin
       .from("transactions")
       .select("amount, type, status, date, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
       .eq("company_id", companyId)
       .gte("date", priorFromDate.toISOString().slice(0, 10))
       .lte("date", priorToDate.toISOString().slice(0, 10));
+
+    priorQuery = applyActiveSourceFilter(priorQuery, activeUploadIds);
+
+    const { data: priorTxs } = await priorQuery;
 
     const priorRevenue = (priorTxs ?? [])
       .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
@@ -238,12 +253,16 @@ export async function recalculateCompanyMetrics(
     const priorFrom = priorFromDate.toISOString().slice(0, 10);
     const priorTo = priorToDate.toISOString().slice(0, 10);
 
-    const { data: priorTxs } = await admin
+    let priorYearQuery = admin
       .from("transactions")
       .select("amount, type, status, date, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
       .eq("company_id", companyId)
       .gte("date", priorFrom)
       .lte("date", priorTo);
+
+    priorYearQuery = applyActiveSourceFilter(priorYearQuery, activeUploadIds);
+
+    const { data: priorTxs } = await priorYearQuery;
 
     const priorRevenue = (priorTxs ?? [])
       .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))

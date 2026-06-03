@@ -236,7 +236,58 @@ export async function deleteUploadAndTransactions(uploadId: string): Promise<{
     const admin = createAdminClient();
     if (!admin) throw new Error("Admin client not available");
 
-    // Delete transactions first (foreign key reference)
+    const { data: upload, error: uploadFetchError } = await admin
+      .from("uploads")
+      .select("id")
+      .eq("id", uploadId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (uploadFetchError) {
+      console.error("[deleteUpload] Upload lookup failed:", uploadFetchError.message);
+      return { success: false, error: "Failed to verify upload before deletion" };
+    }
+    if (!upload) {
+      return { success: false, error: "Upload not found" };
+    }
+
+    // Delete derived intelligence created from this upload before removing the source row.
+    const cleanupResults = await Promise.all([
+      admin.from("alerts").delete().eq("company_id", companyId).contains("metadata", { upload_id: uploadId }),
+      admin.from("agent_recommendations").delete().eq("company_id", companyId).contains("metadata", { upload_id: uploadId }),
+      admin.from("agent_tasks").delete().eq("company_id", companyId).contains("input_data", { upload_id: uploadId }),
+      admin.from("subscriptions").delete().eq("company_id", companyId).contains("metadata", { detected_from_upload: uploadId }),
+      admin.from("company_metrics").delete().eq("company_id", companyId),
+    ]);
+    const cleanupError = cleanupResults.find((result) => result.error)?.error;
+    if (cleanupError) {
+      console.error("[deleteUpload] Derived data cleanup failed:", cleanupError.message);
+      return { success: false, error: "Failed to delete derived analytics for this upload" };
+    }
+
+    // Preserve manual or older subscriptions but disconnect the deleted upload marker when it was only a refresh source.
+    const { data: refreshedSubscriptions } = await admin
+      .from("subscriptions")
+      .select("id, metadata")
+      .eq("company_id", companyId)
+      .contains("metadata", { last_detected_from_upload: uploadId });
+    for (const sub of refreshedSubscriptions ?? []) {
+      const metadata = ((sub.metadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
+      const nextMetadata: Record<string, unknown> = {
+        ...metadata,
+        deleted_upload_sources: [
+          ...new Set([...(Array.isArray(metadata.deleted_upload_sources) ? metadata.deleted_upload_sources : []), uploadId]),
+        ],
+      };
+      delete nextMetadata.last_detected_from_upload;
+      await admin
+        .from("subscriptions")
+        .update({ metadata: nextMetadata })
+        .eq("id", sub.id)
+        .eq("company_id", companyId);
+    }
+
+    // Delete transactions (foreign key references to the upload).
     const { error: txError } = await admin
       .from("transactions")
       .delete()
@@ -259,6 +310,39 @@ export async function deleteUploadAndTransactions(uploadId: string): Promise<{
       console.error("[deleteUpload] Upload delete failed:", uploadError.message);
       return { success: false, error: "Failed to delete upload record" };
     }
+
+    const { count: remainingUploads } = await admin
+      .from("uploads")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .in("status", ["completed", "processing", "pending"]);
+    const { count: remainingManualTransactions } = await admin
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .is("upload_id", null);
+    if (!remainingUploads && !remainingManualTransactions) {
+      await admin
+        .from("bank_accounts")
+        .update({ current_balance: 0, updated_at: new Date().toISOString() })
+        .eq("company_id", companyId);
+    }
+
+    [
+      "/dashboard",
+      "/cash-flow",
+      "/runway",
+      "/expenses",
+      "/revenue",
+      "/subscriptions",
+      "/budgets",
+      "/reports",
+      "/ai-insights",
+      "/alerts",
+      "/transactions",
+      "/upload-centre",
+      "/pl-report",
+    ].forEach((path) => revalidatePath(path));
 
     return { success: true };
   } catch (err) {

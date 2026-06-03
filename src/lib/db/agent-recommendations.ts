@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
 import type { AgentRecommendation } from "@/lib/types";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { hasActiveRecommendationSource } from "./source-filters";
 
 function mapRow(row: Record<string, unknown>): AgentRecommendation {
   return {
@@ -31,6 +33,7 @@ export async function getAgentRecommendations(companyId?: string): Promise<Agent
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   const { data, error } = await supabase
     .from("agent_recommendations")
@@ -42,7 +45,9 @@ export async function getAgentRecommendations(companyId?: string): Promise<Agent
     throw error;
   }
 
-  return (data ?? []).map(mapRow);
+  return (data ?? []).map(mapRow).filter((recommendation) =>
+    hasActiveRecommendationSource(recommendation, activeUploadIds)
+  );
 }
 
 export async function createAgentRecommendation(data: {

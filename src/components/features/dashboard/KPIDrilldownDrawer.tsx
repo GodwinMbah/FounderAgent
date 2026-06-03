@@ -30,6 +30,9 @@ interface KPIDrilldownDrawerProps {
   onClose: () => void;
 }
 
+const formatMonthLabel = (month: string) =>
+  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+
 export default function KPIDrilldownDrawer({
   kpi,
   metrics,
@@ -273,7 +276,7 @@ function TrendTab({ monthlyMetrics, kpi }: { monthlyMetrics: MonthlyMetric[]; kp
     } else {
       value = (m as unknown as Record<string, number>)[kpi.dataKey] ?? 0;
     }
-    return { label: m.month.slice(5), value };
+    return { label: formatMonthLabel(m.month), value };
   });
 
   if (data.length === 0) {
@@ -493,7 +496,7 @@ function buildDrilldown(
     title: kpi.label,
     currentValue: formatKPIValue(kpi, metrics, currency),
     dataSource: `From ${transactions.length} transaction${transactions.length !== 1 ? "s" : ""} across ${sourceUploadCount} upload${sourceUploadCount !== 1 ? "s" : ""}, filtered by ${dateRangeLabel}. Calculated from company-scoped data.`,
-    trendData: sorted.map((m) => ({ label: m.month.slice(5), value: 0 })),
+    trendData: sorted.map((m) => ({ label: formatMonthLabel(m.month), value: 0 })),
     qualityNotes: [] as string[],
     suggestions: [] as string[],
     transactions: transactions.map((t) => ({

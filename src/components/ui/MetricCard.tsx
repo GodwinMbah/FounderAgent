@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { ArrowUpRight, ArrowDownRight, Minus, Eye } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Eye, Lightbulb } from "lucide-react";
 
 interface MetricCardProps {
   label: string;
@@ -12,6 +12,7 @@ interface MetricCardProps {
   iconColor?: string;
   className?: string;
   onDrillDown?: () => void;
+  onInsight?: () => void;
 }
 
 export function MetricCard({
@@ -23,6 +24,7 @@ export function MetricCard({
   iconColor = "var(--accent)",
   className = "",
   onDrillDown,
+  onInsight,
 }: MetricCardProps) {
   const changeColor =
     changeType === "positive"
@@ -50,18 +52,32 @@ export function MetricCard({
             <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
               {label}
             </p>
-            {onDrillDown && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDrillDown();
-                }}
-                className="p-1 rounded-md hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] hover:text-[var(--accent)] transition-colors"
-                title="View breakdown"
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {onDrillDown && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDrillDown();
+                  }}
+                  className="p-1 rounded-md hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] hover:text-[var(--accent)] transition-colors"
+                  title="View breakdown"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onInsight && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInsight();
+                  }}
+                  className="p-1 rounded-md hover:bg-amber-400/10 text-amber-300 hover:text-amber-200 transition-colors"
+                  title="View source-backed insight"
+                >
+                  <Lightbulb className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
           <p className="mt-3 text-[28px] font-bold text-[var(--foreground)] tracking-tight leading-none">
             {value}
