@@ -5,53 +5,55 @@
 
 const MCC_CATEGORY_MAP: Record<string, string> = {
   // Restaurants / Food and Meals
-  "5812": "Restaurants",
-  "5813": "Restaurants",
-  "5814": "Restaurants",
+  "5812": "Food and Meals",
+  "5813": "Food and Meals",
+  "5814": "Food and Meals",
   // Groceries / Food and Meals
-  "5411": "Groceries",
-  "5422": "Groceries",
-  "5441": "Groceries",
-  "5451": "Groceries",
-  "5462": "Groceries",
-  "5499": "Groceries",
-  // Automotive
-  "5533": "Automotive",
-  "5511": "Automotive",
-  "5571": "Automotive",
-  "5592": "Automotive",
-  "5599": "Automotive",
+  "5411": "Food and Meals",
+  "5422": "Food and Meals",
+  "5441": "Food and Meals",
+  "5451": "Food and Meals",
+  "5462": "Food and Meals",
+  "5499": "Food and Meals",
+  // Automotive / Vehicle
+  "5511": "Vehicle and Fuel",
+  "5533": "Vehicle and Fuel",
+  "5541": "Vehicle and Fuel",
+  "5542": "Vehicle and Fuel",
+  "5571": "Vehicle and Fuel",
+  "5592": "Vehicle and Fuel",
+  "5599": "Vehicle and Fuel",
   // Clothing / Shopping
-  "5641": "Clothing",
-  "5651": "Clothing",
-  "5661": "Clothing",
-  "5691": "Clothing",
-  "5945": "Clothing",
-  "5948": "Clothing",
+  "5641": "Personal Spending",
+  "5651": "Personal Spending",
+  "5661": "Personal Spending",
+  "5691": "Personal Spending",
+  "5945": "Personal Spending",
+  "5948": "Personal Spending",
   // Electronics / Software
-  "5732": "Electronics",
-  "5734": "Electronics",
-  "5735": "Electronics",
+  "5732": "Office Costs",
+  "5734": "Software",
+  "5735": "Software",
   // Pharmacies
-  "5912": "Pharmacies",
-  "5122": "Pharmacies",
+  "5912": "Office Costs",
+  "5122": "Office Costs",
   // Transport / Travel
-  "4111": "Transport",
-  "4112": "Transport",
-  "4119": "Transport",
-  "4121": "Transport",
-  "4131": "Transport",
-  "4784": "Transport",
+  "4111": "Travel",
+  "4112": "Travel",
+  "4119": "Travel",
+  "4121": "Travel",
+  "4131": "Travel",
+  "4784": "Travel",
   // Financial Services
   "6012": "Financial Services",
   // Government / Tax
-  "9399": "Government",
+  "9399": "Tax",
   // Professional Services
   "7399": "Professional Services",
   "7299": "Professional Services",
   "8999": "Professional Services",
   // Gambling / Entertainment
-  "7995": "Gambling",
+  "7995": "Personal Spending",
 };
 
 /**

@@ -16,10 +16,22 @@ export interface TransactionLike {
   metadata?: Record<string, unknown> | null;
 }
 
+const TRANSFER_CATEGORIES = new Set([
+  "Transfers",
+  "Internal Transfer",
+  "International Transfer",
+  "Money Transfer",
+  "Credit Card Payment",
+  "Loan Repayment",
+  "Owner Drawings",
+  "Capital Injection",
+  "Loans",
+]);
+
 export function isTransfer(t: TransactionLike): boolean {
   const metadata = t.metadata ?? {};
   return (
-    t.category === "Transfers" ||
+    TRANSFER_CATEGORIES.has(t.category ?? "") ||
     t.rowStatus === "transfer" ||
     t.row_status === "transfer" ||
     t.kpiExclusionReason === "transfer" ||

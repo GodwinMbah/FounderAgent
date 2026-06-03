@@ -19,12 +19,9 @@ import { recalculateCompanyMetrics } from "@/lib/db/company-metrics";
 import { parseCsv } from "@/lib/parser/csv-core";
 import { parseUpload } from "@/lib/parser/unified-parser";
 import { getCategoryBreakdown } from "@/lib/intelligence/categoriser";
-import { categoriseWithV3AndV1Fallback } from "@/lib/upload/categoriser-v3-adapter";
-import { enrichMerchant } from "@/lib/intelligence/merchant-enrichment";
-import { detectTransfer } from "@/lib/intelligence/transfer-detector";
 import { detectDuplicate } from "@/lib/intelligence/duplicate-detector-v2";
-import { canonicalListToNormalised } from "@/lib/providers/canonical-adapter";
 import { toDbTransaction, type CanonicalTransaction } from "@/lib/providers/canonical-model";
+import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
 import type { TransactionCategoryType, TransactionStatus } from "@/lib/types";
 import type { ImportReconciliation, ImportRowOutcome } from "@/lib/upload/reconciliation";
 import { detectSubscriptions, detectDuplicateTools } from "@/lib/intelligence/subscription-detector";
@@ -259,39 +256,7 @@ export async function runUploadPipeline(
     parseFailedRowsCount = parseResult.failedRows.length;
     detectedCurrencySnapshot = parseResult.detectedCurrency;
 
-    // Enrich merchants
-    for (const tx of parseResult.transactions) {
-      const enriched = enrichMerchant(tx.merchantName);
-      tx.merchantName = enriched.displayName;
-      if (!tx.category && enriched.categoryHint) {
-        tx.category = enriched.categoryHint;
-      }
-    }
-
-    // Detect transfers
-    for (const tx of parseResult.transactions) {
-      const transferResult = detectTransfer({
-        transactionType: tx.transactionType,
-        description: tx.description,
-        reference: tx.reference,
-        amount: tx.amount,
-        merchantName: tx.merchantName,
-        counterpartyName: tx.counterpartyName,
-        accountName: tx.accountName,
-        currency: tx.currency,
-        transactionDate: tx.transactionDate,
-        externalTransactionId: tx.externalTransactionId,
-      }, {
-        sourceProvider: tx.sourceProvider,
-      });
-      if (transferResult.isTransfer) {
-        tx.isTransfer = true;
-        tx.status = "transfer";
-        tx.category = "Transfers";
-        tx.transferPairId = transferResult.transferPairId;
-        tx.reviewReason = transferResult.reviewReason;
-      }
-    }
+    applyMerchantAndTransferSignals(parseResult.transactions);
 
     // Detect duplicates against existing transactions
     const { data: existingTxs } = await adminClient
@@ -332,59 +297,13 @@ export async function runUploadPipeline(
       }
     }
 
-    // Convert to normalised rows for downstream compatibility
-    const normalisedRows = canonicalListToNormalised(parseResult.transactions);
-
     // 5. Categorise rows
-    await setPipelineStage(uploadId, companyId, "categorising", 65, normalisedRows.length, parseResult.failedRows.length);
+    await setPipelineStage(uploadId, companyId, "categorising", 65, parseResult.transactions.length, parseResult.failedRows.length);
 
     // Primary: v3 with business profile context + v1 fallback for low confidence
-    let categorisedRows = categoriseWithV3AndV1Fallback(normalisedRows, companySettings);
+    const categorisation = categoriseCanonicalTransactions(parseResult.transactions, companySettings);
+    let categorisedRows = categorisation.categorisedRows;
     const categoryBreakdown = getCategoryBreakdown(categorisedRows);
-
-    // Propagate v3 categories back to canonical transactions so they are used for insertion
-    for (let i = 0; i < categorisedRows.length && i < parseResult.transactions.length; i++) {
-      if (categorisedRows[i].category) {
-        // Never overwrite transfer or duplicate classifications
-        if (!parseResult.transactions[i].isTransfer) {
-          parseResult.transactions[i].category = categorisedRows[i].category;
-        }
-        parseResult.transactions[i].subcategory = categorisedRows[i].subcategory;
-        parseResult.transactions[i].originalMerchantName = parseResult.transactions[i].originalMerchantName ?? parseResult.transactions[i].merchantName;
-        parseResult.transactions[i].normalisedMerchantName = categorisedRows[i].normalisedMerchant;
-        parseResult.transactions[i].displayMerchantName = categorisedRows[i].displayMerchant ?? categorisedRows[i].merchant;
-        parseResult.transactions[i].merchantName = categorisedRows[i].displayMerchant ?? categorisedRows[i].merchant ?? parseResult.transactions[i].merchantName;
-        parseResult.transactions[i].categoryReason = categorisedRows[i].categoryReason;
-        parseResult.transactions[i].categoryConfidence = categorisedRows[i].categoryConfidence;
-        parseResult.transactions[i].groupingConfidence = categorisedRows[i].groupingConfidence;
-        parseResult.transactions[i].categoryEvidence = categorisedRows[i].categoryEvidence;
-        parseResult.transactions[i].businessMeaning = categorisedRows[i].businessMeaning;
-        parseResult.transactions[i].kpiTreatment = categorisedRows[i].kpiTreatment;
-        parseResult.transactions[i].incomeExpenseStatus = categorisedRows[i].type;
-        parseResult.transactions[i].isCreditCardRepayment = categorisedRows[i].isCreditCardRepayment;
-        parseResult.transactions[i].isSubscriptionCandidate = categorisedRows[i].isSubscriptionCandidate;
-        parseResult.transactions[i].isRecurringCandidate = categorisedRows[i].isRecurringCandidate;
-        if (categorisedRows[i].category === "Transfers" && !parseResult.transactions[i].isPossibleDuplicate) {
-          parseResult.transactions[i].isTransfer = true;
-          parseResult.transactions[i].status = "transfer";
-          parseResult.transactions[i].rowStatus = "transfer";
-          parseResult.transactions[i].kpiExcluded = true;
-          parseResult.transactions[i].kpiExclusionReason = "transfer";
-        }
-        if (categorisedRows[i].kpiTreatment === "excluded" && !parseResult.transactions[i].isPossibleDuplicate) {
-          parseResult.transactions[i].kpiExcluded = true;
-          parseResult.transactions[i].kpiExclusionReason = categorisedRows[i].category === "Transfers"
-            ? "transfer"
-            : categorisedRows[i].category === "Ambiguous" || categorisedRows[i].category === "Uncategorised Review"
-              ? "needs_review"
-              : categorisedRows[i].category.toLowerCase().replace(/\s+/g, "_");
-        }
-        parseResult.transactions[i].confidenceScore = categorisedRows[i].confidenceScore ?? parseResult.transactions[i].confidenceScore;
-        if (!parseResult.transactions[i].isTransfer && !parseResult.transactions[i].isPossibleDuplicate) {
-          parseResult.transactions[i].status = categorisedRows[i].status ?? parseResult.transactions[i].status;
-        }
-      }
-    }
 
     // Apply user preview category overrides stored in upload metadata
     const categoryOverrides = upload.metadata?.category_overrides as Record<number, string> | undefined;

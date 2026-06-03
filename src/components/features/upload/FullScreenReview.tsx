@@ -45,6 +45,9 @@ const TABS: { key: FilterTab; label: string; icon?: React.ReactNode }[] = [
   { key: "transfer", label: "Transfer", icon: <Shuffle className="h-3.5 w-3.5" /> },
 ];
 
+const REVIEW_CATEGORIES = new Set(["Uncategorised Review", "Needs Review", "Ambiguous"]);
+const TRANSFER_CATEGORIES = new Set(["Transfers", "Internal Transfer", "International Transfer", "Money Transfer", "Credit Card Payment", "Loan Repayment"]);
+
 export function FullScreenReview({
   open,
   onClose,
@@ -60,17 +63,17 @@ export function FullScreenReview({
 
   const stats = useMemo(() => {
     const total = previewRows.length;
-    const autoApplied = suggestions.filter((s) => s.status === "applied").reduce((sum, s) => sum + s.affectedRowIds.length, 0);
-    const pending = suggestions.filter((s) => s.status === "pending").reduce((sum, s) => sum + s.affectedRowIds.length, 0);
+    const autoApplied = previewRows.filter((r) => !REVIEW_CATEGORIES.has(r.category) && (r.categoryConfidence ?? r.confidenceScore) >= 90).length;
+    const pending = previewRows.filter((r) => !REVIEW_CATEGORIES.has(r.category) && (r.categoryConfidence ?? r.confidenceScore) >= 70 && (r.categoryConfidence ?? r.confidenceScore) < 90).length;
     const needsReview = previewRows.filter(
-      (r) => r.category === "Uncategorised Review" || r.category === "Needs Review"
+      (r) => REVIEW_CATEGORIES.has(r.category) || r.status === "needs_review" || (r.categoryConfidence ?? r.confidenceScore) < 70
     ).length;
-    const recurring = 0; // TODO: recurrence detection
-    const transfers = previewRows.filter((r) => r.type === "expense" && (r.category === "Transfers" || r.description?.toLowerCase().includes("transfer"))).length;
-    const creditCards = previewRows.filter((r) => r.category === "Credit Card Payment").length;
-    const ambiguous = previewRows.filter((r) => !r.merchant || r.merchant === "Unknown").length;
+    const recurring = previewRows.filter((r) => r.isRecurringCandidate || r.isSubscriptionCandidate).length;
+    const transfers = previewRows.filter((r) => TRANSFER_CATEGORIES.has(r.category) || r.status === "transfer").length;
+    const creditCards = previewRows.filter((r) => r.category === "Credit Card Payment" || r.isCreditCardRepayment).length;
+    const ambiguous = previewRows.filter((r) => r.category === "Ambiguous").length;
     return { total, autoApplied, pending, needsReview, recurring, transfers, creditCards, ambiguous };
-  }, [suggestions, previewRows]);
+  }, [previewRows]);
 
   const filteredSuggestions = useMemo(() => {
     let result = suggestions;
@@ -106,7 +109,7 @@ export function FullScreenReview({
         );
         break;
       case "transfer":
-        result = result.filter((s) => s.suggestedCategory === "Transfers" || s.suggestedCategory === "Credit Card Payment");
+        result = result.filter((s) => TRANSFER_CATEGORIES.has(s.suggestedCategory));
         break;
     }
 
