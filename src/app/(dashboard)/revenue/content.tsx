@@ -12,7 +12,7 @@ import { isIncome } from "@/lib/reporting/filters";
 import { getDateRange, type DateRangePreset } from "@/lib/date-range";
 import {
   TrendingUp,
-  DollarSign,
+  Banknote,
   Repeat,
   Zap,
   Users,
@@ -48,6 +48,9 @@ const tooltipStyle = {
   color: "#f1f5f9",
 };
 
+const formatMonthLabel = (month: string) =>
+  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+
 export default function RevenueContent({
   transactions,
   monthlyMetrics,
@@ -58,6 +61,7 @@ export default function RevenueContent({
 }: RevenueContentProps) {
   const { currency } = useCompanyCurrency();
   const incomeTransactions = transactions.filter((t) => isIncome(t));
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const totalRevenue = monthlyMetrics.reduce((s, m) => s + m.revenue, 0);
   const avgMonthlyRevenue = monthlyMetrics.length > 0 ? totalRevenue / monthlyMetrics.length : 0;
@@ -99,7 +103,7 @@ export default function RevenueContent({
   }));
 
   const revenueTrendData = monthlyMetrics.map((m) => ({
-    month: m.month.slice(5),
+    month: formatMonthLabel(m.month),
     total: m.revenue,
     recurring: recurringRevenue > 0 ? Math.min(m.revenue, recurringRevenue) : 0,
     onetime: recurringRevenue > 0 ? Math.max(0, m.revenue - recurringRevenue) : m.revenue,
@@ -112,7 +116,7 @@ export default function RevenueContent({
       {/* Date range label */}
       <div className="flex items-center justify-end">
         <span className="text-xs text-[var(--muted-foreground)] hidden sm:inline">
-          {getDateRange(initialPreset as DateRangePreset, initialFrom, initialTo).label}
+          {getDateRange(initialPreset as DateRangePreset, initialFrom, initialTo).label} · Source: {incomeTransactions.length} revenue transaction{incomeTransactions.length !== 1 ? "s" : ""} from {sourceUploadCount} upload{sourceUploadCount !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -123,7 +127,7 @@ export default function RevenueContent({
           value={formatCurrency(totalRevenue, 0, currency)}
           change={revGrowth.text}
           changeType={revGrowth.type}
-          icon={<DollarSign className="h-4 w-4" style={{ color: "#22C55E" }} />}
+          icon={<Banknote className="h-4 w-4" style={{ color: "#22C55E" }} />}
           iconColor="#22C55E"
         />
         <MetricCard
@@ -157,7 +161,7 @@ export default function RevenueContent({
         <ChartCard title="Revenue Trend" subtitle="Total revenue over time">
           <div className="w-full h-full min-h-0 min-w-0">
             <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
-              <AreaChart data={monthlyMetrics.map((m) => ({ month: m.month.slice(5), revenue: m.revenue, profit: m.profit }))} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+              <AreaChart data={monthlyMetrics.map((m) => ({ month: formatMonthLabel(m.month), revenue: m.revenue, profit: m.profit }))} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                 <defs>
                   <linearGradient id="revTrendGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#22C55E" stopOpacity={0.25} />

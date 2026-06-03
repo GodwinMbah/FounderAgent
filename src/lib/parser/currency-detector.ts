@@ -34,7 +34,7 @@ function getFallbackCurrency(companyCountry?: string): string {
     const cc = companyCountry.toUpperCase();
     if (COUNTRY_CURRENCY[cc]) return COUNTRY_CURRENCY[cc];
   }
-  return "USD";
+  return "GBP";
 }
 
 export function detectCurrency(

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/utils/formatters";
@@ -25,6 +24,7 @@ import {
   Tag,
   ArrowLeftRight,
   HelpCircle,
+  CreditCard,
 } from "lucide-react";
 import {
   validateAndPreview,
@@ -36,10 +36,11 @@ import {
   saveCurrentMappingProfile,
 } from "./wizard-actions";
 import MerchantLogo from "@/components/features/transaction/MerchantLogo";
-import { SuggestionsPanel } from "@/components/features/upload/SuggestionsPanel";
 import { usePatternSuggestions } from "@/components/features/upload/usePatternSuggestions";
 import { ApplyToSimilarConfirm } from "@/components/features/upload/ApplyToSimilarConfirm";
 import { FullScreenReview } from "@/components/features/upload/FullScreenReview";
+import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
+import { formatReportingTreatment } from "@/lib/reporting/treatment-engine";
 import type {
   WizardStep,
   SourceType,
@@ -47,6 +48,7 @@ import type {
   MappingOverrides,
   ImportSummary,
 } from "@/lib/upload/wizard-types";
+import { getImportReconciliation } from "@/lib/upload/reconciliation";
 
 const SOURCE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "auto_detect", label: "Auto Detect" },
@@ -77,6 +79,58 @@ const DETECTED_PROVIDER_LABELS: Record<string, string> = {
   manual_csv: "Manual CSV",
 };
 
+function buildSummaryFromStatus(status: Awaited<ReturnType<typeof getUploadStatus>>): ImportSummary {
+  const rec = getImportReconciliation(status.metadata);
+  const metadata = status.metadata ?? {};
+  const rowsImported = rec?.rowsInserted ?? status.transactionCount ?? 0;
+  return {
+    success: status.status === "completed",
+    uploadId: status.uploadId,
+    fileName: status.fileName ?? "",
+    sourceType: (status.source as SourceType | undefined) ?? "bank_statement_csv",
+    rowsInFile: rec?.rowsInFile ?? rowsImported,
+    rowsParsed: rec?.rowsParsed ?? rowsImported,
+    rowsValid: rec?.rowsValid ?? rowsImported,
+    rowsImported,
+    rowsSkipped: rec?.rowsSkippedDuplicate ?? 0,
+    rowsFailed: rec?.rowsFailed ?? 0,
+    rowsNeedReview: rec?.rowsNeedingReview ?? 0,
+    rowsUncategorised: rec?.rowsUncategorised ?? 0,
+    rowsAmbiguous: rec?.rowsAmbiguous ?? 0,
+    rowsCategorised: rec?.rowsCategorised ?? 0,
+    rowsHighConfidence: rec?.rowsHighConfidence ?? 0,
+    rowsCategorisedByUserRule: rec?.rowsCategorisedByUserRule ?? 0,
+    rowsCategorisedBySystemIntelligence: rec?.rowsCategorisedBySystemIntelligence ?? 0,
+    rowsIncludedInRevenue: rec?.rowsIncludedInRevenue ?? 0,
+    rowsIncludedInExpenses: rec?.rowsIncludedInExpenses ?? 0,
+    rowsIncludedInCashFlow: rec?.rowsIncludedInCashFlow ?? 0,
+    rowsIncludedInCashMovement: rec?.rowsIncludedInCashMovement ?? 0,
+    rowsIncludedInProfitAndLoss: rec?.rowsIncludedInProfitAndLoss ?? 0,
+    rowsIncludedInDebtTracking: rec?.rowsIncludedInDebtTracking ?? 0,
+    rowsIncludedInOwnerMovement: rec?.rowsIncludedInOwnerMovement ?? 0,
+    rowsIncludedInTaxReporting: rec?.rowsIncludedInTaxReporting ?? 0,
+    rowsIncludedInDataQualityReporting: rec?.rowsIncludedInDataQualityReporting ?? 0,
+    rowsTransfer: rec?.rowsMarkedTransfer ?? 0,
+    rowsDuplicate: rec?.rowsSkippedDuplicate ?? 0,
+    rowsKpiExcluded: rec?.rowsExcludedFromKpis ?? 0,
+    rowsLinkedToSubscriptions: rec?.rowsLinkedToSubscriptions ?? 0,
+    rowsWithFees: rec?.rowsWithFees ?? 0,
+    rowsWithRefunds: rec?.rowsWithRefunds ?? 0,
+    rowsWithCreditCardRepaymentTreatment: rec?.rowsWithCreditCardRepaymentTreatment ?? 0,
+    reconciliationBalanced: rec?.reconciliationBalanced ?? status.status === "completed",
+    reconciliationExplanation: rec?.explanation,
+    incomeTotal: 0,
+    expenseTotal: 0,
+    sourceCurrency: (metadata.detected_currency as string | undefined) ?? "",
+    baseCurrency: (metadata.base_currency as string | undefined) ?? (metadata.detected_currency as string | undefined) ?? "",
+    subscriptionsDetected: (metadata.subscriptions_detected as number | undefined) ?? 0,
+    unknownTransactions: rec?.rowsUncategorised ?? rec?.rowsNeedingReview ?? 0,
+    alertsCreated: (metadata.alerts_created as number | undefined) ?? 0,
+    recommendationsCreated: (metadata.recommendations_created as number | undefined) ?? 0,
+    error: status.errorMessage,
+  };
+}
+
 const DATE_FORMAT_OPTIONS = [
   { value: "", label: "Auto-detected" },
   { value: "DD/MM/YYYY", label: "DD/MM/YYYY (UK/EU/AU)" },
@@ -104,6 +158,8 @@ const FIELD_OPTIONS = [
   { value: "balance", label: "Balance" },
   { value: "type", label: "Transaction Type" },
   { value: "reference", label: "Reference" },
+  { value: "externalTransactionId", label: "External Transaction ID" },
+  { value: "merchantCategoryCode", label: "Merchant Category Code (MCC)" },
   { value: "category", label: "Category" },
 ];
 
@@ -122,8 +178,10 @@ interface WizardError {
 }
 
 export default function UploadWizard() {
-  const searchParams = useSearchParams();
-  const isSetupMode = searchParams.get("setup") === "true";
+  const [isSetupMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("setup") === "true";
+  });
 
   const [uploadId, setUploadId] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -161,6 +219,19 @@ export default function UploadWizard() {
   const [providerConfirmed, setProviderConfirmed] = useState(false);
   const [editedCategories, setEditedCategories] = useState<Record<number, string>>({});
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("focus") !== "upload") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("upload-file-dropzone")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      document.getElementById("financial-upload-input")?.focus({ preventScroll: true });
+    });
+  }, []);
+
   function startPolling(id: string) {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
@@ -171,34 +242,19 @@ export default function UploadWizard() {
 
       if (status.status === "completed") {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        // We don't have the summary here, user will see generic completion
-        setSummary({
-          success: true,
-          fileName: "",
-          sourceType: "bank_statement_csv",
-          rowsInFile: status.transactionCount ?? 0,
-          rowsParsed: status.transactionCount ?? 0,
-          rowsImported: status.transactionCount ?? 0,
-          rowsSkipped: 0,
-          rowsFailed: 0,
-          rowsNeedReview: 0,
-          rowsCategorised: 0,
-          rowsTransfer: 0,
-          rowsDuplicate: 0,
-          incomeTotal: 0,
-          expenseTotal: 0,
-          sourceCurrency: "",
-          baseCurrency: "",
-          subscriptionsDetected: 0,
-          unknownTransactions: 0,
-          alertsCreated: 0,
-          recommendationsCreated: 0,
-        });
+        setSummary(buildSummaryFromStatus(status));
         setStep("summary");
         // Clean URL
         window.history.replaceState({}, "", window.location.pathname);
       } else if (status.status === "failed") {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        const failedSummary = buildSummaryFromStatus(status);
+        if (failedSummary.rowsInFile > 0 || failedSummary.reconciliationExplanation) {
+          setSummary(failedSummary);
+          setStep("summary");
+          window.history.replaceState({}, "", window.location.pathname);
+          return;
+        }
         setError({
           category: "system",
           title: "Import failed",
@@ -484,6 +540,10 @@ export default function UploadWizard() {
         // Set URL for resumption
         window.history.replaceState({}, "", `?upload=${result.uploadId}`);
         startPolling(result.uploadId);
+      } else if (result.summary) {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setSummary(result.summary);
+        setStep("summary");
       } else {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setError({
@@ -783,6 +843,9 @@ function UploadStep({
           onDrop={onDrop}
         >
           <label
+            htmlFor="financial-upload-input"
+            id="upload-file-dropzone"
+            data-testid="financial-upload-dropzone"
             className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-12 text-center transition-colors ${
               dragActive ? "border-[#14B8A6]/60" : ""
             } hover:border-[#14B8A6]/40`}
@@ -813,9 +876,12 @@ function UploadStep({
               Supports CSV, TXT, TSV, XLSX up to 20MB
             </p>
             <input
+              id="financial-upload-input"
+              data-testid="financial-upload-input"
               type="file"
-              className="hidden"
+              className="sr-only"
               accept=".csv,.txt,.tsv,.xlsx,.xls"
+              aria-label="Upload financial statement"
               onChange={onFileChange}
               disabled={isLoading}
             />
@@ -1391,9 +1457,41 @@ function PreviewStep({
   const readyCount = preview.previewRows.filter((r) => r.issues.length === 0).length;
   const warningCount = preview.previewRows.filter((r) => r.issues.length > 0).length;
   const hasCriticalErrors = preview.failedRows.length > 0 && preview.previewRows.length === 0;
+  const reviewCategories = new Set(["Uncategorised Review", "Needs Review", "Ambiguous"]);
+  const transferCategories = new Set(["Transfers", "Internal Transfer", "International Transfer", "Money Transfer", "Credit Card Payment", "Loan Repayment"]);
 
   const getRowCategory = (row: typeof preview.previewRows[0]) => {
     return editedCategories[row.rowNumber] ?? row.category;
+  };
+
+  const rowCategory = (row: typeof preview.previewRows[0]) => getRowCategory(row);
+
+  const isNeedsReviewRow = (row: typeof preview.previewRows[0]) => {
+    const category = rowCategory(row);
+    const status = row.status.toLowerCase();
+    return status === "needs_review" || reviewCategories.has(category) || (row.categoryConfidence ?? row.confidenceScore) < 70;
+  };
+
+  const isSuggestedRow = (row: typeof preview.previewRows[0]) => {
+    if (isNeedsReviewRow(row)) return false;
+    const status = row.status.toLowerCase();
+    const confidence = row.categoryConfidence ?? row.confidenceScore;
+    return status === "ai_suggested" || (confidence >= 70 && confidence < 90);
+  };
+
+  const isAutoCategorisedRow = (row: typeof preview.previewRows[0]) => {
+    if (isNeedsReviewRow(row) || isSuggestedRow(row)) return false;
+    const status = row.status.toLowerCase();
+    const confidence = row.categoryConfidence ?? row.confidenceScore;
+    return status === "categorised" || confidence >= 90;
+  };
+
+  const getDisplayStatus = (row: typeof preview.previewRows[0]) => {
+    if (row.isPossibleDuplicate) return "Possible Duplicate";
+    if (transferCategories.has(rowCategory(row)) || row.status === "transfer") return "Transfer";
+    if (isNeedsReviewRow(row)) return "Needs Review";
+    if (isSuggestedRow(row)) return "Suggested";
+    return "Categorised";
   };
 
   const handleCategoryChange = (rowNumber: number, newCategory: string) => {
@@ -1517,11 +1615,15 @@ function PreviewStep({
   };
 
   const visibleSuggestions = allSuggestions.filter((s) => !handledSuggestions.has(s.id));
+  const reviewRows = preview.previewRows.filter(isNeedsReviewRow);
+  const summary = preview.intelligenceSummary;
+  const kpiExcludedCount = summary?.kpiExcludedRows ?? preview.previewRows.filter((row) => row.kpiTreatment === "excluded").length;
+  const groupedCount = summary?.intelligenceGroups ?? new Set(preview.previewRows.map((row) => row.intelligenceGroupId).filter(Boolean)).size;
 
   // Build dynamic columns from mapped fields
   const mappedFields = preview.columnMappings.map((m) => m.field);
   const extraFields = mappedFields.filter(
-    (f) => !["date", "merchant", "description", "amount", "type", "category"].includes(f)
+    (f) => !["date", "merchant", "description", "amount", "type", "category", "reference"].includes(f)
   );
 
   const isRevolut = preview.detectedProvider === "revolut_business_csv";
@@ -1582,23 +1684,35 @@ function PreviewStep({
         <StatCard label="Failed" value={String(preview.failedRows.length)} icon={<AlertCircle className="h-4 w-4" />} color="text-rose-400" />
       </div>
 
-      {/* Category Summary */}
+      {/* Intelligence Summary */}
       {(() => {
-        const categorised = preview.previewRows.filter((r) => r.confidenceScore >= 90).length;
-        const suggested = preview.previewRows.filter((r) => r.confidenceScore >= 75 && r.confidenceScore < 90).length;
-        const review = preview.previewRows.filter((r) => r.confidenceScore < 75).length;
+        const categorised = summary?.rowsAutoCategorised ?? preview.previewRows.filter(isAutoCategorisedRow).length;
+        const suggested = summary?.rowsSuggested ?? preview.previewRows.filter(isSuggestedRow).length;
+        const review = summary?.rowsNeedingReview ?? reviewRows.length;
+        const ambiguous = summary?.rowsAmbiguous ?? preview.previewRows.filter((r) => rowCategory(r) === "Ambiguous").length;
+        const transfers = summary?.transfersDetected ?? preview.previewRows.filter((r) => transferCategories.has(rowCategory(r)) || r.status === "transfer").length;
+        const creditCards = summary?.creditCardPaymentsDetected ?? preview.previewRows.filter((r) => r.isCreditCardRepayment || rowCategory(r) === "Credit Card Payment").length;
+        const recurring = summary?.recurringGroupsDetected ?? preview.previewRows.filter((r) => r.isRecurringCandidate).length;
+        const subscriptions = summary?.subscriptionsDetected ?? preview.previewRows.filter((r) => r.isSubscriptionCandidate).length;
         const total = preview.previewRows.length;
         const pct = total > 0 ? Math.round((categorised / total) * 100) : 0;
         return (
           <div className="rounded-xl border px-4 py-3" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-[var(--foreground)]">Categorisation</span>
-              <span className="text-xs text-[var(--muted-foreground)]">{pct}% auto-categorised</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">Intelligence Summary</span>
+              <span className="text-xs text-[var(--muted-foreground)]">{pct}% auto-categorised · {groupedCount} groups</span>
             </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-emerald-400">● Categorised: {categorised}</span>
-              <span className="text-amber-400">● Suggested: {suggested}</span>
-              <span className="text-rose-400">● Needs Review: {review}</span>
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+              <MiniIntel label="Auto categorised" value={categorised} tone="text-emerald-400" />
+              <MiniIntel label="Suggested" value={suggested} tone="text-amber-300" />
+              <MiniIntel label="Needs review" value={review} tone="text-rose-300" />
+              <MiniIntel label="Ambiguous" value={ambiguous} tone="text-orange-300" />
+              <MiniIntel label="Transfers" value={transfers} tone="text-violet-300" />
+              <MiniIntel label="Card payments" value={creditCards} tone="text-violet-300" />
+              <MiniIntel label="Recurring groups" value={recurring} tone="text-sky-300" />
+              <MiniIntel label="Subscriptions" value={subscriptions} tone="text-sky-300" />
+              <MiniIntel label="KPI excluded" value={kpiExcludedCount} tone="text-violet-300" />
+              <MiniIntel label="Groups" value={groupedCount} tone="text-[var(--muted-foreground)]" />
             </div>
             <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(148,163,184,0.12)" }}>
               <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500" style={{ width: `${total > 0 ? 100 : 0}%`, opacity: 0.7 }} />
@@ -1692,29 +1806,63 @@ function PreviewStep({
         </div>
       )}
 
-      {visibleSuggestions.length > 0 && (
-        <>
-          <div className="mb-2 flex items-center justify-between">
+      <div className="rounded-xl border p-4" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">Review Remaining Items</h3>
             <p className="text-xs text-[var(--muted-foreground)]">
-              {visibleSuggestions.length} suggestion{visibleSuggestions.length === 1 ? "" : "s"} pending review
+              {reviewRows.length} row{reviewRows.length === 1 ? "" : "s"} need attention. {visibleSuggestions.length} intelligence group{visibleSuggestions.length === 1 ? "" : "s"} can be inspected if needed.
             </p>
+          </div>
+          <div className="flex gap-2">
             <button
               onClick={() => setShowFullScreenReview(true)}
-              className="text-xs font-medium text-[var(--accent)] hover:underline"
+              className="btn-secondary text-xs px-3 py-1.5"
             >
-              Expand Review →
+              <Eye className="h-3.5 w-3.5" />
+              Intelligence Review
             </button>
+            {visibleSuggestions.length > 0 && (
+              <button onClick={handleApproveAll} className="btn-secondary text-xs px-3 py-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Approve safe groups
+              </button>
+            )}
           </div>
-          <SuggestionsPanel
-            suggestions={visibleSuggestions}
-            onApprove={handleApproveSuggestion}
-            onReject={handleRejectSuggestion}
-            onApproveAll={handleApproveAll}
-            onDismissAll={() => setHandledSuggestions(new Set(allSuggestions.map((s) => s.id)))}
-            previewRows={preview.previewRows}
-          />
-        </>
-      )}
+        </div>
+        {reviewRows.length > 0 ? (
+          <div className="mt-3 grid gap-2">
+            {reviewRows.slice(0, 8).map((row) => (
+              <div key={row.rowNumber} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-[var(--foreground)] truncate">
+                    Row {row.rowNumber} · {row.merchant || row.reference || row.description || "Unknown"}
+                  </p>
+                  <p className="text-[11px] text-[var(--muted-foreground)] line-clamp-2">
+                    {row.reviewReason || row.categoryReason || "Needs review because the available merchant/reference evidence is not strong enough."}
+                  </p>
+                </div>
+                <select
+                  value={getRowCategory(row)}
+                  onChange={(e) => handleCategoryChange(row.rowNumber, e.target.value)}
+                  className="text-xs bg-transparent border border-[var(--border)] rounded px-2 py-1.5 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] min-h-[36px]"
+                >
+                  {ALL_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {reviewRows.length > 8 && (
+              <button onClick={() => setShowFullScreenReview(true)} className="text-xs font-medium text-[var(--accent)] hover:underline">
+                Review all {reviewRows.length} items
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-emerald-300">No unresolved rows detected in the preview.</p>
+        )}
+      </div>
 
       <FullScreenReview
         open={showFullScreenReview}
@@ -1734,20 +1882,23 @@ function PreviewStep({
           <span className="text-xs text-[var(--muted-foreground)]">{fileName}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[800px]">
+          <table className="w-full text-xs min-w-[1320px]">
             <thead>
               <tr className="text-left text-[var(--muted-foreground)]" style={{ background: "rgba(17,24,39,0.8)" }}>
                 <th className="px-3 py-2 font-medium">Row</th>
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium">Merchant</th>
-                <th className="px-3 py-2 font-medium">Description</th>
+                <th className="px-3 py-2 font-medium">Reference</th>
+                <th className="px-3 py-2 font-medium">Counterparty</th>
+                <th className="px-3 py-2 font-medium">Bank Type</th>
                 <th className="px-3 py-2 font-medium text-right">Amount</th>
-                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Direction</th>
                 <th className="px-3 py-2 font-medium">Category</th>
-                {extraFields.includes("reference") && <th className="px-3 py-2 font-medium">Ref</th>}
                 {extraFields.includes("balance") && <th className="px-3 py-2 font-medium text-right">Balance</th>}
                 {extraFields.includes("currency") && <th className="px-3 py-2 font-medium">Cur</th>}
+                <th className="px-3 py-2 font-medium">Reason</th>
                 <th className="px-3 py-2 font-medium">Conf</th>
+                <th className="px-3 py-2 font-medium">KPI Treatment</th>
                 <th className="px-3 py-2 font-medium">Status</th>
               </tr>
             </thead>
@@ -1774,10 +1925,32 @@ function PreviewStep({
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <MerchantLogo name={row.merchant || ""} size="sm" />
-                      <span className="text-xs text-[var(--foreground)] max-w-[120px] truncate">{row.merchant || "—"}</span>
+                      <div className="min-w-0">
+                        <span className="block text-xs text-[var(--foreground)] max-w-[140px] truncate">{row.merchant || "—"}</span>
+                        {row.intelligenceGroupLabel && (
+                          <span className="block text-[10px] text-[var(--muted-foreground)] max-w-[140px] truncate">
+                            Group: {row.intelligenceGroupLabel}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[160px] truncate">{row.description}</td>
+                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[220px]">
+                    <div className="truncate">{row.reference || "—"}</div>
+                    <details className="mt-0.5">
+                      <summary className="cursor-pointer text-[10px] text-[var(--muted-foreground)]">Row details</summary>
+                      <div className="mt-1 space-y-0.5 text-[10px] text-[var(--muted-foreground)]">
+                        {row.description && <p>Description: {row.description}</p>}
+                        {row.bankDescription && <p>Bank description: {row.bankDescription}</p>}
+                        {row.externalTransactionId && <p>External ID: {row.externalTransactionId}</p>}
+                        {row.merchantCategoryCode && <p>MCC: {row.merchantCategoryCode}</p>}
+                        {row.accountName && <p>Account: {row.accountName}</p>}
+                        {row.payer && <p>Payer: {row.payer}</p>}
+                      </div>
+                    </details>
+                  </td>
+                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[150px] truncate">{row.counterparty || row.payer || "—"}</td>
+                  <td className="px-3 py-2 text-[var(--muted-foreground)] max-w-[100px] truncate">{row.transactionType || "—"}</td>
                   <td className="px-3 py-2 text-right font-mono">
                     <span className={row.type === "income" ? "text-emerald-400" : "text-rose-400"}>
                       {row.type === "income" ? "+" : "-"}
@@ -1814,35 +1987,81 @@ function PreviewStep({
                       )}
                     </div>
                   </td>
-                  {extraFields.includes("reference") && (
-                    <td className="px-3 py-2 text-[var(--foreground)] max-w-[80px] truncate">
-                      {row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("ref")) || ""] || "-"}
-                    </td>
-                  )}
                   {extraFields.includes("balance") && (
                     <td className="px-3 py-2 text-right font-mono text-[var(--muted-foreground)]">
-                      {row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("balance")) || ""] || "-"}
+                      {row.runningBalance !== undefined ? row.runningBalance.toFixed(2) : row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("balance")) || ""] || "-"}
                     </td>
                   )}
                   {extraFields.includes("currency") && (
                     <td className="px-3 py-2 text-[var(--foreground)]">{row.currency || "-"}</td>
                   )}
+                  <td className="px-3 py-2 max-w-[260px]">
+                    <div className="text-[var(--foreground)] line-clamp-2">
+                      {row.categoryReason || row.reviewReason || "No category reason available"}
+                    </div>
+                    {row.intelligenceGroupReason && (
+                      <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)] line-clamp-1">
+                        {row.intelligenceGroupReason}
+                      </div>
+                    )}
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {row.kpiTreatment && (
+                        <span className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                          row.kpiTreatment === "included"
+                            ? "border-emerald-500/30 text-emerald-300"
+                            : "border-violet-500/30 text-violet-300"
+                        }`}>
+                          KPI {row.kpiTreatment}
+                        </span>
+                      )}
+                      {row.subcategory && (
+                        <span className="rounded border border-slate-500/25 px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)]">
+                          {row.subcategory}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2">
-                    <span className={row.confidenceScore >= 85 ? "text-emerald-400" : row.confidenceScore >= 60 ? "text-amber-400" : "text-rose-400"}>
-                      {row.confidenceScore}%
+                    <span className={(row.categoryConfidence ?? row.confidenceScore) >= 85 ? "text-emerald-400" : (row.categoryConfidence ?? row.confidenceScore) >= 60 ? "text-amber-400" : "text-rose-400"}>
+                      {row.categoryConfidence ?? row.confidenceScore}%
                     </span>
+                  </td>
+                  <td className="px-3 py-2 max-w-[150px]">
+                    {row.kpiTreatment === "excluded" ? (
+                      <div className="space-y-1">
+                        <span className="inline-flex rounded border border-violet-500/30 px-2 py-1 text-[10px] text-violet-300">
+                          {formatKpiExclusionReason(row.kpiExclusionReason, row.category)}
+                        </span>
+                        {row.reportingTreatment && (
+                          <p className="text-[10px] text-[var(--muted-foreground)]">
+                            {formatReportingTreatment(row.reportingTreatment)}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <span className="inline-flex rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300">
+                          Included
+                        </span>
+                        {row.reportingTreatment && (
+                          <p className="text-[10px] text-[var(--muted-foreground)]">
+                            {formatReportingTreatment(row.reportingTreatment)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <StatusBadge
                       variant={
-                        row.status === "Categorised"
+                        getDisplayStatus(row) === "Categorised"
                           ? "success"
-                          : row.status === "Needs Review"
+                          : getDisplayStatus(row) === "Needs Review"
                           ? "warning"
                           : "neutral"
                       }
                     >
-                      {row.status}
+                      {getDisplayStatus(row)}
                     </StatusBadge>
                   </td>
                 </tr>
@@ -1999,30 +2218,34 @@ function ProcessingStep({
 
 function SummaryStep({
   summary,
+  currencySymbol,
   onUploadAnother,
 }: {
   summary: ImportSummary;
   currencySymbol: string;
   onUploadAnother: () => void;
 }) {
+  const completed = summary.success && summary.reconciliationBalanced;
+  const netMovement = summary.incomeTotal - summary.expenseTotal;
+
   return (
     <div className="space-y-5">
       <div
         className="rounded-xl border p-6 text-center"
         style={{
-          borderColor: summary.success ? "rgba(20,184,166,0.3)" : "rgba(244,63,94,0.3)",
-          background: summary.success ? "rgba(20,184,166,0.06)" : "rgba(244,63,94,0.06)",
+          borderColor: completed ? "rgba(20,184,166,0.3)" : "rgba(244,63,94,0.3)",
+          background: completed ? "rgba(20,184,166,0.06)" : "rgba(244,63,94,0.06)",
         }}
       >
         <div className="flex flex-col items-center gap-3">
-          {summary.success ? (
+          {completed ? (
             <CheckCircle2 className="h-10 w-10 text-emerald-400" />
           ) : (
             <AlertCircle className="h-10 w-10 text-rose-400" />
           )}
           <div>
             <h3 className="text-lg font-semibold text-[var(--foreground)]">
-              {summary.success ? "Import Complete" : "Import Failed"}
+              {completed ? "Import Complete" : "Import Needs Attention"}
             </h3>
             <p className="text-sm text-[var(--muted-foreground)]">
               {summary.fileName} · {summary.sourceType.replace(/_/g, " ")}
@@ -2032,12 +2255,25 @@ function SummaryStep({
       </div>
 
       {/* Full Reconciliation Table */}
-      {summary.success && (
+      {(summary.rowsInFile > 0 || summary.reconciliationExplanation) && (
         <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
-          <h4 className="text-sm font-semibold text-[var(--foreground)]">Import Reconciliation</h4>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-semibold text-[var(--foreground)]">Import Reconciliation</h4>
+              {summary.reconciliationExplanation && (
+                <p className={`mt-1 text-xs ${summary.reconciliationBalanced ? "text-emerald-300" : "text-rose-300"}`}>
+                  {summary.reconciliationExplanation}
+                </p>
+              )}
+            </div>
+            <StatusBadge variant={summary.reconciliationBalanced ? "success" : "danger"}>
+              {summary.reconciliationBalanced ? "Balanced" : "Mismatch"}
+            </StatusBadge>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <StatCard label="Rows in File" value={String(summary.rowsInFile)} icon={<Database className="h-4 w-4" />} />
             <StatCard label="Rows Parsed" value={String(summary.rowsParsed)} icon={<Brain className="h-4 w-4" />} />
+            <StatCard label="Rows Valid" value={String(summary.rowsValid)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Rows Imported" value={String(summary.rowsImported)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Duplicates Skipped" value={String(summary.rowsDuplicate)} icon={<RefreshCw className="h-4 w-4" />} color="text-amber-400" />
             <StatCard label="Failed" value={String(summary.rowsFailed)} icon={<AlertCircle className="h-4 w-4" />} color="text-rose-400" />
@@ -2045,8 +2281,28 @@ function SummaryStep({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.12)" }}>
             <StatCard label="Categorised" value={String(summary.rowsCategorised)} icon={<Tag className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="High Confidence" value={String(summary.rowsHighConfidence)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Transfers" value={String(summary.rowsTransfer)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-violet-400" />
-            <StatCard label="Uncategorised" value={String(summary.unknownTransactions)} icon={<HelpCircle className="h-4 w-4" />} color="text-slate-400" />
+            <StatCard label="Excluded from KPIs" value={String(summary.rowsKpiExcluded)} icon={<Database className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Linked to Subs" value={String(summary.rowsLinkedToSubscriptions)} icon={<RefreshCw className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="Uncategorised" value={String(summary.rowsUncategorised)} icon={<HelpCircle className="h-4 w-4" />} color="text-slate-400" />
+            <StatCard label="Ambiguous" value={String(summary.rowsAmbiguous)} icon={<AlertTriangle className="h-4 w-4" />} color="text-amber-400" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.12)" }}>
+            <StatCard label="Revenue Rows" value={String(summary.rowsIncludedInRevenue)} icon={<TrendingUp className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Expense Rows" value={String(summary.rowsIncludedInExpenses)} icon={<TrendingDown className="h-4 w-4" />} color="text-rose-400" />
+            <StatCard label="Cash Flow Rows" value={String(summary.rowsIncludedInCashFlow)} icon={<Database className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="Cash Movement" value={String(summary.rowsIncludedInCashMovement)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="P&L Rows" value={String(summary.rowsIncludedInProfitAndLoss)} icon={<Database className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Debt Rows" value={String(summary.rowsIncludedInDebtTracking)} icon={<CreditCard className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Owner Rows" value={String(summary.rowsIncludedInOwnerMovement)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Tax Rows" value={String(summary.rowsIncludedInTaxReporting)} icon={<Database className="h-4 w-4" />} color="text-amber-400" />
+            <StatCard label="Quality Rows" value={String(summary.rowsIncludedInDataQualityReporting)} icon={<AlertTriangle className="h-4 w-4" />} color="text-amber-400" />
+            <StatCard label="User Rule" value={String(summary.rowsCategorisedByUserRule)} icon={<Tag className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="System Intel" value={String(summary.rowsCategorisedBySystemIntelligence)} icon={<Brain className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Fee Rows" value={String(summary.rowsWithFees)} icon={<Database className="h-4 w-4" />} color="text-amber-400" />
+            <StatCard label="Refund Rows" value={String(summary.rowsWithRefunds)} icon={<RefreshCw className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Card Repayments" value={String(summary.rowsWithCreditCardRepaymentTreatment)} icon={<CreditCard className="h-4 w-4" />} color="text-violet-400" />
           </div>
           {(summary.sourceCurrency || summary.baseCurrency) && (
             <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] pt-2">
@@ -2065,7 +2321,7 @@ function SummaryStep({
           <StatCard label="Subscriptions" value={String(summary.subscriptionsDetected)} icon={<RefreshCw className="h-4 w-4" />} />
           <StatCard label="Alerts" value={String(summary.alertsCreated)} icon={<AlertCircle className="h-4 w-4" />} />
           <StatCard label="Recommendations" value={String(summary.recommendationsCreated)} icon={<Sparkles className="h-4 w-4" />} />
-          <StatCard label="Net Movement" value={`${summary.incomeTotal >= summary.expenseTotal ? "+" : ""}${(summary.incomeTotal - summary.expenseTotal).toFixed(0)}`} icon={<TrendingUp className="h-4 w-4" />} />
+          <StatCard label="Net Movement" value={`${netMovement >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(netMovement).toFixed(0)}`} icon={<TrendingUp className="h-4 w-4" />} />
         </div>
       )}
 
@@ -2084,7 +2340,7 @@ function SummaryStep({
       )}
 
       <div className="flex items-center justify-center gap-3">
-        <a href="/transactions" className="btn-secondary text-sm">
+        <a href={summary.uploadId ? `/transactions?preset=allTime&uploadId=${summary.uploadId}` : "/transactions"} className="btn-secondary text-sm">
           <Eye className="h-4 w-4" />
           View Transactions
         </a>
@@ -2120,6 +2376,15 @@ function StatCard({
         <span className="text-xs text-[var(--muted-foreground)]">{label}</span>
       </div>
       <p className="text-xl font-bold text-[var(--foreground)]">{value}</p>
+    </div>
+  );
+}
+
+function MiniIntel({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] px-2.5 py-2">
+      <p className={`text-sm font-semibold ${tone}`}>{value}</p>
+      <p className="text-[10px] uppercase text-[var(--muted-foreground)]">{label}</p>
     </div>
   );
 }

@@ -4,9 +4,11 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import { getCompanyMetrics, recalculateCompanyMetrics } from "./company-metrics";
 import { getSubscriptions } from "./subscriptions";
-import { isIncome, isExpense } from "@/lib/reporting/filters";
+import { isCashMovementIn, isCashMovementOut, isIncome, isExpense } from "@/lib/reporting/filters";
 import { normalizeSubscriptionSpend } from "@/lib/reporting/subscriptions";
 import { profitMargin } from "@/lib/reporting/kpis";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { applyActiveSourceFilter } from "./data-source-shared";
 
 export { getCompanyMetrics, recalculateCompanyMetrics };
 
@@ -68,6 +70,7 @@ export async function getMonthlyMetrics(
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   // Default to last 12 months
   const defaultTo = new Date().toISOString().slice(0, 10);
@@ -77,24 +80,30 @@ export async function getMonthlyMetrics(
   const from = fromDate ?? defaultFrom.toISOString().slice(0, 10);
   const to = toDate ?? defaultTo;
 
-  const { data: rawData, error } = await supabase
+  let query = supabase
     .from("transactions")
-    .select("date, amount, type, category, tags")
+    .select("date, amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", effectiveCompanyId)
     .gte("date", from)
     .lte("date", to)
     .order("date", { ascending: true });
 
+  query = applyActiveSourceFilter(query, activeUploadIds);
+
+  const { data: rawData, error } = await query;
+
   if (error) throw error;
   const data = rawData ?? [];
 
   // Group by month
-  const grouped = new Map<string, { revenue: number; expenses: number }>();
+  const grouped = new Map<string, { revenue: number; expenses: number; cashIn: number; cashOut: number }>();
   for (const tx of data) {
     const month = (tx.date as string).slice(0, 7);
-    const current = grouped.get(month) ?? { revenue: 0, expenses: 0 };
+    const current = grouped.get(month) ?? { revenue: 0, expenses: 0, cashIn: 0, cashOut: 0 };
     if (isIncome(tx)) current.revenue += Number(tx.amount);
     else if (isExpense(tx)) current.expenses += Number(tx.amount);
+    if (isCashMovementIn(tx)) current.cashIn += Number(tx.amount);
+    else if (isCashMovementOut(tx)) current.cashOut += Number(tx.amount);
     grouped.set(month, current);
   }
 
@@ -103,8 +112,8 @@ export async function getMonthlyMetrics(
     revenue: vals.revenue,
     expenses: vals.expenses,
     profit: vals.revenue - vals.expenses,
-    cashIn: vals.revenue,
-    cashOut: vals.expenses,
+    cashIn: vals.cashIn,
+    cashOut: vals.cashOut,
   }));
 }
 
@@ -129,22 +138,27 @@ export async function getMetricsForRange(
 
   const admin = await import("@/lib/supabase/admin").then((m) => m.createAdminClient());
   if (!admin) throw new Error("Admin client not available");
+  const activeUploadIds = await getActiveUploadIdsForCompany(companyId, admin);
 
-  const { data: txs, error } = await admin
+  let query = admin
     .from("transactions")
-    .select("amount, type, category, tags")
+    .select("amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .gte("date", fromDate)
     .lte("date", toDate);
 
+  query = applyActiveSourceFilter(query, activeUploadIds);
+
+  const { data: txs, error } = await query;
+
   if (error) throw error;
 
   const revenue = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const expenses = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isExpense(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const netProfit = revenue - expenses;

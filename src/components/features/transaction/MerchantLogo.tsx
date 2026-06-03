@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { resolveMerchantIdentity } from "@/lib/intelligence/merchant-identity";
+import Image from "next/image";
+import {
+  getMerchantLogoUrl,
+  resolveMerchantIdentity,
+} from "@/lib/intelligence/merchant-identity";
 
 interface MerchantLogoProps {
   name: string;
@@ -29,20 +33,28 @@ export default function MerchantLogo({
     lg: "w-10 h-10",
   };
 
+  const imageSize = {
+    sm: 24,
+    md: 32,
+    lg: 40,
+  }[size];
+
   if (!showFallback && !identity.isKnown) {
     return null;
   }
 
-  const hasLogo = identity.logoUrl && !imgError;
+  const logoUrl = !imgError ? getMerchantLogoUrl(identity) : undefined;
 
-  if (hasLogo) {
+  if (logoUrl) {
     return (
-      <img
-        src={identity.logoUrl}
+      <Image
+        src={logoUrl}
         alt={identity.displayName}
+        width={imageSize}
+        height={imageSize}
         className={`inline-flex items-center justify-center rounded-full object-contain shrink-0 bg-white ${imgSizeClasses[size]}`}
         onError={() => setImgError(true)}
-        loading="lazy"
+        unoptimized
       />
     );
   }

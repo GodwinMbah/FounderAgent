@@ -5,6 +5,7 @@
  */
 
 import type { CanonicalTransaction } from "./canonical-model";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
 
 export interface NormalisedRow {
   rowNumber: number;
@@ -18,12 +19,23 @@ export interface NormalisedRow {
   originalAmount?: number;
   originalCurrency?: string;
   category?: string;
+  subcategory?: string;
   status: string;
   confidenceScore: number;
   rawData: Record<string, string>;
   metadata?: Record<string, unknown>;
   parseErrors: string[];
   categoryReason?: string;
+  categoryConfidence?: number;
+  groupingConfidence?: number;
+  normalisedMerchant?: string;
+  displayMerchant?: string;
+  kpiTreatment?: "included" | "excluded";
+  kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
+  isCreditCardRepayment?: boolean;
+  isSubscriptionCandidate?: boolean;
+  isRecurringCandidate?: boolean;
 }
 
 export function canonicalToNormalised(
@@ -42,6 +54,7 @@ export function canonicalToNormalised(
     originalAmount: tx.originalAmount,
     originalCurrency: tx.originalCurrency,
     category: tx.category,
+    subcategory: tx.subcategory,
     status: tx.status,
     confidenceScore: tx.confidenceScore,
     rawData: tx.rawData,
@@ -57,8 +70,24 @@ export function canonicalToNormalised(
       merchant_category_code: tx.merchantCategoryCode,
       source_provider: tx.sourceProvider,
       source_file_id: tx.sourceFileId,
+      original_merchant: tx.originalMerchantName,
+      normalised_merchant: tx.normalisedMerchantName,
+      display_merchant: tx.displayMerchantName,
+      detected_subcategory: tx.subcategory,
+      category_reason: tx.categoryReason,
+      category_confidence: tx.categoryConfidence,
+      grouping_confidence: tx.groupingConfidence,
+      category_evidence: tx.categoryEvidence,
+      business_meaning: tx.businessMeaning,
+      kpi_treatment: tx.kpiTreatment,
+      kpi_exclusion_reason: tx.kpiExclusionReason,
+      reporting_treatment: tx.reportingTreatment,
+      income_expense_status: tx.incomeExpenseStatus,
       is_transfer: tx.isTransfer,
       is_fee: tx.isFee,
+      is_credit_card_repayment: tx.isCreditCardRepayment,
+      is_subscription_candidate: tx.isSubscriptionCandidate,
+      is_recurring_candidate: tx.isRecurringCandidate,
       is_possible_duplicate: tx.isPossibleDuplicate,
       is_personal_name: tx.isPersonalName,
       transfer_pair_id: tx.transferPairId,
@@ -68,6 +97,17 @@ export function canonicalToNormalised(
       fee_currency: tx.feeCurrency,
     },
     parseErrors: tx.parseErrors,
+    categoryReason: tx.categoryReason,
+    categoryConfidence: tx.categoryConfidence,
+    groupingConfidence: tx.groupingConfidence,
+    normalisedMerchant: tx.normalisedMerchantName,
+    displayMerchant: tx.displayMerchantName,
+    kpiTreatment: tx.kpiTreatment,
+    kpiExclusionReason: tx.kpiExclusionReason,
+    reportingTreatment: tx.reportingTreatment,
+    isCreditCardRepayment: tx.isCreditCardRepayment,
+    isSubscriptionCandidate: tx.isSubscriptionCandidate,
+    isRecurringCandidate: tx.isRecurringCandidate,
   };
 }
 

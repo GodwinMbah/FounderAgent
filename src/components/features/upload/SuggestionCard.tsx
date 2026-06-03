@@ -11,8 +11,8 @@ const matchTypeConfig = {
   processor: { icon: CreditCard, label: "processor", color: "text-[var(--neon-cyan)]" },
 };
 
-function formatCurrency(amount: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
+function formatCurrency(amount: number, currency = "GBP"): string {
+  return new Intl.NumberFormat(currency === "GBP" ? "en-GB" : "en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,

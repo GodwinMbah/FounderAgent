@@ -15,12 +15,45 @@ import type {
   BusinessContext,
   TransactionContext,
 } from "@/lib/intelligence/categorisation-engine";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
 
 export interface CategorisedV3Row extends NormalisedRow {
   category: string;
   confidenceScore: number;
   categoryReason: string;
+  categoryConfidence: number;
+  groupingConfidence: number;
+  normalisedMerchant?: string;
+  displayMerchant?: string;
+  subcategory?: string;
+  kpiTreatment: "included" | "excluded";
+  kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
+  businessMeaning?: string;
+  isCreditCardRepayment: boolean;
+  isSubscriptionCandidate: boolean;
+  isRecurringCandidate: boolean;
+  categoryEvidence: Array<{
+    category: string;
+    confidence: number;
+    source: string;
+    reason: string;
+  }>;
 }
+
+const KPI_EXCLUDED_FALLBACK_CATEGORIES = new Set([
+  "Transfers",
+  "Internal Transfer",
+  "International Transfer",
+  "Money Transfer",
+  "Credit Card Payment",
+  "Loan Repayment",
+  "Owner Drawings",
+  "Capital Injection",
+  "Loans",
+  "Ambiguous",
+  "Uncategorised Review",
+]);
 
 function mapBusinessModel(raw: string | undefined): BusinessModel {
   const valid: BusinessModel[] = [
@@ -69,6 +102,11 @@ export function categoriseWithV3(
         | string
         | undefined,
       counterpartyName: row.metadata?.counterparty as string | undefined,
+      accountName: row.metadata?.account_name as string | undefined,
+      cardDetails: row.metadata?.card_details as string | undefined,
+      relatedTransactionId: row.metadata?.related_transaction_id as string | undefined,
+      metadata: row.metadata,
+      rawData: row.rawData,
       isTransfer: row.metadata?.is_transfer as boolean | undefined,
       isFee: row.metadata?.is_fee as boolean | undefined,
     };
@@ -82,10 +120,22 @@ export function categoriseWithV3(
 
     return {
       ...row,
+      merchant: result.displayMerchant || row.merchant,
       category: result.category,
+      subcategory: result.subcategory,
       confidenceScore: result.confidence,
       status,
       categoryReason: result.reason,
+      categoryConfidence: result.categoryConfidence,
+      groupingConfidence: result.groupingConfidence,
+      normalisedMerchant: result.normalisedMerchant,
+      displayMerchant: result.displayMerchant,
+      kpiTreatment: result.kpiTreatment,
+      businessMeaning: result.businessMeaning,
+      isCreditCardRepayment: result.isCreditCardRepayment,
+      isSubscriptionCandidate: result.isSubscription,
+      isRecurringCandidate: result.isRecurring,
+      categoryEvidence: result.evidence,
     };
   });
 }
@@ -97,7 +147,7 @@ export function categoriseWithV3AndV1Fallback(
   const v3Categorised = categoriseWithV3(rows, companySettings);
 
   return v3Categorised.map((row) => {
-    if (row.confidenceScore >= 75) return row;
+    if (row.category !== "Uncategorised Review" && row.confidenceScore >= 60) return row;
 
     // Run v1 fallback for low confidence rows
     const v1Result = suggestTransactionCategory({
@@ -111,6 +161,14 @@ export function categoriseWithV3AndV1Fallback(
       status: row.status,
     });
 
+    const v1HasUsefulCategory =
+      v1Result.suggestedCategory !== "Uncategorised Review" &&
+      v1Result.confidenceScore > row.confidenceScore;
+
+    if (!v1HasUsefulCategory) {
+      return row;
+    }
+
     return {
       ...row,
       category: v1Result.suggestedCategory,
@@ -120,6 +178,21 @@ export function categoriseWithV3AndV1Fallback(
           ? "ai_suggested"
           : "needs_review",
       categoryReason: v1Result.reason,
+      categoryConfidence: v1Result.confidenceScore,
+      kpiTreatment: KPI_EXCLUDED_FALLBACK_CATEGORIES.has(v1Result.suggestedCategory)
+        ? "excluded"
+        : "included",
+      businessMeaning: `Fallback categorisation selected ${v1Result.suggestedCategory}.`,
+      isCreditCardRepayment: v1Result.suggestedCategory === "Credit Card Payment",
+      categoryEvidence: [
+        ...row.categoryEvidence,
+        {
+          category: v1Result.suggestedCategory,
+          confidence: v1Result.confidenceScore,
+          source: "v1_fallback",
+          reason: v1Result.reason,
+        },
+      ],
     };
   });
 }

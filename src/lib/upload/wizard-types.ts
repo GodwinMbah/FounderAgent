@@ -3,6 +3,8 @@
  * Shared types for the multi-step CSV upload wizard
  */
 
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
+
 export type WizardStep =
   | "upload"
   | "mapping"
@@ -57,6 +59,8 @@ export interface MappingOverrides {
   balanceColumn?: string;
   typeColumn?: string;
   referenceColumn?: string;
+  externalTransactionIdColumn?: string;
+  merchantCategoryCodeColumn?: string;
   categoryColumn?: string;
   dateFormat?: string;
   signConvention?: SignConvention;
@@ -72,11 +76,47 @@ export interface PreviewRow {
   date: string;
   merchant: string;
   description: string;
+  bankDescription?: string;
+  reference?: string;
+  payer?: string;
+  counterparty?: string;
+  transactionType?: string;
+  sourceProvider?: string;
+  accountName?: string;
+  externalTransactionId?: string;
+  merchantCategoryCode?: string;
+  feeAmount?: number;
+  runningBalance?: number;
   amount: number;
   type: "income" | "expense";
   currency: string;
   category: string;
+  subcategory?: string;
   confidenceScore: number;
+  categoryReason?: string;
+  categoryConfidence?: number;
+  groupingConfidence?: number;
+  normalisedMerchant?: string;
+  displayMerchant?: string;
+  kpiTreatment?: "included" | "excluded";
+  kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
+  businessMeaning?: string;
+  intelligenceGroupId?: string;
+  intelligenceGroupLabel?: string;
+  intelligenceGroupReason?: string;
+  intelligenceGroupSignals?: string[];
+  categorySource?: "system" | "user" | "user_rule" | "grouping";
+  isCreditCardRepayment?: boolean;
+  isSubscriptionCandidate?: boolean;
+  isRecurringCandidate?: boolean;
+  categoryEvidence?: Array<{
+    category: string;
+    confidence: number;
+    source: string;
+    reason: string;
+  }>;
+  reviewReason?: string;
   status: string;
   issues: string[];
   rawData: Record<string, string>;
@@ -113,6 +153,32 @@ export interface WizardPreview {
   latestBalance?: number;
   matchedHeaders?: string[];
   missingHeaders?: string[];
+  intelligenceSummary?: {
+    rowsAutoCategorised: number;
+    rowsSuggested: number;
+    rowsNeedingReview: number;
+    rowsAmbiguous: number;
+    transfersDetected: number;
+    creditCardPaymentsDetected: number;
+    recurringGroupsDetected: number;
+    subscriptionsDetected: number;
+    kpiExcludedRows: number;
+    intelligenceGroups: number;
+  };
+  intelligenceGroups?: Array<{
+    id: string;
+    label: string;
+    rowCount: number;
+    rowNumbers: number[];
+    category?: string;
+    categoryConfidence: number;
+    groupConfidence: number;
+    kpiTreatment: "included" | "excluded";
+    kpiExclusionReason?: string;
+    reason: string;
+    signals: string[];
+    reviewRequiredCount: number;
+  }>;
   estimatedImpact?: {
     incomeToAdd: number;
     expensesToAdd: number;
@@ -120,6 +186,9 @@ export interface WizardPreview {
     duplicatesToSkip: number;
     failedRows: number;
     subscriptionsDetected: number;
+    kpiExcludedRows?: number;
+    creditCardPaymentsDetected?: number;
+    recurringGroupsDetected?: number;
     latestBalanceDetected?: number;
   };
 }
@@ -144,17 +213,40 @@ export interface ProcessingProgress {
 
 export interface ImportSummary {
   success: boolean;
+  uploadId?: string;
   fileName: string;
   sourceType: SourceType;
   rowsInFile: number;
   rowsParsed: number;
+  rowsValid: number;
   rowsImported: number;
   rowsSkipped: number;
   rowsFailed: number;
   rowsNeedReview: number;
+  rowsUncategorised: number;
+  rowsAmbiguous: number;
   rowsCategorised: number;
+  rowsHighConfidence: number;
+  rowsCategorisedByUserRule: number;
+  rowsCategorisedBySystemIntelligence: number;
+  rowsIncludedInRevenue: number;
+  rowsIncludedInExpenses: number;
+  rowsIncludedInCashFlow: number;
+  rowsIncludedInCashMovement: number;
+  rowsIncludedInProfitAndLoss: number;
+  rowsIncludedInDebtTracking: number;
+  rowsIncludedInOwnerMovement: number;
+  rowsIncludedInTaxReporting: number;
+  rowsIncludedInDataQualityReporting: number;
   rowsTransfer: number;
   rowsDuplicate: number;
+  rowsKpiExcluded: number;
+  rowsLinkedToSubscriptions: number;
+  rowsWithFees: number;
+  rowsWithRefunds: number;
+  rowsWithCreditCardRepaymentTreatment: number;
+  reconciliationBalanced: boolean;
+  reconciliationExplanation?: string;
   incomeTotal: number;
   expenseTotal: number;
   sourceCurrency: string;

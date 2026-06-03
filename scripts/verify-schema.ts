@@ -6,34 +6,11 @@
  * Verifies live Supabase schema against expected columns.
  */
 
-import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { getRequiredSupabaseScriptConfig } from "./supabase-env";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Load env vars from .env.local
-config({ path: join(__dirname, "..", ".env.local") });
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-if (!SUPABASE_URL) {
-  console.error("❌ SUPABASE_URL is not configured");
-  process.exit(1);
-}
-
-if (!SERVICE_ROLE_KEY) {
-  console.error("❌ SUPABASE_SERVICE_ROLE_KEY is not configured");
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+const { url: SUPABASE_URL, secretKey } = getRequiredSupabaseScriptConfig();
+const supabase = createClient(SUPABASE_URL, secretKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
@@ -47,10 +24,12 @@ const EXPECTED_COLUMNS: Record<string, TableExpectations> = {
     must: [
       "id", "company_id", "upload_id", "date", "merchant", "description",
       "category", "amount", "type", "status", "confidence_score", "metadata",
-      "created_at", "updated_at", "bank_account_id",
+      "created_at", "updated_at", "bank_account_id", "currency", "reference",
+      "external_transaction_id", "source_provider", "source_row_number",
+      "raw_row_hash", "row_status", "kpi_excluded", "kpi_exclusion_reason",
+      "duplicate_of_transaction_id",
     ],
     should: [
-      "currency", "reference", "external_transaction_id", "source_provider",
       "posted_date", "fee_amount", "running_balance",
     ],
   },

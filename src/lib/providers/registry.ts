@@ -35,7 +35,7 @@ const PROVIDER_REGISTRY: Record<string, ProviderInfo> = {
     displayName: "Klarna",
     fallbackInitials: "KL",
     fallbackColor: "bg-pink-500",
-    categoryHint: "Payment Processor Fees",
+    categoryHint: "Ambiguous",
   },
 
   // Software / SaaS
@@ -357,6 +357,11 @@ const PROVIDER_REGISTRY: Record<string, ProviderInfo> = {
   adobe: { displayName: "Adobe", fallbackInitials: "AD", fallbackColor: "bg-red-600", categoryHint: "Software" },
   sketch: { displayName: "Sketch", fallbackInitials: "SK", fallbackColor: "bg-yellow-500", categoryHint: "Software" },
   canva: { displayName: "Canva", fallbackInitials: "CV", fallbackColor: "bg-teal-500", categoryHint: "Software" },
+  gamma: { displayName: "Gamma.app", fallbackInitials: "GA", fallbackColor: "bg-purple-500", categoryHint: "Software" },
+  gammaapp: { displayName: "Gamma.app", fallbackInitials: "GA", fallbackColor: "bg-purple-500", categoryHint: "Software" },
+  manus: { displayName: "Manus AI", fallbackInitials: "MA", fallbackColor: "bg-cyan-600", categoryHint: "AI Tools" },
+  manusai: { displayName: "Manus AI", fallbackInitials: "MA", fallbackColor: "bg-cyan-600", categoryHint: "AI Tools" },
+  picsart: { displayName: "Picsart", fallbackInitials: "PA", fallbackColor: "bg-pink-600", categoryHint: "Software" },
   invision: { displayName: "InVision", fallbackInitials: "IV", fallbackColor: "bg-pink-500", categoryHint: "Software" },
 
   // Communication
@@ -394,6 +399,14 @@ const PROVIDER_REGISTRY: Record<string, ProviderInfo> = {
   eurostar: { displayName: "Eurostar", fallbackInitials: "ES", fallbackColor: "bg-yellow-600", categoryHint: "Travel" },
   easyjet: { displayName: "easyJet", fallbackInitials: "EJ", fallbackColor: "bg-orange-500", categoryHint: "Travel" },
   ryanair: { displayName: "Ryanair", fallbackInitials: "RY", fallbackColor: "bg-blue-700", categoryHint: "Travel" },
+
+  // Subscriptions and money movement
+  netflix: { displayName: "Netflix", fallbackInitials: "NF", fallbackColor: "bg-red-700", categoryHint: "Subscriptions" },
+  remitly: { displayName: "Remitly", fallbackInitials: "RM", fallbackColor: "bg-green-600", categoryHint: "International Transfer" },
+  asda: { displayName: "Asda", fallbackInitials: "AS", fallbackColor: "bg-green-700", categoryHint: "Office Costs" },
+  moneyway: { displayName: "Moneyway", fallbackInitials: "MW", fallbackColor: "bg-slate-600", categoryHint: "Loan Repayment" },
+  bumper: { displayName: "Bumper.co.uk", fallbackInitials: "BP", fallbackColor: "bg-orange-600", categoryHint: "Vehicle and Fuel" },
+  bumpercouk: { displayName: "Bumper.co.uk", fallbackInitials: "BP", fallbackColor: "bg-orange-600", categoryHint: "Vehicle and Fuel" },
 
   // Education
   udemy: { displayName: "Udemy", fallbackInitials: "UD", fallbackColor: "bg-purple-600", categoryHint: "Training and Education" },

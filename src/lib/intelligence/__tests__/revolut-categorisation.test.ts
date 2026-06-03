@@ -106,7 +106,7 @@ describe("Revolut CSV categorisation", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Asda → Food and Meals", () => {
+  it("Asda Stores → Office Costs for generic business retail", () => {
     const result = categoriseTransaction(
       makeTx({
         merchant: "Asda Stores",
@@ -115,8 +115,22 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Food and Meals");
+    expect(result.category).toBe("Office Costs");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
+  });
+
+  it("Asda Petrol → Vehicle and Fuel", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Asda Petrol",
+        description: "Asda Petrol Station",
+        amount: -45,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Vehicle and Fuel");
+    expect(result.subcategory).toBe("Fuel");
+    expect(result.confidence).toBeGreaterThanOrEqual(80);
   });
 
   it("Capital On Tap → Credit Card Payment or Transfer", () => {
@@ -155,11 +169,12 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Transfers");
+    expect(result.category).toBe("Internal Transfer");
+    expect(result.kpiTreatment).toBe("excluded");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Marketing Commission → Professional Services", () => {
+  it("Marketing Commission → Sales Commission", () => {
     const result = categoriseTransaction(
       makeTx({
         description: "Marketing Commission",
@@ -167,11 +182,28 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Professional Services");
+    expect(result.category).toBe("Sales Commission");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Sales Rep Commission → Professional Services", () => {
+  it("Revolut TRANSFER Marketing Commission → Sales Commission, not transfer", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Catherine Bull",
+        description: "Marketing Commission Payout",
+        reference: "Marketing Commission Payout",
+        amount: -35,
+        transactionType: "TRANSFER",
+        provider: "revolut_business_csv",
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Sales Commission");
+    expect(result.isTransfer).toBe(false);
+    expect(result.kpiTreatment).toBe("included");
+  });
+
+  it("Sales Rep Commission → Sales Commission", () => {
     const result = categoriseTransaction(
       makeTx({
         description: "Sales Rep Commission",
@@ -179,7 +211,7 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Professional Services");
+    expect(result.category).toBe("Sales Commission");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
@@ -208,7 +240,7 @@ describe("Revolut CSV categorisation", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Klarna*amazon → Shopping", () => {
+  it("Klarna*amazon → Amazon office cost with Klarna as payment context", () => {
     const result = categoriseTransaction(
       makeTx({
         merchant: "Klarna*amazon",
@@ -217,7 +249,61 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Shopping");
+    expect(result.category).toBe("Office Costs");
+    expect(result.normalisedMerchant).toBe("Amazon");
+    expect(result.reason).not.toContain("Payment Processor Fees");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
+  });
+
+  it("Refund Processed outgoing → Revenue Adjustment", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Client Refund",
+        description: "Refund Processed",
+        amount: -40,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Revenue Adjustment");
+    expect(result.subcategory).toBe("Refund");
+    expect(result.kpiTreatment).toBe("included");
+  });
+
+  it("Hostinger → Cloud Infrastructure", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Hostinger.com",
+        description: "Hostinger web hosting",
+        amount: -14.47,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Cloud Infrastructure");
+    expect(result.confidence).toBeGreaterThanOrEqual(80);
+  });
+
+  it("Quick Printing roller banner → Marketing", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Quick Printing Ltd",
+        description: "Roller Banner Fee",
+        amount: -99,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Marketing");
+    expect(result.reason).toContain("Marketing");
+  });
+
+  it("Teleperformance contact centre → Customer Service", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Teleperformance Contact",
+        description: "Customer service management",
+        amount: -2,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Customer Service");
   });
 });

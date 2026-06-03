@@ -101,7 +101,7 @@ export async function submitOnboarding(formData: FormData): Promise<OnboardingRe
     industry: safeString(formData.get("industry")) ?? "",
     businessStage: safeString(formData.get("businessStage")) ?? "",
     country: safeString(formData.get("country")) ?? "",
-    currency: safeString(formData.get("currency")) ?? "USD",
+    currency: safeString(formData.get("currency")) ?? "GBP",
     fiscalYearStart: safeString(formData.get("fiscalYearStart")) ?? "1",
     timezone: safeString(formData.get("timezone")) ?? "UTC",
     primaryGoal: safeString(formData.get("primaryGoal")) ?? "",

@@ -153,6 +153,7 @@ const VARIANT_MAP: Record<string, string> = {
   // Klarna
   klarnabank: "Klarna",
   klarna: "Klarna",
+  klarnaamazon: "Amazon",
 
   // Airbnb
   airbnb: "Airbnb",
@@ -291,6 +292,7 @@ const VARIANT_MAP: Record<string, string> = {
 
   // Canva
   canva: "Canva",
+  canvacom: "Canva",
 
   // InVision
   invision: "InVision",
@@ -441,6 +443,16 @@ const VARIANT_MAP: Record<string, string> = {
 
   // Ades
   ades: "Ades",
+  adesltd: "Ades",
+  adesltdcharlton: "Ades",
+
+  // Wrapped/payment-context merchants
+  stppdfhouse: "PDFHouse",
+  pdfhouse: "PDFHouse",
+  gfsnapfitnessco: "Snap Fitness",
+  snapfitness: "Snap Fitness",
+  gammaapp: "Gamma.app",
+  picsartinc: "Picsart",
 };
 
 /* ── Helpers ── */

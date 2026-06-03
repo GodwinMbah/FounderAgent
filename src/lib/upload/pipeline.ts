@@ -10,7 +10,7 @@ import { getCompanySettings } from "@/lib/db/company_settings";
 import { updateUploadStatus } from "@/lib/db/uploads";
 import { createTransactionsChunked } from "@/lib/db/transactions";
 import { createSubscription, findSubscriptionByVendor, updateSubscription } from "@/lib/db/subscriptions";
-import { createAlert, createAlertsBatch } from "@/lib/db/alerts";
+import { createAlertsBatch } from "@/lib/db/alerts";
 import { normalizeAlertCategory } from "@/lib/db/alert-helpers";
 import { createAgentRecommendationsBatch } from "@/lib/db/agent-recommendations";
 import { createAgentTasksBatch } from "@/lib/db/agent-tasks";
@@ -19,13 +19,13 @@ import { recalculateCompanyMetrics } from "@/lib/db/company-metrics";
 import { parseCsv } from "@/lib/parser/csv-core";
 import { parseUpload } from "@/lib/parser/unified-parser";
 import { getCategoryBreakdown } from "@/lib/intelligence/categoriser";
-import { categoriseWithV3AndV1Fallback } from "@/lib/upload/categoriser-v3-adapter";
-import { enrichMerchant } from "@/lib/intelligence/merchant-enrichment";
-import { detectTransfer } from "@/lib/intelligence/transfer-detector";
 import { detectDuplicate } from "@/lib/intelligence/duplicate-detector-v2";
-import { canonicalListToNormalised } from "@/lib/providers/canonical-adapter";
-import { toDbTransaction } from "@/lib/providers/canonical-model";
+import { toDbTransaction, type CanonicalTransaction } from "@/lib/providers/canonical-model";
+import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
+import { getKpiExclusionReasonForCategory, isKpiExcludedCategory } from "@/lib/kpi-treatment";
+import { applyReportingTreatment, classifyReportingTreatment } from "@/lib/reporting/treatment-engine";
 import type { TransactionCategoryType, TransactionStatus } from "@/lib/types";
+import type { ImportReconciliation, ImportRowOutcome } from "@/lib/upload/reconciliation";
 import { detectSubscriptions, detectDuplicateTools } from "@/lib/intelligence/subscription-detector";
 import { detectAnomalies } from "@/lib/intelligence/anomaly-detector";
 import { generateRecommendations, type UploadFindings } from "@/lib/intelligence/recommendation-engine";
@@ -48,10 +48,18 @@ export interface PipelineResult {
   alertsCreated: number;
   recommendationsCreated: number;
   tasksCreated: number;
+  reconciliation?: ImportReconciliation;
   error?: string;
 }
 
 const BUCKET_NAME = "financial_uploads";
+
+function toLocalYMD(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 async function setPipelineStage(
   uploadId: string,
@@ -72,6 +80,41 @@ async function setPipelineStage(
     status: progress >= 100 ? "completed" : "processing",
     metadata: updates,
   });
+}
+
+function isKpiIncludedRow(tx: CanonicalTransaction): boolean {
+  return tx.reportingTreatment?.includedInOperatingKpis ?? (!tx.isPossibleDuplicate && !tx.isTransfer && tx.kpiExcluded !== true);
+}
+
+function isUncategorisedRow(tx: CanonicalTransaction): boolean {
+  return tx.category === "Uncategorised Review";
+}
+
+function isAmbiguousRow(tx: CanonicalTransaction): boolean {
+  return tx.category === "Ambiguous";
+}
+
+function getEvidenceSources(tx: CanonicalTransaction): string[] {
+  const sources = new Set<string>();
+  for (const evidence of tx.categoryEvidence ?? []) {
+    if (evidence.source) sources.add(evidence.source);
+  }
+  if (tx.categoryReason?.toLowerCase().includes("user override")) sources.add("user_override");
+  return [...sources];
+}
+
+function isUserRuleCategorised(tx: CanonicalTransaction): boolean {
+  return getEvidenceSources(tx).some((source) => source.includes("user_rule") || source.includes("user_override"));
+}
+
+function isSystemCategorised(tx: CanonicalTransaction): boolean {
+  if (!tx.category || isUncategorisedRow(tx) || isAmbiguousRow(tx)) return false;
+  return !isUserRuleCategorised(tx);
+}
+
+function isRefundRow(tx: CanonicalTransaction): boolean {
+  const text = `${tx.transactionType ?? ""} ${tx.description ?? ""} ${tx.reference ?? ""} ${tx.category ?? ""}`.toLowerCase();
+  return text.includes("refund") || text.includes("reversal");
 }
 
 export async function runUploadPipeline(
@@ -148,6 +191,15 @@ export async function runUploadPipeline(
   let alertsCreated = 0;
   let recommendationsCreated = 0;
   let tasksCreated = 0;
+  let totalRowsInFile = 0;
+  let parsedRowsCount = 0;
+  let parseFailedRowsCount = 0;
+  let duplicateCountSnapshot = 0;
+  let transferCountSnapshot = 0;
+  let needReviewCountSnapshot = 0;
+  let categorisedCountSnapshot = 0;
+  let kpiExcludedCountSnapshot = 0;
+  let detectedCurrencySnapshot: string | undefined;
 
   try {
     // 1. Download file from storage
@@ -168,6 +220,7 @@ export async function runUploadPipeline(
     await setPipelineStage(uploadId, companyId, "mapping", 15);
 
     const parsed = parseCsv(text);
+    totalRowsInFile = parsed.rows.length;
     if (parsed.rows.length === 0) {
       console.error(`[pipeline] No valid data rows`);
       throw new Error("No valid data rows found in CSV");
@@ -184,6 +237,15 @@ export async function runUploadPipeline(
     } catch {
       // Settings may not exist
     }
+    if (!companyCurrency) {
+      const { data: companyRow } = await adminClient
+        .from("companies")
+        .select("currency")
+        .eq("id", companyId)
+        .maybeSingle();
+      companyCurrency = companyCurrency ?? ((companyRow?.currency as string | undefined) || undefined);
+    }
+    companyCurrency = (companyCurrency ?? "GBP").toUpperCase();
 
     // 4. Parse and normalise rows using unified parser
     await setPipelineStage(uploadId, companyId, "validating", 25);
@@ -201,45 +263,16 @@ export async function runUploadPipeline(
         `Could not parse any valid transactions. Failed rows: ${parseResult.failedRows.length}. Provider: ${parseResult.detectedProvider}`
       );
     }
+    parsedRowsCount = parseResult.transactions.length;
+    parseFailedRowsCount = parseResult.failedRows.length;
+    detectedCurrencySnapshot = parseResult.detectedCurrency;
 
-    // Enrich merchants
-    for (const tx of parseResult.transactions) {
-      const enriched = enrichMerchant(tx.merchantName);
-      tx.merchantName = enriched.displayName;
-      if (!tx.category && enriched.categoryHint) {
-        tx.category = enriched.categoryHint;
-      }
-    }
-
-    // Detect transfers
-    for (const tx of parseResult.transactions) {
-      const transferResult = detectTransfer({
-        transactionType: tx.transactionType,
-        description: tx.description,
-        reference: tx.reference,
-        amount: tx.amount,
-        merchantName: tx.merchantName,
-        counterpartyName: tx.counterpartyName,
-        accountName: tx.accountName,
-        currency: tx.currency,
-        transactionDate: tx.transactionDate,
-        externalTransactionId: tx.externalTransactionId,
-      }, {
-        sourceProvider: tx.sourceProvider,
-      });
-      if (transferResult.isTransfer) {
-        tx.isTransfer = true;
-        tx.status = "transfer";
-        tx.category = "Transfers";
-        tx.transferPairId = transferResult.transferPairId;
-        tx.reviewReason = transferResult.reviewReason;
-      }
-    }
+    applyMerchantAndTransferSignals(parseResult.transactions);
 
     // Detect duplicates against existing transactions
     const { data: existingTxs } = await adminClient
       .from("transactions")
-      .select("date, amount, type, merchant, metadata")
+      .select("id, date, amount, type, merchant, metadata, currency, reference, external_transaction_id, source_provider, raw_row_hash, bank_account_id")
       .eq("company_id", companyId)
       .limit(1000);
 
@@ -249,14 +282,15 @@ export async function runUploadPipeline(
       const absAmount = Number(t.amount);
       const signedAmount = t.type === "expense" ? -absAmount : absAmount;
       return {
+        id: t.id as string,
         transactionDate: t.date as string,
         amount: signedAmount,
-        currency: (meta.currency as string) || "GBP",
+        currency: (t.currency as string | undefined) || (meta.currency as string) || "GBP",
         merchantName: (t.merchant as string) || "",
-        reference: (meta.reference as string) || undefined,
-        externalTransactionId: (meta.external_transaction_id as string) || undefined,
+        reference: (t.reference as string | undefined) || (meta.reference as string) || undefined,
+        externalTransactionId: (t.external_transaction_id as string | undefined) || (meta.external_transaction_id as string) || undefined,
         accountName: (meta.account_name as string) || undefined,
-        sourceProvider: (meta.source_provider as string) || "unknown",
+        sourceProvider: (t.source_provider as string | undefined) || (meta.source_provider as string) || "unknown",
         sourceFileId: (meta.source_file_id as string) || undefined,
       };
     });
@@ -265,34 +299,22 @@ export async function runUploadPipeline(
       const dupResult = detectDuplicate(tx, existingForDedup);
       if (dupResult.isDuplicate) {
         tx.isPossibleDuplicate = true;
+        tx.duplicateOfTransactionId = dupResult.duplicateTransactionId;
+        tx.rowStatus = "duplicate_skipped";
         tx.status = "possible_duplicate";
         tx.reviewReason = dupResult.reason;
+        tx.kpiExcluded = true;
+        tx.kpiExclusionReason = "duplicate";
       }
     }
-
-    // Convert to normalised rows for downstream compatibility
-    const normalisedRows = canonicalListToNormalised(parseResult.transactions);
 
     // 5. Categorise rows
-    await setPipelineStage(uploadId, companyId, "categorising", 65, normalisedRows.length, parseResult.failedRows.length);
+    await setPipelineStage(uploadId, companyId, "categorising", 65, parseResult.transactions.length, parseResult.failedRows.length);
 
     // Primary: v3 with business profile context + v1 fallback for low confidence
-    let categorisedRows = categoriseWithV3AndV1Fallback(normalisedRows, companySettings);
+    const categorisation = categoriseCanonicalTransactions(parseResult.transactions, companySettings);
+    let categorisedRows = categorisation.categorisedRows;
     const categoryBreakdown = getCategoryBreakdown(categorisedRows);
-
-    // Propagate v3 categories back to canonical transactions so they are used for insertion
-    for (let i = 0; i < categorisedRows.length && i < parseResult.transactions.length; i++) {
-      if (categorisedRows[i].category) {
-        // Never overwrite transfer or duplicate classifications
-        if (!parseResult.transactions[i].isTransfer) {
-          parseResult.transactions[i].category = categorisedRows[i].category;
-        }
-        parseResult.transactions[i].confidenceScore = categorisedRows[i].confidenceScore ?? parseResult.transactions[i].confidenceScore;
-        if (!parseResult.transactions[i].isTransfer && !parseResult.transactions[i].isPossibleDuplicate) {
-          parseResult.transactions[i].status = categorisedRows[i].status ?? parseResult.transactions[i].status;
-        }
-      }
-    }
 
     // Apply user preview category overrides stored in upload metadata
     const categoryOverrides = upload.metadata?.category_overrides as Record<number, string> | undefined;
@@ -301,22 +323,59 @@ export async function runUploadPipeline(
         const rowNumber = i + 2; // 1-based CSV row, skipping header
         const overrideCategory = categoryOverrides[rowNumber];
         if (overrideCategory) {
+          const kpiExcluded = isKpiExcludedCategory(overrideCategory);
           parseResult.transactions[i].category = overrideCategory;
           parseResult.transactions[i].confidenceScore = 100; // User-confirmed
-          parseResult.transactions[i].status = "categorised";
+          parseResult.transactions[i].categoryConfidence = 100;
+          parseResult.transactions[i].categoryReason = `User override selected ${overrideCategory} in upload preview.`;
+          parseResult.transactions[i].kpiExcluded = kpiExcluded;
+          parseResult.transactions[i].kpiExclusionReason = kpiExcluded ? getKpiExclusionReasonForCategory(overrideCategory) : undefined;
+          parseResult.transactions[i].kpiTreatment = kpiExcluded ? "excluded" : "included";
+          parseResult.transactions[i].status = "user_confirmed";
+          parseResult.transactions[i].categorySource = "user";
+          parseResult.transactions[i].userConfirmedCategory = true;
+          applyReportingTreatment(parseResult.transactions[i]);
         }
       }
     }
+
+    for (const tx of parseResult.transactions) {
+      applyReportingTreatment(tx);
+    }
+    categorisedRows = categorisedRows.map((row, i) => {
+      const tx = parseResult.transactions[i];
+      if (!tx) return row;
+      return {
+        ...row,
+        merchant: tx.displayMerchantName ?? tx.merchantName ?? row.merchant,
+        category: tx.category ?? row.category,
+        subcategory: tx.subcategory,
+        status: tx.status ?? row.status,
+        confidenceScore: tx.confidenceScore ?? row.confidenceScore,
+        categoryReason: tx.categoryReason ?? row.categoryReason,
+        categoryConfidence: tx.categoryConfidence ?? row.categoryConfidence,
+        groupingConfidence: tx.groupingConfidence ?? row.groupingConfidence,
+        kpiTreatment: tx.kpiTreatment ?? row.kpiTreatment,
+        kpiExclusionReason: tx.kpiExclusionReason,
+        reportingTreatment: tx.reportingTreatment,
+      };
+    });
 
     // Skip already-detected transfers and duplicates (handled above in canonical flow)
     // Filter out duplicates from insertion
     const deduplicatedRows = categorisedRows.filter((_, i) => !parseResult.transactions[i]?.isPossibleDuplicate);
     categorisedRows = deduplicatedRows;
+    const hasInsertableRows = categorisedRows.length > 0;
+    duplicateCountSnapshot = parseResult.transactions.filter((tx) => tx.isPossibleDuplicate).length;
+    transferCountSnapshot = parseResult.transactions.filter((tx) => tx.isTransfer).length;
+    needReviewCountSnapshot = parseResult.transactions.filter((tx) => tx.status === "needs_review" && !tx.isPossibleDuplicate).length;
+    categorisedCountSnapshot = parseResult.transactions.filter((tx) => tx.status === "categorised" && !tx.isPossibleDuplicate).length;
+    kpiExcludedCountSnapshot = parseResult.transactions.filter((tx) => tx.kpiExcluded || tx.isTransfer || tx.isPossibleDuplicate).length;
 
     // 7. Detect anomalies
     await setPipelineStage(uploadId, companyId, "detecting_anomalies", 85);
 
-    const anomalies = await detectAnomalies(categorisedRows, { companyId });
+    const anomalies = hasInsertableRows ? await detectAnomalies(categorisedRows, { companyId }) : [];
 
     // 8. Prepare transaction inserts using canonical model
     await setPipelineStage(uploadId, companyId, "importing", 50);
@@ -334,6 +393,20 @@ export async function runUploadPipeline(
     const transactionInserts = parseResult.transactions
       .filter((tx) => !tx.isPossibleDuplicate)
       .map((tx) => {
+        const treatment = applyReportingTreatment(tx).reportingTreatment;
+        if (treatment.includedInCashMovement && !treatment.includedInOperatingKpis && !treatment.includedInDataQualityReporting) {
+          tx.rowStatus = "transfer";
+          tx.kpiExcluded = true;
+          tx.kpiExclusionReason = treatment.kpiExclusionReason ?? tx.kpiExclusionReason ?? getKpiExclusionReasonForCategory(tx.category) ?? "transfer";
+        } else if (tx.status === "needs_review" || treatment.includedInDataQualityReporting) {
+          tx.rowStatus = "needs_review";
+          tx.kpiExcluded = true;
+          tx.kpiExclusionReason = treatment.kpiExclusionReason ?? tx.kpiExclusionReason ?? "needs_review";
+        } else {
+          tx.rowStatus = "inserted";
+          tx.kpiExcluded = !treatment.includedInOperatingKpis;
+          tx.kpiExclusionReason = treatment.kpiExclusionReason;
+        }
         const mapped = toDbTransaction(tx, companyId, uploadId, bankAccount.id);
         return {
           ...mapped,
@@ -353,9 +426,15 @@ export async function runUploadPipeline(
 
     transactionsInserted = insertResult.count;
     transactionsFailed = parseResult.failedRows.length;
+    const insertedByLineage = new Map<string, string>();
+    for (const row of insertResult.rows) {
+      if (row.sourceRowNumber !== undefined) insertedByLineage.set(`row:${row.sourceRowNumber}`, row.id);
+      if (row.rawRowHash) insertedByLineage.set(`hash:${row.rawRowHash}`, row.id);
+      if (row.externalTransactionId) insertedByLineage.set(`external:${row.externalTransactionId}`, row.id);
+    }
 
     // Fetch historical transactions for merged subscription detection
-    const vendors = [...new Set(categorisedRows.map((r) => r.merchant))].filter(Boolean);
+    const vendors = hasInsertableRows ? [...new Set(categorisedRows.map((r) => r.merchant))].filter(Boolean) : [];
     let historicalRows: typeof categorisedRows = [];
     if (vendors.length > 0 && companyId) {
       try {
@@ -378,10 +457,21 @@ export async function runUploadPipeline(
             amount: Number(row.amount),
             type: row.type as "income" | "expense",
             currency: (row.metadata as Record<string, unknown> | null)?.currency as string | undefined,
-            category: row.category as TransactionCategoryType,
+            category: (row.category as TransactionCategoryType | null) ?? "Uncategorised Review",
             status: row.status as TransactionStatus,
             confidenceScore: row.confidence_score as number,
             categoryReason: (row.metadata as Record<string, unknown> | null)?.category_reason as string || "historical",
+            categoryConfidence: ((row.metadata as Record<string, unknown> | null)?.category_confidence as number | undefined) ?? (row.confidence_score as number) ?? 0,
+            groupingConfidence: ((row.metadata as Record<string, unknown> | null)?.grouping_confidence as number | undefined) ?? 0,
+            normalisedMerchant: (row.metadata as Record<string, unknown> | null)?.normalised_merchant as string | undefined,
+            displayMerchant: (row.metadata as Record<string, unknown> | null)?.display_merchant as string | undefined,
+            subcategory: (row.metadata as Record<string, unknown> | null)?.detected_subcategory as string | undefined,
+            kpiTreatment: ((row.metadata as Record<string, unknown> | null)?.kpi_treatment as "included" | "excluded" | undefined) ?? "included",
+            businessMeaning: (row.metadata as Record<string, unknown> | null)?.business_meaning as string | undefined,
+            isCreditCardRepayment: Boolean((row.metadata as Record<string, unknown> | null)?.is_credit_card_repayment),
+            isSubscriptionCandidate: Boolean((row.metadata as Record<string, unknown> | null)?.is_subscription_candidate),
+            isRecurringCandidate: Boolean((row.metadata as Record<string, unknown> | null)?.is_recurring_candidate),
+            categoryEvidence: ((row.metadata as Record<string, unknown> | null)?.category_evidence as []) ?? [],
             rawData: (row.metadata as Record<string, unknown> | null)?.raw_data as Record<string, string> || {},
             parseErrors: [],
           }));
@@ -394,19 +484,21 @@ export async function runUploadPipeline(
     // 6. Detect subscriptions with historical data merged
     await setPipelineStage(uploadId, companyId, "detecting_subscriptions", 75);
 
-    const allRowsForSubs = [...historicalRows, ...categorisedRows];
-    detectedSubs = detectSubscriptions(allRowsForSubs);
-    const duplicateTools = detectDuplicateTools(detectedSubs);
+    const allRowsForSubs = hasInsertableRows ? [...historicalRows, ...categorisedRows] : [];
+    detectedSubs = hasInsertableRows ? detectSubscriptions(allRowsForSubs) : [];
+    const duplicateTools = hasInsertableRows ? detectDuplicateTools(detectedSubs) : [];
 
     // 10. Create/update subscriptions
     await setPipelineStage(uploadId, companyId, "generating_recommendations", 92);
 
     subscriptionsCreated = 0;
+    let rowsLinkedToSubscriptions = 0;
     for (const sub of detectedSubs) {
       try {
         const existing = await findSubscriptionByVendor(companyId, sub.vendor);
+        let persistedSubscriptionId: string | undefined;
         if (!existing) {
-          await createSubscription({
+          const created = await createSubscription({
             companyId,
             name: sub.name,
             vendor: sub.vendor,
@@ -421,10 +513,11 @@ export async function runUploadPipeline(
               transaction_count: sub.transactionCount,
             },
           });
+          persistedSubscriptionId = created.id;
           subscriptionsCreated++;
         } else {
           // Update existing subscription with latest data
-          await updateSubscription(existing.id, companyId, {
+          const updated = await updateSubscription(existing.id, companyId, {
             amount: sub.amount,
             nextBillingDate: sub.nextBillingDate,
             metadata: {
@@ -434,6 +527,27 @@ export async function runUploadPipeline(
               updated_at: new Date().toISOString(),
             },
           });
+          persistedSubscriptionId = updated?.id ?? existing.id;
+        }
+
+        if (persistedSubscriptionId) {
+          const { data: linkedRows, error: linkError } = await adminClient
+            .from("transactions")
+            .update({
+              subscription_id: persistedSubscriptionId,
+              is_recurring: true,
+            })
+            .eq("company_id", companyId)
+            .eq("upload_id", uploadId)
+            .eq("type", "expense")
+            .ilike("merchant", `%${sub.vendor}%`)
+            .select("id");
+
+          if (linkError) {
+            console.error("[pipeline] Subscription transaction linking failed:", linkError.message);
+          } else {
+            rowsLinkedToSubscriptions += linkedRows?.length ?? 0;
+          }
         }
       } catch (err) {
         console.error("[pipeline] Subscription creation/update failed:", err);
@@ -459,21 +573,29 @@ export async function runUploadPipeline(
       });
     }
 
-    const foreignCurrencyRows = categorisedRows.filter(
-      (r) => r.originalCurrency && r.originalCurrency !== companyCurrency
-    );
+    const foreignCurrencyRows = categorisedRows.filter((r) => {
+      const originalCurrency = r.originalCurrency?.toUpperCase();
+      return Boolean(originalCurrency && originalCurrency !== companyCurrency);
+    });
     if (foreignCurrencyRows.length > 0) {
+      const foreignCurrencies = [...new Set(foreignCurrencyRows.map((r) => r.originalCurrency?.toUpperCase()).filter(Boolean))];
+      const sourceRowNumbers = foreignCurrencyRows
+        .map((r) => r.rowNumber)
+        .filter((rowNumber): rowNumber is number => typeof rowNumber === "number")
+        .slice(0, 20);
       alertInserts.push({
         companyId,
         title: "Foreign currency transactions detected",
-        description: `${foreignCurrencyRows.length} transaction(s) were imported in foreign currency and need conversion.`,
+        description: `${foreignCurrencyRows.length} transaction(s) have original currency ${foreignCurrencies.join(", ")} and settle into ${companyCurrency}. Source rows: ${sourceRowNumbers.join(", ") || "not available"}.`,
         severity: "warning",
         category: normalizeAlertCategory("currency"),
         resourceType: "upload",
         metadata: {
           upload_id: uploadId,
           foreign_count: foreignCurrencyRows.length,
-          currencies: [...new Set(foreignCurrencyRows.map((r) => r.originalCurrency))],
+          currencies: foreignCurrencies,
+          source_row_numbers: sourceRowNumbers,
+          base_currency: companyCurrency,
         },
       });
     }
@@ -500,7 +622,7 @@ export async function runUploadPipeline(
       categoryBreakdown,
     };
 
-    const recommendations = generateRecommendations(findings);
+    const recommendations = hasInsertableRows ? generateRecommendations(findings) : [];
     recommendationsCreated = 0;
     const recommendationInserts = recommendations.map((rec) => ({
       companyId,
@@ -565,12 +687,159 @@ export async function runUploadPipeline(
     // If all rows were duplicates (0 inserted but 694 parsed), that's a successful deduplication.
     const totalParsed = parseResult.transactions.length;
     const duplicateCount = parseResult.transactions.filter((tx) => tx.isPossibleDuplicate).length;
-    const transferCount = parseResult.transactions.filter((tx) => tx.isTransfer).length;
+    const transferCount = parseResult.transactions.filter((tx) =>
+      tx.reportingTreatment?.includedInCashMovement &&
+      !tx.reportingTreatment.includedInOperatingKpis &&
+      !tx.reportingTreatment.includedInDataQualityReporting
+    ).length;
+    const rowsIncludedInRevenue = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInOperatingRevenue).length;
+    const rowsIncludedInExpenses = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInOperatingExpenses).length;
+    const rowsIncludedInCashFlow = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInCashFlow).length;
+    const rowsIncludedInCashMovement = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInCashMovement).length;
+    const rowsIncludedInProfitAndLoss = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInProfitAndLoss).length;
+    const rowsIncludedInDebtTracking = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInDebtTracking).length;
+    const rowsIncludedInOwnerMovement = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInOwnerMovement).length;
+    const rowsIncludedInTaxReporting = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInTaxReporting).length;
+    const rowsIncludedInDataQualityReporting = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInDataQualityReporting).length;
+    const rowsExcludedFromKpis = parseResult.transactions.filter((tx) => !isKpiIncludedRow(tx)).length;
     const needReviewCount = parseResult.transactions.filter((tx) => tx.status === "needs_review" && !tx.isPossibleDuplicate).length;
-    const categorisedCount = parseResult.transactions.filter((tx) => tx.status === "categorised" && !tx.isPossibleDuplicate).length;
-    const hasFatalErrors = transactionsFailed > 0 && transactionsInserted === 0;
+    const rowsUncategorised = parseResult.transactions.filter((tx) => isUncategorisedRow(tx) && !tx.isPossibleDuplicate).length;
+    const rowsAmbiguous = parseResult.transactions.filter((tx) => isAmbiguousRow(tx) && !tx.isPossibleDuplicate).length;
+    const categorisedCount = parseResult.transactions.filter((tx) =>
+      Boolean(tx.category) && !isUncategorisedRow(tx) && !isAmbiguousRow(tx) && !tx.isPossibleDuplicate
+    ).length;
+    const rowsHighConfidence = parseResult.transactions.filter((tx) =>
+      !tx.isPossibleDuplicate &&
+      !isUncategorisedRow(tx) &&
+      !isAmbiguousRow(tx) &&
+      ((tx.categoryConfidence ?? tx.confidenceScore ?? 0) >= 90)
+    ).length;
+    const rowsCategorisedByUserRule = parseResult.transactions.filter((tx) => !tx.isPossibleDuplicate && isUserRuleCategorised(tx)).length;
+    const rowsCategorisedBySystemIntelligence = parseResult.transactions.filter((tx) => !tx.isPossibleDuplicate && isSystemCategorised(tx)).length;
+    const rowsWithFees = parseResult.transactions.filter((tx) => (tx.feeAmount ?? 0) > 0).length;
+    const rowsWithRefunds = parseResult.transactions.filter((tx) => isRefundRow(tx)).length;
+    const rowsWithCreditCardRepaymentTreatment = parseResult.transactions.filter((tx) => tx.reportingTreatment?.reportingTreatment === "credit_card_repayment").length;
+    duplicateCountSnapshot = duplicateCount;
+    transferCountSnapshot = transferCount;
+    needReviewCountSnapshot = needReviewCount;
+    categorisedCountSnapshot = categorisedCount;
+    kpiExcludedCountSnapshot = rowsExcludedFromKpis;
+    const rowOutcomes: ImportRowOutcome[] = [
+      ...parseResult.transactions.map((tx) => {
+        const treatment = tx.reportingTreatment ?? applyReportingTreatment(tx).reportingTreatment;
+        const transactionId =
+          (tx.sourceRowNumber !== undefined ? insertedByLineage.get(`row:${tx.sourceRowNumber}`) : undefined) ??
+          (tx.rawRowHash ? insertedByLineage.get(`hash:${tx.rawRowHash}`) : undefined) ??
+          (tx.externalTransactionId ? insertedByLineage.get(`external:${tx.externalTransactionId}`) : undefined);
+        const status: ImportRowOutcome["status"] = tx.isPossibleDuplicate
+          ? "duplicate_skipped"
+          : treatment.includedInCashMovement && !treatment.includedInOperatingKpis && !treatment.includedInDataQualityReporting
+          ? "transfer"
+          : tx.status === "needs_review" || treatment.includedInDataQualityReporting
+          ? "needs_review"
+          : "inserted";
+        const kpiTreatment: ImportRowOutcome["kpiTreatment"] = treatment.includedInOperatingKpis ? "included" : "excluded";
+        const direction: ImportRowOutcome["direction"] = tx.amount >= 0 ? "income" : "expense";
+        const duplicateStatus: ImportRowOutcome["duplicateStatus"] = tx.isPossibleDuplicate ? "duplicate" : "not_duplicate";
+        const signalsUsed = [...new Set([...getEvidenceSources(tx), ...treatment.sourceEvidence])];
+        return {
+          rowNumber: tx.sourceRowNumber ?? 0,
+          status,
+          transactionId,
+          duplicateOfTransactionId: tx.duplicateOfTransactionId,
+          externalTransactionId: tx.externalTransactionId,
+          rawRowHash: tx.rawRowHash,
+          sourceFileName: upload.file_name as string,
+          sourceProvider: tx.sourceProvider,
+          transactionDate: tx.transactionDate,
+          merchant: tx.merchantName,
+          description: tx.description,
+          reference: tx.reference,
+          amount: Math.abs(tx.amount),
+          currency: tx.currency,
+          originalAmount: tx.originalAmount,
+          originalCurrency: tx.originalCurrency,
+          feeAmount: tx.feeAmount,
+          direction,
+          transactionType: tx.transactionType,
+          category: tx.category,
+          subcategory: tx.subcategory,
+          confidence: tx.confidenceScore,
+          categoryConfidence: tx.categoryConfidence,
+          groupingConfidence: tx.groupingConfidence,
+          reviewStatus: tx.status,
+          duplicateStatus,
+          kpiTreatment,
+          kpiExclusionReason: kpiTreatment === "excluded"
+            ? treatment.kpiExclusionReason ?? tx.kpiExclusionReason ?? (tx.isPossibleDuplicate ? "duplicate" : "kpi_excluded")
+            : undefined,
+          reportingTreatment: treatment,
+          categoryReason: tx.categoryReason,
+          intelligenceGroupId: tx.intelligenceGroupId,
+          intelligenceGroupReason: tx.intelligenceGroupReason,
+          signalsUsed,
+          reason: treatment.explanation ?? tx.reviewReason ?? tx.categoryReason ?? tx.kpiExclusionReason,
+        };
+      }),
+      ...parseResult.failedRows.map((row) => ({
+        rowNumber: row.rowNumber,
+        status: "failed" as const,
+        sourceFileName: upload.file_name as string,
+        sourceProvider: parseResult.detectedProvider,
+        duplicateStatus: "not_duplicate" as const,
+        kpiTreatment: "excluded" as const,
+        kpiExclusionReason: "failed_row",
+        reportingTreatment: classifyReportingTreatment({
+          type: "expense",
+          status: "failed",
+          rowStatus: "failed",
+          parseErrors: row.errors,
+          description: row.errors.join("; "),
+        }),
+        failureReason: row.errors.join("; "),
+        reason: row.errors.join("; "),
+      })),
+    ].sort((a, b) => a.rowNumber - b.rowNumber);
+    const accountedRows = transactionsInserted + duplicateCount + transactionsFailed;
+    const reconciliationBalanced = totalRowsInFile === accountedRows;
+    const reconciliation: ImportReconciliation = {
+      rowsInFile: totalRowsInFile,
+      rowsParsed: totalParsed,
+      rowsValid: totalParsed,
+      rowsInserted: transactionsInserted,
+      rowsSkippedDuplicate: duplicateCount,
+      rowsMarkedTransfer: transferCount,
+      rowsExcludedFromKpis,
+      rowsFailed: transactionsFailed,
+      rowsNeedingReview: needReviewCount,
+      rowsUncategorised,
+      rowsAmbiguous,
+      rowsCategorised: categorisedCount,
+      rowsHighConfidence,
+      rowsCategorisedByUserRule,
+      rowsCategorisedBySystemIntelligence,
+      rowsIncludedInRevenue,
+      rowsIncludedInExpenses,
+      rowsIncludedInCashFlow,
+      rowsIncludedInCashMovement,
+      rowsIncludedInProfitAndLoss,
+      rowsIncludedInDebtTracking,
+      rowsIncludedInOwnerMovement,
+      rowsIncludedInTaxReporting,
+      rowsIncludedInDataQualityReporting,
+      rowsLinkedToSubscriptions,
+      rowsWithFees,
+      rowsWithRefunds,
+      rowsWithCreditCardRepaymentTreatment,
+      reconciliationBalanced,
+      explanation: reconciliationBalanced
+        ? `${totalRowsInFile} file rows reconciled: ${transactionsInserted} inserted, ${duplicateCount} duplicate skipped, ${transactionsFailed} failed.`
+        : `Reconciliation mismatch: file rows ${totalRowsInFile}, but inserted + duplicate + failed rows accounted for ${accountedRows}.`,
+      rowOutcomes,
+    };
+    const hasFatalErrors = transactionsFailed > 0 && transactionsInserted === 0 && duplicateCount === 0;
     const allDuplicates = totalParsed > 0 && duplicateCount === totalParsed;
-    const finalStatus = (transactionsInserted === 0 && !allDuplicates) || hasFatalErrors ? "failed" : "completed";
+    const finalStatus = !reconciliationBalanced || (transactionsInserted === 0 && !allDuplicates) || hasFatalErrors ? "failed" : "completed";
 
     // 15. Update upload record
     // Cap provider confidence at 100 to respect DB check constraint
@@ -599,11 +868,15 @@ export async function runUploadPipeline(
       recommendations_created: recommendationsCreated,
       tasks_created: tasksCreated,
       foreign_currency_count: foreignCurrencyRows.length,
+      import_reconciliation: reconciliation,
     };
     try {
       await updateUploadStatus(uploadId, companyId, {
         status: finalStatus,
         transactionCount: transactionsInserted,
+        totalRowCount: totalRowsInFile,
+        processedRowCount: totalParsed + transactionsFailed,
+        failedRowCount: transactionsFailed,
         processedAt: new Date().toISOString(),
         providerDetected: parseResult.detectedProvider,
         providerConfidence: cappedProviderConfidence,
@@ -616,6 +889,9 @@ export async function runUploadPipeline(
         await updateUploadStatus(uploadId, companyId, {
           status: finalStatus,
           transactionCount: transactionsInserted,
+          totalRowCount: totalRowsInFile,
+          processedRowCount: totalParsed + transactionsFailed,
+          failedRowCount: transactionsFailed,
           processedAt: new Date().toISOString(),
           metadata,
         });
@@ -688,16 +964,16 @@ export async function runUploadPipeline(
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
         const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const endOfPeriod = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        const today = toLocalYMD(now);
 
-        await recalculateCompanyMetrics(companyId, "month", startOfMonth.toISOString(), endOfPeriod.toISOString());
-        await recalculateCompanyMetrics(companyId, "quarter", startOfQuarter.toISOString(), endOfPeriod.toISOString());
-        await recalculateCompanyMetrics(companyId, "year", startOfYear.toISOString(), endOfPeriod.toISOString());
-        await recalculateCompanyMetrics(companyId, "all", "1970-01-01", endOfPeriod.toISOString());
+        await recalculateCompanyMetrics(companyId, "month", toLocalYMD(startOfMonth), today);
+        await recalculateCompanyMetrics(companyId, "quarter", toLocalYMD(startOfQuarter), today);
+        await recalculateCompanyMetrics(companyId, "year", toLocalYMD(startOfYear), today);
+        await recalculateCompanyMetrics(companyId, "all", "1970-01-01", today);
 
         const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        await recalculateCompanyMetrics(companyId, "30d", thirtyDaysAgo.toISOString(), endOfPeriod.toISOString());
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+        await recalculateCompanyMetrics(companyId, "30d", toLocalYMD(thirtyDaysAgo), today);
         console.log("[pipeline] Metrics recalculation completed");
       } catch (err) {
         console.error("[pipeline] Metrics recalculation failed:", err);
@@ -739,6 +1015,7 @@ export async function runUploadPipeline(
       alertsCreated,
       recommendationsCreated,
       tasksCreated,
+      reconciliation,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -746,10 +1023,52 @@ export async function runUploadPipeline(
 
     // Update upload as failed
     console.error(`[pipeline] Updating upload as failed: ${message}`);
+    const failedReconciliation: ImportReconciliation | undefined = totalRowsInFile > 0
+      ? {
+          rowsInFile: totalRowsInFile,
+          rowsParsed: parsedRowsCount,
+          rowsValid: parsedRowsCount,
+          rowsInserted: transactionsInserted,
+          rowsSkippedDuplicate: duplicateCountSnapshot,
+          rowsMarkedTransfer: transferCountSnapshot,
+          rowsExcludedFromKpis: kpiExcludedCountSnapshot,
+          rowsFailed: Math.max(parseFailedRowsCount, totalRowsInFile - transactionsInserted - duplicateCountSnapshot),
+          rowsNeedingReview: needReviewCountSnapshot,
+          rowsUncategorised: 0,
+          rowsAmbiguous: 0,
+          rowsCategorised: categorisedCountSnapshot,
+          rowsHighConfidence: 0,
+          rowsCategorisedByUserRule: 0,
+          rowsCategorisedBySystemIntelligence: categorisedCountSnapshot,
+          rowsIncludedInRevenue: 0,
+          rowsIncludedInExpenses: 0,
+          rowsIncludedInCashFlow: 0,
+          rowsLinkedToSubscriptions: 0,
+          rowsWithFees: 0,
+          rowsWithRefunds: 0,
+          rowsWithCreditCardRepaymentTreatment: 0,
+          reconciliationBalanced: false,
+          explanation: `Import stopped before persistence completed: ${message}`,
+          rowOutcomes: [],
+        }
+      : undefined;
     await updateUploadStatus(uploadId, companyId, {
       status: "failed",
       errorMessage: message,
-      metadata: { pipeline_stage: "failed", pipeline_progress: 0 },
+      totalRowCount: totalRowsInFile || undefined,
+      processedRowCount: parsedRowsCount || undefined,
+      failedRowCount: failedReconciliation?.rowsFailed,
+      metadata: {
+        pipeline_stage: "failed",
+        pipeline_progress: 0,
+        detected_currency: detectedCurrencySnapshot,
+        total_parsed: parsedRowsCount,
+        duplicate_count: duplicateCountSnapshot,
+        transfer_count: transferCountSnapshot,
+        needs_review_count: needReviewCountSnapshot,
+        categorised_count: categorisedCountSnapshot,
+        import_reconciliation: failedReconciliation,
+      },
     });
 
     // Log failure
@@ -767,16 +1086,17 @@ export async function runUploadPipeline(
       companyId,
       transactionsInserted,
       transactionsFailed,
-      totalParsed: 0,
-      duplicateCount: 0,
-      transferCount: 0,
-      needReviewCount: 0,
-      categorisedCount: 0,
+      totalParsed: parsedRowsCount,
+      duplicateCount: duplicateCountSnapshot,
+      transferCount: transferCountSnapshot,
+      needReviewCount: needReviewCountSnapshot,
+      categorisedCount: categorisedCountSnapshot,
       subscriptionsDetected: detectedSubs.length,
       subscriptionsCreated,
       alertsCreated,
       recommendationsCreated,
       tasksCreated,
+      reconciliation: failedReconciliation,
       error: message,
     };
   }

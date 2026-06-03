@@ -3,8 +3,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
-import { getTotalCashBalance } from "./bank-accounts";
-import { getSubscriptions } from "./subscriptions";
+import { getTotalCashBalanceForCompany } from "./bank-accounts";
+import { getSubscriptionsForCompany } from "./subscriptions";
 import { isIncome, isExpense, isCOGS } from "@/lib/reporting/filters";
 import {
   calculateARR,
@@ -15,6 +15,8 @@ import {
 } from "@/lib/reporting/strategic-kpis";
 import { normalizeSubscriptionSpend } from "@/lib/reporting/subscriptions";
 import { profitMargin as calcProfitMargin, monthlyBurn as calcMonthlyBurn, runwayMonths as calcRunwayMonths } from "@/lib/reporting/kpis";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { applyActiveSourceFilter } from "./data-source-shared";
 
 export interface CompanyMetrics {
   id: string;
@@ -74,17 +76,24 @@ function mapRow(row: Record<string, unknown>): CompanyMetrics {
   };
 }
 
+function toLocalYMD(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getDateRange(period: string): { from: string; to: string } {
   const now = new Date();
-  const to = now.toISOString().slice(0, 10);
+  const to = toLocalYMD(now);
   const from = new Date(now);
 
   switch (period) {
     case "7d":
-      from.setDate(now.getDate() - 7);
+      from.setDate(now.getDate() - 6);
       break;
     case "30d":
-      from.setDate(now.getDate() - 30);
+      from.setDate(now.getDate() - 29);
       break;
     case "90d":
       from.setDate(now.getDate() - 90);
@@ -100,7 +109,7 @@ function getDateRange(period: string): { from: string; to: string } {
       from.setDate(1);
   }
 
-  return { from: from.toISOString().slice(0, 10), to };
+  return { from: toLocalYMD(from), to };
 }
 
 /**
@@ -120,23 +129,28 @@ export async function recalculateCompanyMetrics(
     explicitFrom && explicitTo
       ? { from: explicitFrom, to: explicitTo }
       : getDateRange(periodType);
+  const activeUploadIds = await getActiveUploadIdsForCompany(companyId, admin);
 
   // 1. Fetch transactions in date range
-  const { data: txs, error: txError } = await admin
+  let txQuery = admin
     .from("transactions")
-    .select("amount, type, status, date, category, tags")
+    .select("amount, type, status, date, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .gte("date", from)
     .lte("date", to);
 
+  txQuery = applyActiveSourceFilter(txQuery, activeUploadIds);
+
+  const { data: txs, error: txError } = await txQuery;
+
   if (txError) throw txError;
 
   const revenue = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const expenses = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isExpense(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const netProfit = revenue - expenses;
@@ -144,32 +158,36 @@ export async function recalculateCompanyMetrics(
 
   // COGS for gross margin
   const cogsTotal = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isCOGS(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isCOGS(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   // 2. Cash balance from bank accounts (REAL, not derived)
-  const cashBalance = await getTotalCashBalance(companyId);
+  const cashBalance = await getTotalCashBalanceForCompany(companyId);
 
   // 3. Monthly burn = average net burn over last 3 months
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const burnFrom = threeMonthsAgo.toISOString().slice(0, 10);
 
-  const { data: burnTxs, error: burnError } = await admin
-    .from("transactions")
-    .select("amount, date, category, tags, type")
+    let burnQuery = admin
+      .from("transactions")
+      .select("amount, date, category, tags, type, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .in("type", ["income", "expense"])
     .gte("date", burnFrom);
+
+    burnQuery = applyActiveSourceFilter(burnQuery, activeUploadIds);
+
+    const { data: burnTxs, error: burnError } = await burnQuery;
 
   let monthlyBurn = 0;
   if (!burnError && burnTxs && burnTxs.length > 0) {
     const monthsCount = 3;
     const totalRevenue3M = burnTxs
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
     const totalExpenses3M = burnTxs
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isExpense(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
     const avgMonthlyRevenue = totalRevenue3M / monthsCount;
     const avgMonthlyExpenses = totalExpenses3M / monthsCount;
@@ -180,7 +198,7 @@ export async function recalculateCompanyMetrics(
   const runwayMonths = calcRunwayMonths(cashBalance, monthlyBurn);
 
   // 5. Subscription metrics
-  const subs = await getSubscriptions(companyId);
+  const subs = await getSubscriptionsForCompany(companyId);
   const activeSubs = subs.filter((s) => s.status === "active");
   const monthlySubscriptionSpend = normalizeSubscriptionSpend(activeSubs);
   const flaggedSubs = subs.filter((s) => s.isFlagged).length;
@@ -200,15 +218,19 @@ export async function recalculateCompanyMetrics(
     const priorToDate = new Date(to);
     priorToDate.setDate(priorToDate.getDate() - periodDays);
 
-    const { data: priorTxs } = await admin
+    let priorQuery = admin
       .from("transactions")
-      .select("amount, type, status, date, category, tags")
+      .select("amount, type, status, date, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
       .eq("company_id", companyId)
       .gte("date", priorFromDate.toISOString().slice(0, 10))
       .lte("date", priorToDate.toISOString().slice(0, 10));
 
+    priorQuery = applyActiveSourceFilter(priorQuery, activeUploadIds);
+
+    const { data: priorTxs } = await priorQuery;
+
     const priorRevenue = (priorTxs ?? [])
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
     // Only compute if we have prior revenue data to compare against
@@ -231,15 +253,19 @@ export async function recalculateCompanyMetrics(
     const priorFrom = priorFromDate.toISOString().slice(0, 10);
     const priorTo = priorToDate.toISOString().slice(0, 10);
 
-    const { data: priorTxs } = await admin
+    let priorYearQuery = admin
       .from("transactions")
-      .select("amount, type, status, date, category, tags")
+      .select("amount, type, status, date, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
       .eq("company_id", companyId)
       .gte("date", priorFrom)
       .lte("date", priorTo);
 
+    priorYearQuery = applyActiveSourceFilter(priorYearQuery, activeUploadIds);
+
+    const { data: priorTxs } = await priorYearQuery;
+
     const priorRevenue = (priorTxs ?? [])
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
     const yoyGrowth = calculateYoYGrowth(revenue, priorRevenue);

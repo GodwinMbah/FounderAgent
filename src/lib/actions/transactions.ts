@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthCompany } from "@/lib/db/company";
 import { recordCategoryCorrection } from "@/lib/intelligence/user-corrections";
+import { classifyReportingTreatment } from "@/lib/reporting/treatment-engine";
 import { revalidatePath } from "next/cache";
 
 export async function updateTransactionCategory(
@@ -23,7 +24,7 @@ export async function updateTransactionCategory(
   // 1. Fetch the transaction to verify ownership and get current data
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
-    .select("id, company_id, category, merchant, description, reference, type")
+    .select("id, company_id, category, merchant, description, reference, amount, type, status, row_status, tags, metadata")
     .eq("id", transactionId)
     .single();
 
@@ -35,11 +36,47 @@ export async function updateTransactionCategory(
   }
 
   const previousCategory = tx.category;
+  const treatment = classifyReportingTreatment({
+    type: tx.type as string,
+    amount: Number(tx.amount),
+    category: newCategory,
+    merchant: tx.merchant as string | undefined,
+    description: tx.description as string | undefined,
+    reference: tx.reference as string | undefined,
+    status: "user_confirmed",
+    rowStatus: tx.row_status as string | undefined,
+    tags: tx.tags as string[] | undefined,
+    metadata: tx.metadata as Record<string, unknown> | null,
+    userConfirmedCategory: true,
+  });
+  const kpiExcluded = !treatment.includedInOperatingKpis;
+  const kpiExclusionReason = treatment.kpiExclusionReason ?? null;
+  const metadata = {
+    ...((tx.metadata as Record<string, unknown> | null) ?? {}),
+    previous_category_before_user_correction: previousCategory,
+    category_source: "user",
+    user_confirmed_category: true,
+    user_category_locked: true,
+    category_reason: `User confirmed category ${newCategory}.`,
+    category_confidence: 100,
+    kpi_treatment: kpiExcluded ? "excluded" : "included",
+    kpi_excluded: kpiExcluded,
+    kpi_exclusion_reason: kpiExclusionReason,
+    reporting_treatment: treatment,
+    user_corrected_at: new Date().toISOString(),
+  };
 
   // 2. Update the transaction category
   const { error: updateError } = await supabase
     .from("transactions")
-    .update({ category: newCategory })
+    .update({
+      category: newCategory,
+      status: "user_confirmed",
+      confidence_score: 100,
+      kpi_excluded: kpiExcluded,
+      kpi_exclusion_reason: kpiExclusionReason,
+      metadata,
+    })
     .eq("id", transactionId);
 
   if (updateError) {

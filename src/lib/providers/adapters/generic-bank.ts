@@ -5,8 +5,12 @@ export const genericBankAdapter: ProviderAdapter = {
   displayName: "Generic Bank",
   type: "bank",
   detection: {
-    requiredHeaders: ["Date", "Description"],
+    requiredHeaders: ["Date"],
     optionalHeaders: [
+      "Description",
+      "Merchant",
+      "Payee",
+      "Name",
       "Amount",
       "Balance",
       "Reference",
@@ -19,7 +23,7 @@ export const genericBankAdapter: ProviderAdapter = {
       "Paid In",
       "Paid Out",
     ],
-    minRequiredMatches: 2,
+    minRequiredMatches: 1,
     minScore: 15,
   },
   headerAliases: [
@@ -35,6 +39,10 @@ export const genericBankAdapter: ProviderAdapter = {
         "Date Completed",
       ],
       required: true,
+    },
+    {
+      field: "postedDate",
+      aliases: ["Posted Date", "Posting Date", "Value Date", "Settlement Date"],
     },
     {
       field: "description",
@@ -73,6 +81,10 @@ export const genericBankAdapter: ProviderAdapter = {
       aliases: ["Reference", "Ref", "Transaction Reference"],
     },
     {
+      field: "externalTransactionId",
+      aliases: ["ID", "Transaction ID", "Txn ID", "Reference ID", "Payment ID", "Trans ID"],
+    },
+    {
       field: "transactionType",
       aliases: ["Type", "Transaction Type"],
     },
@@ -94,6 +106,7 @@ export const genericBankAdapter: ProviderAdapter = {
     },
   ],
   signConvention: "unknown",
-  feeHandling: "included_in_amount",
+  feeHandling: "separate_column",
+  hasSplitAmountColumns: true,
   detectionWeight: 0.5,
 };

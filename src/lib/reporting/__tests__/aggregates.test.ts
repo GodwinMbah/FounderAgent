@@ -102,6 +102,8 @@ describe("sumByMonth", () => {
     const result = sumByMonth(transactions);
     expect(result[0].revenue).toBe(5000);
     expect(result[0].expenses).toBe(0);
+    expect(result[0].cashIn).toBe(10000);
+    expect(result[0].cashOut).toBe(5000);
   });
 
   it("sorts by month ascending", () => {

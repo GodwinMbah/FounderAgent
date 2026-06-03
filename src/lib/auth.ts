@@ -49,7 +49,7 @@ export async function signUp(formData: FormData) {
     // Create company
     const { data: company, error: companyError } = await admin
       .from("companies")
-      .insert({ name: companyName, slug })
+      .insert({ name: companyName, slug, currency: "GBP" })
       .select("id")
       .single();
 
@@ -75,6 +75,22 @@ export async function signUp(formData: FormData) {
       }, { onConflict: "company_id, user_id" });
       if (memberError) {
         console.error("[signUp] Membership upsert failed:", memberError.message);
+      }
+
+      const { error: settingsError } = await admin.from("company_settings").upsert({
+        company_id: company.id,
+        country: "GB",
+        currency: "GBP",
+        timezone: "Europe/London",
+        fiscal_year_start: "1",
+        weekly_digest_enabled: true,
+        top_revenue_channels: [],
+        payment_tools: [],
+        tools_used: [],
+        agent_focus: [],
+      }, { onConflict: "company_id" });
+      if (settingsError) {
+        console.error("[signUp] Company settings upsert failed:", settingsError.message);
       }
 
       // Set cookies so middleware recognises the company immediately
@@ -147,6 +163,22 @@ export async function getCurrentCompany() {
   // Use admin client to bypass broken RLS on company_members
   const admin = createAdminClient();
   const client = admin ?? supabase;
+  const cookieStore = await cookies();
+  const activeCompanyId = cookieStore.get("active_company_id")?.value;
+
+  if (activeCompanyId) {
+    const { data: activeMembership, error: activeError } = await client
+      .from("company_members")
+      .select("company_id, companies(*)")
+      .eq("user_id", user.id)
+      .eq("company_id", activeCompanyId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!activeError && activeMembership?.companies) {
+      return activeMembership.companies;
+    }
+  }
 
   const { data: membership } = await client
     .from("company_members")

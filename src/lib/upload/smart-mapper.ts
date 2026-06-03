@@ -8,8 +8,9 @@ import { parseUpload } from "@/lib/parser/unified-parser";
 import { detectProvider, buildColumnMapping, getAdapter, scoreHeaderMatch } from "@/lib/providers/adapter-registry";
 
 
-import { categoriseRows } from "@/lib/intelligence/categoriser";
 import { detectSubscriptions } from "@/lib/intelligence/subscription-detector";
+import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
+import { buildPreviewIntelligenceSummary } from "@/lib/upload/intelligence-groups";
 import type {
   SourceType,
   ColumnMapping,
@@ -19,6 +20,7 @@ import type {
   ColumnSampleValues,
 } from "./wizard-types";
 import type { CanonicalField } from "@/lib/providers/adapter-types";
+import type { CompanySettings } from "@/lib/db/company_settings";
 
 function mapProviderToSourceCategory(providerId: string): SourceType {
   const bankProviders = ["revolut_business_csv", "tide", "monzo", "starling", "wise", "barclays", "hsbc", "lloyds", "natwest", "chase"];
@@ -36,6 +38,7 @@ export interface SmartMapContext {
   companyId: string;
   companyCurrency?: string;
   companyCountry?: string;
+  companySettings?: CompanySettings | null;
   uploadId?: string;
   overrides?: MappingOverrides;
   sourceTypeHint?: SourceType;
@@ -76,11 +79,11 @@ const CANONICAL_TO_WIZARD_FIELD: Record<string, string> = {
   category: "category",
   feeAmount: "fee",
   status: "status",
-  externalTransactionId: "reference",
+  externalTransactionId: "externalTransactionId",
   originalAmount: "amount",
   originalCurrency: "currency",
   accountName: "account",
-  merchantCategoryCode: "category",
+  merchantCategoryCode: "merchantCategoryCode",
 };
 
 function buildColumnMappingsFromAdapter(
@@ -171,36 +174,55 @@ export async function smartMapCsv(
     "failed:", parseResult.failedRows.length
   );
 
-  // Categorise rows
-  const categorised = categoriseRows(
-    parseResult.transactions.map((tx, i) => ({
-      rowNumber: i + 2,
-      date: tx.transactionDate,
-      merchant: tx.merchantName,
-      description: tx.description,
-      amount: Math.abs(tx.amount),
-      type: tx.amount >= 0 ? ("income" as const) : ("expense" as const),
-      currency: tx.currency,
-      category: tx.category,
-      status: tx.status,
-      confidenceScore: tx.confidenceScore,
-      rawData: tx.rawData,
-      parseErrors: tx.parseErrors,
-    }))
+  applyMerchantAndTransferSignals(parseResult.transactions);
+  const { categorisedRows, intelligenceGroups } = categoriseCanonicalTransactions(
+    parseResult.transactions,
+    context.companySettings ?? null
   );
 
   // Build preview rows
-  const previewRows: PreviewRow[] = categorised.map((row, i) => ({
+  const previewRows: PreviewRow[] = categorisedRows.map((row, i) => ({
     rowNumber: row.rowNumber,
     date: row.date,
     merchant: row.merchant,
     description: row.description,
+    bankDescription: row.rawData.Description || row.rawData.description || undefined,
+    reference: row.reference,
+    payer: row.rawData.Payer || row.rawData.payer || undefined,
+    counterparty: parseResult.transactions[i]?.counterpartyName,
+    transactionType: parseResult.transactions[i]?.transactionType,
+    sourceProvider: parseResult.transactions[i]?.sourceProvider,
+    accountName: parseResult.transactions[i]?.accountName,
+    externalTransactionId: parseResult.transactions[i]?.externalTransactionId,
+    merchantCategoryCode: parseResult.transactions[i]?.merchantCategoryCode,
+    feeAmount: parseResult.transactions[i]?.feeAmount,
+    runningBalance: parseResult.transactions[i]?.runningBalance,
     amount: row.amount,
     type: row.type,
     currency: row.currency || parseResult.detectedCurrency || context.companyCurrency || "GBP",
     category: row.category,
+    subcategory: row.subcategory,
     confidenceScore: row.confidenceScore,
-    status: row.status,
+    status: parseResult.transactions[i]?.status ?? row.status,
+    categoryReason: row.categoryReason,
+    categoryConfidence: row.categoryConfidence,
+    groupingConfidence: row.groupingConfidence,
+    normalisedMerchant: row.normalisedMerchant,
+    displayMerchant: row.displayMerchant,
+    kpiTreatment: row.kpiTreatment,
+    kpiExclusionReason: parseResult.transactions[i]?.kpiExclusionReason,
+    reportingTreatment: parseResult.transactions[i]?.reportingTreatment,
+    businessMeaning: row.businessMeaning,
+    intelligenceGroupId: parseResult.transactions[i]?.intelligenceGroupId,
+    intelligenceGroupLabel: parseResult.transactions[i]?.intelligenceGroupLabel,
+    intelligenceGroupReason: parseResult.transactions[i]?.intelligenceGroupReason,
+    intelligenceGroupSignals: parseResult.transactions[i]?.intelligenceGroupSignals,
+    categorySource: parseResult.transactions[i]?.categorySource,
+    isCreditCardRepayment: row.isCreditCardRepayment,
+    isSubscriptionCandidate: row.isSubscriptionCandidate,
+    isRecurringCandidate: row.isRecurringCandidate,
+    categoryEvidence: row.categoryEvidence,
+    reviewReason: parseResult.transactions[i]?.reviewReason,
     issues: row.parseErrors,
     rawData: row.rawData,
     isPossibleDuplicate: parseResult.transactions[i]?.isPossibleDuplicate ?? false,
@@ -216,13 +238,14 @@ export async function smartMapCsv(
 
   // Compute estimated impact
   const incomeToAdd = previewRows
-    .filter((r) => r.type === "income" && !r.isPossibleDuplicate)
+    .filter((r) => r.reportingTreatment?.includedInOperatingRevenue)
     .reduce((s, r) => s + r.amount, 0);
   const expensesToAdd = previewRows
-    .filter((r) => r.type === "expense" && !r.isPossibleDuplicate)
+    .filter((r) => r.reportingTreatment?.includedInOperatingExpenses)
     .reduce((s, r) => s + r.amount, 0);
   const duplicatesToSkip = previewRows.filter((r) => r.isPossibleDuplicate).length;
-  const detectedSubs = detectSubscriptions(categorised);
+  const detectedSubs = detectSubscriptions(categorisedRows);
+  const intelligenceSummary = buildPreviewIntelligenceSummary(previewRows);
 
   const estimatedImpact = {
     incomeToAdd,
@@ -231,6 +254,9 @@ export async function smartMapCsv(
     duplicatesToSkip,
     failedRows: parseResult.failedRows.length,
     subscriptionsDetected: detectedSubs.length,
+    kpiExcludedRows: intelligenceSummary.kpiExcludedRows,
+    creditCardPaymentsDetected: intelligenceSummary.creditCardPaymentsDetected,
+    recurringGroupsDetected: intelligenceSummary.recurringGroupsDetected,
     latestBalanceDetected: parseResult.latestBalance,
   };
 
@@ -262,6 +288,8 @@ export async function smartMapCsv(
     latestBalance: parseResult.latestBalance,
     matchedHeaders: bestMatch?.matchedHeaders,
     missingHeaders: bestMatch?.missingRequired.map((f) => f.replace(/([A-Z])/g, " $1").trim()),
+    intelligenceSummary,
+    intelligenceGroups,
     estimatedImpact,
   };
 }

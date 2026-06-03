@@ -3,6 +3,8 @@
  * Aligned with Supabase schema
  */
 
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
+
 /* ============ Core Entities ============ */
 
 export interface Profile {
@@ -51,10 +53,46 @@ export interface Transaction {
   businessId?: string;
   uploadId?: string;
   accountId?: string;
+  sourceRowNumber?: number;
+  externalTransactionId?: string;
+  postedDate?: string;
+  currency?: string;
+  sourceProvider?: string;
+  rawRowHash?: string;
+  reference?: string;
+  rowStatus?: string;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  duplicateOfTransactionId?: string;
+  originalAmount?: number;
+  originalCurrency?: string;
+  feeAmount?: number;
+  feeCurrency?: string;
+  runningBalance?: number;
   date: string | Date;
   merchant?: string;
   description: string;
   category?: string;
+  subcategory?: string;
+  categoryReason?: string;
+  categoryConfidence?: number;
+  groupingConfidence?: number;
+  categoryEvidence?: Array<{
+    category: string;
+    confidence: number;
+    source: string;
+    reason: string;
+  }>;
+  businessMeaning?: string;
+  kpiTreatment?: "included" | "excluded";
+  reportingTreatment?: ReportingTreatment;
+  categorySource?: "system" | "user" | "user_rule" | "grouping";
+  userConfirmedCategory?: boolean;
+  intelligenceGroupId?: string;
+  intelligenceGroupLabel?: string;
+  intelligenceGroupReason?: string;
+  intelligenceGroupSignals?: string[];
+  isCreditCardRepayment?: boolean;
   categoryId?: string;
   amount: number;
   type: "income" | "expense";

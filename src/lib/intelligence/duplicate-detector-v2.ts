@@ -1,11 +1,13 @@
 export interface DuplicateDetectionResult {
   isDuplicate: boolean;
   duplicateOf?: string; // externalTransactionId or file hash
+  duplicateTransactionId?: string;
   confidence: number;
   reason: string;
 }
 
 interface Transaction {
+  id?: string;
   transactionDate: string;
   amount: number;
   currency: string;
@@ -86,6 +88,7 @@ export function detectDuplicate(
       return {
         isDuplicate: true,
         duplicateOf: existing.externalTransactionId || txExternalId,
+        duplicateTransactionId: existing.id,
         confidence: 100,
         reason: "Exact duplicate within same source file",
       };
@@ -100,6 +103,7 @@ export function detectDuplicate(
       return {
         isDuplicate: true,
         duplicateOf: existing.externalTransactionId,
+        duplicateTransactionId: existing.id,
         confidence: 100,
         reason: "Matching external transaction ID across files",
       };
@@ -111,6 +115,7 @@ export function detectDuplicate(
       return {
         isDuplicate: true,
         duplicateOf: existing.externalTransactionId || existingHash,
+        duplicateTransactionId: existing.id,
         confidence: 95,
         reason: "Transaction hash match",
       };
@@ -125,6 +130,7 @@ export function detectDuplicate(
       return {
         isDuplicate: true,
         duplicateOf: existing.externalTransactionId || existing.reference,
+        duplicateTransactionId: existing.id,
         confidence: 90,
         reason: "Matching reference number",
       };
@@ -150,6 +156,7 @@ export function detectDuplicate(
       return {
         isDuplicate: true,
         duplicateOf: existing.externalTransactionId || txHash,
+        duplicateTransactionId: existing.id,
         confidence: 80,
         reason: "Fuzzy match: same amount, currency, merchant, and date across different providers",
       };

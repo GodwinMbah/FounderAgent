@@ -9,6 +9,7 @@ const NON_AUTO_APPLY_CATEGORIES = new Set([
   "Uncategorised Review",
   "Uncategorised",
   "Needs Review",
+  "Ambiguous",
   "",
   undefined,
 ]);
@@ -49,10 +50,10 @@ const KNOWN_MERCHANT_PATTERNS: Record<
     reason: "Apple — likely Software, Subscriptions, Cloud Services, or Hardware",
   },
   klarna: {
-    category: "Payment Processor Fees",
-    confidence: 60,
+    category: "Ambiguous",
+    confidence: 55,
     reason:
-      "Klarna is a payment provider — but if combined with a merchant like Amazon, the underlying purchase category should be used instead",
+      "Klarna is payment method context; use the underlying merchant when one is visible",
   },
   stripe: {
     category: "Revenue",
@@ -85,14 +86,14 @@ const KNOWN_MERCHANT_PATTERNS: Record<
     reason: "Barclaycard is a credit card provider — payments are credit card repayments",
   },
   "marketing commission": {
-    category: "Sales and Marketing",
-    confidence: 80,
-    reason: "Marketing commission — commission expense or contractor payout",
+    category: "Sales Commission",
+    confidence: 86,
+    reason: "Marketing commission payout — sales/marketing commission expense",
   },
   commission: {
-    category: "Sales and Marketing",
+    category: "Sales Commission",
     confidence: 70,
-    reason: "Commission payment — likely Sales and Marketing or Contractor expense",
+    reason: "Commission payment — likely sales commission or referral payout",
   },
   consultancy: {
     category: "Professional Services",
@@ -104,7 +105,100 @@ const KNOWN_MERCHANT_PATTERNS: Record<
     confidence: 75,
     reason: "Director fee — could be Professional Services, Owner Drawings, or Payroll depending on direction",
   },
+  canva: {
+    category: "Software",
+    confidence: 90,
+    reason: "Canva is a creative/design SaaS tool",
+  },
+  "gamma.app": {
+    category: "Software",
+    confidence: 85,
+    reason: "Gamma.app is presentation/design software",
+  },
+  "manus ai": {
+    category: "AI Tools",
+    confidence: 90,
+    reason: "Manus AI is an AI tool",
+  },
+  remitly: {
+    category: "International Transfer",
+    confidence: 88,
+    reason: "Remitly is an international money transfer service",
+  },
+  moneyway: {
+    category: "Loan Repayment",
+    confidence: 86,
+    reason: "Moneyway is a loan/vehicle finance repayment context",
+  },
+  netflix: {
+    category: "Subscriptions",
+    confidence: 85,
+    reason: "Netflix is a subscription merchant",
+  },
+  hostinger: {
+    category: "Cloud Infrastructure",
+    confidence: 88,
+    reason: "Hostinger is web hosting/cloud infrastructure",
+  },
+  "internal transfer": {
+    category: "Internal Transfer",
+    confidence: 90,
+    reason: "Internal Transfer is an account/currency movement, not operating revenue or spend",
+  },
 };
+
+const PERSONAL_MERCHANT_COMPANY_TERMS = new Set([
+  "ltd",
+  "limited",
+  "inc",
+  "llc",
+  "plc",
+  "gmbh",
+  "group",
+  "app",
+  "ai",
+  "software",
+  "solutions",
+  "service",
+  "services",
+  "contact",
+  "car",
+  "wash",
+  "travel",
+  "food",
+  "foods",
+  "store",
+  "stores",
+  "internal",
+  "transfer",
+  "bank",
+  "capital",
+  "stripe",
+  "paypal",
+  "amazon",
+  "meta",
+  "facebook",
+  "google",
+  "canva",
+  "revolut",
+  "wise",
+]);
+
+function looksLikePersonalMerchant(merchant: string): boolean {
+  const words = merchant
+    .trim()
+    .replace(/[.'’]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length < 2 || words.length > 4) return false;
+  if (words.some((word) => /\d/.test(word))) return false;
+
+  const lower = words.map((word) => word.toLowerCase());
+  if (lower.some((word) => PERSONAL_MERCHANT_COMPANY_TERMS.has(word))) return false;
+
+  return words.every((word) => /^[A-Z][a-zA-Z-]+$/.test(word));
+}
 
 function lookupKnownMerchant(merchant: string): { category: string; confidence: number; reason: string } | null {
   const key = merchant.toLowerCase().trim();
@@ -164,7 +258,8 @@ export function buildPatternSuggestions(rows: PreviewRow[]): PatternSuggestion[]
     groupConfidence: number,
     categoryConfidence: number,
     reason: string,
-    group: PreviewRow[]
+    group: PreviewRow[],
+    options?: { forcePending?: boolean }
   ) => {
     if (categoryConfidence < 50) return; // Hide very low confidence
 
@@ -182,7 +277,7 @@ export function buildPatternSuggestions(rows: PreviewRow[]): PatternSuggestion[]
     };
 
     // Only mark as auto-applied if it passes safety checks
-    if (canAutoApply(s)) {
+    if (!options?.forcePending && canAutoApply(s)) {
       s.status = "applied";
     }
 
@@ -226,14 +321,24 @@ export function buildPatternSuggestions(rows: PreviewRow[]): PatternSuggestion[]
     // Fall back to dominant category from existing rows
     const cat = dominantCategory(group);
     if (cat && !NON_AUTO_APPLY_CATEGORIES.has(cat)) {
+      const personalMerchant = looksLikePersonalMerchant(merchantName);
+      if (personalMerchant && cat === "Revenue") return;
+      const categoryConfidence = personalMerchant
+        ? Math.min(79, 80 + dirBoost)
+        : 80 + dirBoost;
+      const reason = personalMerchant
+        ? `${group.length} transactions use a personal-name counterparty. Review row references before applying ${cat} to all rows.`
+        : `${group.length} transactions from same merchant with consistent category`;
+
       addSuggestion(
         "merchant",
         merchantName,
         cat,
         85 + dirBoost,
-        80 + dirBoost,
-        `${group.length} transactions from same merchant with consistent category`,
-        group
+        categoryConfidence,
+        reason,
+        group,
+        { forcePending: personalMerchant }
       );
     } else if (group.length >= 5) {
       // Enough rows but no clear category — flag as ambiguous
@@ -251,14 +356,14 @@ export function buildPatternSuggestions(rows: PreviewRow[]): PatternSuggestion[]
 
   // ── 2. Description keyword patterns ──
   const keywordPatterns: { keyword: string; category: string; confidence: number; reason: string }[] = [
-    { keyword: "commission", category: "Sales and Marketing", confidence: 80, reason: "Commission payment detected" },
+    { keyword: "commission", category: "Sales Commission", confidence: 84, reason: "Commission payment detected" },
     { keyword: "consultancy", category: "Professional Services", confidence: 80, reason: "Consultancy fee detected" },
     { keyword: "director", category: "Professional Services", confidence: 65, reason: "Director-related payment — may be fee, salary, or drawing" },
     { keyword: "subscription", category: "Software", confidence: 75, reason: "Subscription payment detected" },
     { keyword: "agency sub", category: "Software", confidence: 80, reason: "Agency subscription detected" },
-    { keyword: "top up", category: "Transfers", confidence: 60, reason: "Account top-up — may be transfer from another account" },
+    { keyword: "top up", category: "Ambiguous", confidence: 55, reason: "Account top-up without processor context needs review" },
     { keyword: "payout", category: "Revenue", confidence: 75, reason: "Payout detected — likely revenue from processor" },
-    { keyword: "refund", category: "Revenue", confidence: 70, reason: "Refund incoming" },
+    { keyword: "refund", category: "Revenue Adjustment", confidence: 76, reason: "Refund/reversal detected" },
     { keyword: "interest", category: "Interest Charges", confidence: 85, reason: "Interest charge detected" },
     { keyword: "card fee", category: "Credit Card Fees", confidence: 85, reason: "Credit card fee detected" },
     { keyword: "atm", category: "Bank Fees", confidence: 60, reason: "ATM withdrawal — may need review" },
@@ -289,6 +394,58 @@ export function buildPatternSuggestions(rows: PreviewRow[]): PatternSuggestion[]
     addSuggestion("keyword", keyword, finalCategory, 70 + dirBoost, finalConf + dirBoost, finalReason, group);
   });
 
+  const referenceSemanticCategory = (
+    referenceText: string,
+    group: PreviewRow[]
+  ): { category: string; confidence: number; reason: string } | null => {
+    const ref = referenceText.toLowerCase();
+    const incomeOnly = group.every((r) => r.type === "income");
+    const expenseOnly = group.every((r) => r.type === "expense");
+
+    if (/\b(marketing|sales|affiliate|referral)?\s*(rep\s*)?commis+s?ion\b/.test(ref)) {
+      if (incomeOnly) {
+        return {
+          category: "Revenue",
+          confidence: 82,
+          reason: "Incoming commission reference indicates commission income",
+        };
+      }
+      return {
+        category: "Sales Commission",
+        confidence: 90,
+        reason: "Commission reference with outgoing payments indicates sales/marketing commission expense",
+      };
+    }
+
+    if (ref.includes("customer service")) {
+      return {
+        category: "Customer Service",
+        confidence: 85,
+        reason: "Reference describes customer service management",
+      };
+    }
+
+    if (ref.includes("refund")) {
+      return {
+        category: expenseOnly ? "Revenue Adjustment" : "Refunds",
+        confidence: 80,
+        reason: expenseOnly
+          ? "Outgoing refund reference indicates revenue adjustment"
+          : "Incoming refund reference indicates refund/reversal",
+      };
+    }
+
+    if (ref.includes("stripe") && incomeOnly) {
+      return {
+        category: "Revenue",
+        confidence: 90,
+        reason: "Stripe reference on incoming rows indicates processor payout revenue",
+      };
+    }
+
+    return null;
+  };
+
   // ── 3. Reference prefix patterns ──
   const refGroups = groupBy((r) => {
     const ref = r.rawData["reference"] || r.rawData["Reference"] || r.rawData["ref"] || "";
@@ -299,17 +456,22 @@ export function buildPatternSuggestions(rows: PreviewRow[]): PatternSuggestion[]
   refGroups.forEach((group, prefix) => {
     if (group.length < 3) return;
     const cat = dominantCategory(group);
-    if (!cat) return;
+    const semantic = referenceSemanticCategory(prefix, group);
+    if (!cat && !semantic) return;
     const dirConsistent =
       group.every((r) => r.type === "income") || group.every((r) => r.type === "expense");
     const dirBoost = dirConsistent ? 10 : 0;
+    const category = semantic?.category ?? cat;
+    if (!category) return;
+    if (category === "Revenue" && !group.every((r) => r.type === "income")) return;
+
     addSuggestion(
       "reference",
       prefix,
-      cat,
+      category,
       75 + dirBoost,
-      70 + dirBoost,
-      `${group.length} transactions with similar reference prefix '${prefix}'`,
+      semantic?.confidence ?? 70 + dirBoost,
+      semantic?.reason ?? `${group.length} transactions with similar reference prefix '${prefix}'`,
       group
     );
   });

@@ -16,9 +16,11 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import MerchantLogo from "@/components/features/transaction/MerchantLogo";
-import { TrendingDown, DollarSign, Search, AlertTriangle } from "lucide-react";
+import { TrendingDown, Banknote, Search, AlertTriangle } from "lucide-react";
 
 const COLORS = ["#14B8A6", "#8B5CF6", "#38BDF8", "#FBBF24", "#F43F5E", "#22C55E"];
+const formatMonthLabel = (month: string) =>
+  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
 
 interface ExpensesContentProps {
   transactions: Transaction[];
@@ -37,6 +39,7 @@ export default function ExpensesContent({
 }: ExpensesContentProps) {
   const { currency } = useCompanyCurrency();
   const [search, setSearch] = useState("");
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const expenseTransactions = useMemo(
     () => transactions.filter((t) => isExpense(t)),
@@ -69,7 +72,7 @@ export default function ExpensesContent({
   );
 
   const expenseTrend = monthlyMetrics.map((m) => ({
-    month: m.month.slice(5),
+    month: formatMonthLabel(m.month),
     total: m.expenses,
   }));
 
@@ -86,7 +89,7 @@ export default function ExpensesContent({
       {/* Date Range Label */}
       <div className="flex items-center justify-end">
         <span className="text-xs text-[var(--muted-foreground)] hidden sm:inline">
-          {getDateRange(initialPreset, initialFrom, initialTo).label}
+          {getDateRange(initialPreset, initialFrom, initialTo).label} · Source: {expenseTransactions.length} expense transaction{expenseTransactions.length !== 1 ? "s" : ""} from {sourceUploadCount} upload{sourceUploadCount !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -104,7 +107,7 @@ export default function ExpensesContent({
           value={categoryBreakdown[0]?.name || "N/A"}
           change={formatCurrency(categoryBreakdown[0]?.amount || 0, 0, currency)}
           changeType="neutral"
-          icon={<DollarSign className="h-5 w-5" />}
+          icon={<Banknote className="h-5 w-5" />}
         />
         <MetricCard label="Transactions" value={expenseTransactions.length.toString()} changeType="neutral" icon={<Search className="h-5 w-5" />} />
         <MetricCard

@@ -28,6 +28,8 @@ export interface PatternSuggestion {
   matchValue: string; // the merchant name, prefix, keyword, etc.
   suggestedCategory: string;
   confidence: number; // 0-100
+  groupingConfidence: number; // how strongly the rows belong together
+  categoryConfidence: number; // how strongly the system understands the category
   affectedRows: number[]; // rowNumbers
   reason: string; // human-readable explanation
 }
@@ -122,6 +124,7 @@ export function buildPatternSuggestions(
       // Boost if all same direction
       const sameType = allSameType(group);
       if (sameType) confidence = Math.min(100, confidence + 5);
+      const categoryConfidence = Math.min(confidence, 65 + Math.round((freq.count / group.length) * 30));
 
       suggestions.push({
         id: hashString(`merchant:${merchant}:${freq.category}`),
@@ -129,6 +132,8 @@ export function buildPatternSuggestions(
         matchValue: group[0].merchant!,
         suggestedCategory: freq.category,
         confidence,
+        groupingConfidence: confidence,
+        categoryConfidence,
         affectedRows,
         reason: `${group.length} transactions from "${group[0].merchant}" are categorised as ${freq.category}`,
       });
@@ -155,6 +160,8 @@ export function buildPatternSuggestions(
         matchValue: prefix,
         suggestedCategory: freq.category,
         confidence: 75,
+        groupingConfidence: 85,
+        categoryConfidence: 75,
         affectedRows: group.map((r) => r.rowNumber),
         reason: `${group.length} transactions share reference prefix "${prefix}" → ${freq.category}`,
       });
@@ -187,6 +194,8 @@ export function buildPatternSuggestions(
         matchValue: keyword,
         suggestedCategory: freq.category,
         confidence: 70,
+        groupingConfidence: 75,
+        categoryConfidence: 70,
         affectedRows: group.map((r) => r.rowNumber),
         reason: `${group.length} transactions contain "${keyword}" → ${freq.category}`,
       });
@@ -249,10 +258,10 @@ export function buildPatternSuggestions(
       reason: "Tide Credit detected → Credit Card Payment",
     },
     {
-      pattern: /\bklarna\b/i,
-      category: "Payment Processor Fees",
-      confidence: 75,
-      reason: "Klarna detected → Payment Processor Fees",
+      pattern: /\bklarna\s*[*\s-]*amazon\b/i,
+      category: "Office Costs",
+      confidence: 82,
+      reason: "Klarna context with Amazon merchant detected → Office Costs",
     },
     {
       pattern: /\bgoogle\s*\*\b/i,
@@ -289,6 +298,8 @@ export function buildPatternSuggestions(
         matchValue: pp.pattern.source,
         suggestedCategory: pp.category,
         confidence: pp.confidence,
+        groupingConfidence: 90,
+        categoryConfidence: pp.confidence,
         affectedRows: matchedRows.map((r) => r.rowNumber),
         reason: `${matchedRows.length} transactions match ${pp.reason}`,
       });
@@ -316,6 +327,8 @@ export function buildPatternSuggestions(
         matchValue: merchant,
         suggestedCategory: freq.category,
         confidence: 85,
+        groupingConfidence: 90,
+        categoryConfidence: Math.min(85, 60 + Math.round((freq.count / group.length) * 30)),
         affectedRows: group.map((r) => r.rowNumber),
         reason: `${group.length} ${group[0].type} transactions from "${merchant}" consistently categorised as ${freq.category}`,
       });
@@ -356,6 +369,6 @@ export function getAutoApplyCandidates(
   suggestions: PatternSuggestion[]
 ): PatternSuggestion[] {
   return suggestions.filter(
-    (s) => s.confidence >= 90 && s.affectedRows.length >= 5
+    (s) => s.groupingConfidence >= 90 && s.categoryConfidence >= 90 && s.affectedRows.length >= 5
   );
 }

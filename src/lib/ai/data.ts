@@ -5,8 +5,13 @@ import { getTransactions, getTransactionStats } from "@/lib/db/transactions";
 import { getAlerts } from "@/lib/db/alerts";
 import { getAgentTasks, getAgentTaskStats } from "@/lib/db/agent-tasks";
 import { getAgentRecommendations } from "@/lib/db/agent-recommendations";
+import { getCompanyById } from "@/lib/db/company";
 import { groupByCategory } from "@/lib/reporting/aggregates";
 import type { IntentType } from "./intent";
+
+function withCurrency<T extends Record<string, unknown>>(data: T, currency: string): T & { currency: string } {
+  return { ...data, currency };
+}
 
 export async function fetchContextForIntent(
   intent: IntentType,
@@ -27,6 +32,8 @@ export async function fetchContextForIntent(
   // Use provided date range if available; otherwise fall back to intent defaults
   const effectiveFrom = fromDate ?? ytdFrom;
   const effectiveTo = toDate ?? toDateDefault;
+  const company = await getCompanyById(companyId);
+  const currency = company?.currency ?? "GBP";
 
   switch (intent) {
     case "cash_flow_query": {
@@ -34,38 +41,38 @@ export async function fetchContextForIntent(
         getDashboardMetrics(companyId),
         getMonthlyMetrics(companyId, last12MFrom.toISOString().slice(0, 10), toDateDefault),
       ]);
-      return { metrics, monthlyMetrics };
+      return withCurrency({ metrics, monthlyMetrics }, currency);
     }
     case "subscription_query": {
       const [subscriptions, stats] = await Promise.all([
         getSubscriptions(companyId),
         getSubscriptionStats(companyId),
       ]);
-      return { subscriptions, stats };
+      return withCurrency({ subscriptions, stats }, currency);
     }
     case "budget_query": {
       const budgets = await getBudgets(companyId);
       const transactions = await getTransactions(companyId, { startDate: monthStart, endDate: monthEnd });
       const stats = await getBudgetStats(companyId, transactions);
-      return { budgets, stats };
+      return withCurrency({ budgets, stats }, currency);
     }
     case "transaction_query": {
       const [transactions, stats] = await Promise.all([
-        getTransactions(companyId, { startDate: last90From.toISOString().slice(0, 10), endDate: toDateDefault, limit: 500 }),
+        getTransactions(companyId, { startDate: last90From.toISOString().slice(0, 10), endDate: toDateDefault }),
         getTransactionStats(companyId),
       ]);
-      return { transactions, stats };
+      return withCurrency({ transactions, stats }, currency);
     }
     case "runway_query": {
       const metrics = await getDashboardMetrics(companyId);
-      return { metrics };
+      return withCurrency({ metrics }, currency);
     }
     case "revenue_query": {
       const [transactions, monthlyMetrics] = await Promise.all([
-        getTransactions(companyId, { startDate: effectiveFrom, endDate: effectiveTo, limit: 500 }),
+        getTransactions(companyId, { startDate: effectiveFrom, endDate: effectiveTo }),
         getMonthlyMetrics(companyId, effectiveFrom, effectiveTo),
       ]);
-      return { transactions, monthlyMetrics };
+      return withCurrency({ transactions, monthlyMetrics }, currency);
     }
     case "agent_task_request": {
       const [tasks, stats, recommendations] = await Promise.all([
@@ -73,17 +80,17 @@ export async function fetchContextForIntent(
         getAgentTaskStats(companyId),
         getAgentRecommendations(companyId),
       ]);
-      return { tasks, stats, recommendations };
+      return withCurrency({ tasks, stats, recommendations }, currency);
     }
     case "financial_summary": {
       const [metrics, monthlyMetrics, transactions] = await Promise.all([
         getDashboardMetrics(companyId),
         getMonthlyMetrics(companyId, effectiveFrom, effectiveTo),
-        getTransactions(companyId, { startDate: effectiveFrom, endDate: effectiveTo, limit: 500 }),
+        getTransactions(companyId, { startDate: effectiveFrom, endDate: effectiveTo }),
       ]);
       const topExpenses = groupByCategory(transactions, "expense").slice(0, 5);
       const subs = await getSubscriptions(companyId);
-      return { metrics, monthlyMetrics, topExpenses, subscriptions: subs };
+      return withCurrency({ metrics, monthlyMetrics, topExpenses, subscriptions: subs }, currency);
     }
     case "general_help":
     case "greeting":
@@ -93,7 +100,7 @@ export async function fetchContextForIntent(
         getAgentTaskStats(companyId),
         getAlerts(companyId),
       ]);
-      return { metrics, tasks, alerts };
+      return withCurrency({ metrics, tasks, alerts }, currency);
     }
   }
 }
@@ -117,7 +124,7 @@ export async function buildCompanyContext(
   const [metrics, monthlyMetrics, transactions, subscriptions] = await Promise.all([
     getDashboardMetrics(companyId),
     getMonthlyMetrics(companyId, from, to),
-    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
+    getTransactions(companyId, { startDate: from, endDate: to }),
     getSubscriptions(companyId),
   ]);
 

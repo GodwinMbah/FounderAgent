@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
 import type { AgentTask } from "@/lib/types";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { hasActiveTaskSource } from "./source-filters";
 
 function mapRow(row: Record<string, unknown>): AgentTask {
   return {
@@ -33,6 +35,7 @@ export async function getAgentTasks(companyId?: string): Promise<AgentTask[]> {
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   const { data, error } = await supabase
     .from("agent_tasks")
@@ -44,7 +47,7 @@ export async function getAgentTasks(companyId?: string): Promise<AgentTask[]> {
     throw error;
   }
 
-  return (data ?? []).map(mapRow);
+  return (data ?? []).map(mapRow).filter((task) => hasActiveTaskSource(task, activeUploadIds));
 }
 
 export async function createAgentTask(data: {

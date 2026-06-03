@@ -2,12 +2,11 @@
  * Merchant Identity Layer
  *
  * Provides a structured identity object for any merchant name, powering
- * logo display and future P4 AI reasoning about merchant relationships.
+ * logo/branded-avatar display and audited merchant matching.
  *
- * P4 AI Schema Notes:
- * - normalisedKey enables cross-transaction merchant clustering
- * - confidence signals how certain we are about the identity mapping
- * - logoSource tracks provenance for audit and reliability scoring
+ * No browser-side external logo lookups are performed here. Known merchants
+ * get deterministic branded identities, and imports never depend on logo
+ * network success.
  */
 
 import { getProviderInfo } from "@/lib/providers/registry";
@@ -28,12 +27,14 @@ export interface MerchantIdentity {
   normalisedKey: string;
   /** Human-readable display name for UI rendering */
   displayName: string;
+  /** Known aliases that should resolve to the same merchant identity */
+  aliases: string[];
   /** Known corporate domain, used for logo lookup and web enrichment */
   domain?: string;
-  /** Resolved logo URL (Clearbit, local asset, or generated) */
+  /** Safe local/data logo URL if one exists. External logo URLs are omitted. */
   logoUrl?: string;
-  /** Provenance of the logo — affects reliability confidence */
-  logoSource: "registry" | "clearbit" | "generated" | "fallback";
+  /** Provenance of the visible merchant mark — affects reliability confidence */
+  logoSource: "registry" | "branded_identity" | "cached" | "fallback";
   /** Suggested spend category based on merchant type */
   category?: string;
   /** Overall confidence in this identity mapping (0-100) */
@@ -48,12 +49,72 @@ export interface MerchantIdentity {
   isKnown: boolean;
 }
 
+const IDENTITY_CACHE = new Map<string, MerchantIdentity>();
+
+const KNOWN_ALIASES: Record<string, string[]> = {
+  stripe: ["Stripe Payments", "Stripe Payments UK LTD", "Stripe Inc"],
+  paypal: ["PayPal UK", "PayPal Europe"],
+  shopify: ["Shopify Payments", "Shopify Payouts"],
+  meta: ["Facebook", "Instagram", "Meta Platforms"],
+  facebook: ["Meta", "Facebook Ads"],
+  google: ["Google Workspace", "Google Ads", "Google Cloud"],
+  googleads: ["Google Ads", "AdWords"],
+  apple: ["Apple.com", "Apple Services", "iCloud"],
+  canva: ["Canva Pro", "Canva Pty"],
+  gammaapp: ["Gamma", "Gamma.app"],
+  manusai: ["Manus", "Manus AI"],
+  anthropic: ["Claude", "Anthropic AI"],
+  netflix: ["Netflix"],
+  highlevel: ["GoHighLevel", "HighLevel Inc"],
+  gohighlevel: ["HighLevel", "HighLevel Inc"],
+  aws: ["Amazon Web Services", "AWS EMEA"],
+  microsoft: ["Microsoft 365", "Office 365", "Azure"],
+  notion: ["Notion Labs"],
+  slack: ["Slack Technologies"],
+  zoom: ["Zoom Video"],
+  hubspot: ["HubSpot Inc"],
+  salesforce: ["Salesforce.com"],
+  klarna: ["Klarna Bank", "Klarna*"],
+  amazon: ["Amazon Marketplace", "Amazon Prime"],
+  capitalontap: ["Capital On Tap"],
+  capitalone: ["Capital One"],
+  remitly: ["Remitly Money Transfer"],
+  asda: ["Asda Petrol", "Asda Stores"],
+  moneyway: ["Moneyway Finance"],
+  bumpercouk: ["Bumper", "Bumper.co.uk"],
+  tide: ["Tide Business", "Tide Platform"],
+  revolut: ["Revolut Business", "Revolut Ltd"],
+  wise: ["TransferWise", "Wise Payments"],
+  monzo: ["Monzo Bank"],
+  starling: ["Starling Bank"],
+  hmrc: ["HM Revenue", "HM Revenue & Customs"],
+};
+
+function cacheKey(rawName: string): string {
+  return rawName.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function isSafeLogoUrl(logoUrl?: string): boolean {
+  if (!logoUrl) return false;
+  return logoUrl.startsWith("/") || logoUrl.startsWith("data:image/");
+}
+
+function aliasesFor(normalisedKey: string, displayName: string): string[] {
+  const aliases = new Set<string>([displayName]);
+  for (const alias of KNOWN_ALIASES[normalisedKey] ?? []) aliases.add(alias);
+  return [...aliases];
+}
+
 /**
  * Resolve a raw merchant string into a full MerchantIdentity.
  * Uses the enrichment pipeline and provider registry for known merchants,
  * falling back to deterministic generation for unknown ones.
  */
 export function resolveMerchantIdentity(rawName: string): MerchantIdentity {
+  const key = cacheKey(rawName);
+  const cached = IDENTITY_CACHE.get(key);
+  if (cached) return { ...cached, logoSource: cached.logoSource === "fallback" ? "fallback" : "cached" };
+
   const normalised = normaliseMerchant(rawName);
   const enriched = enrichMerchant(rawName);
   const info = getProviderInfo(normalised);
@@ -68,26 +129,22 @@ export function resolveMerchantIdentity(rawName: string): MerchantIdentity {
   let confidence = 0;
 
   if (info) {
-    // Known merchant from registry
     confidence = 95;
-    logoSource = "registry";
-
-    if (info.logoUrl) {
+    logoSource = "branded_identity";
+    if (isSafeLogoUrl(info.logoUrl)) {
       logoUrl = info.logoUrl;
-    } else if (info.domain) {
-      logoUrl = `https://logo.clearbit.com/${info.domain}`;
-      logoSource = "clearbit";
+      logoSource = "registry";
     }
   } else {
-    // Unknown merchant — deterministic fallback
     confidence = 40;
     logoSource = "fallback";
   }
 
-  return {
+  const identity: MerchantIdentity = {
     name: rawName,
     normalisedKey,
     displayName: enriched.displayName,
+    aliases: aliasesFor(normalisedKey, enriched.displayName),
     domain: info?.domain,
     logoUrl,
     logoSource,
@@ -98,22 +155,18 @@ export function resolveMerchantIdentity(rawName: string): MerchantIdentity {
     fallbackColor: enriched.color,
     isKnown: enriched.isKnown,
   };
+
+  IDENTITY_CACHE.set(key, identity);
+  return identity;
 }
 
 /**
  * Get the best available logo URL for a merchant identity.
- * Falls back to Clearbit if a domain is known but no explicit logo is set.
  */
 export function getMerchantLogoUrl(
   identity: MerchantIdentity
 ): string | undefined {
-  if (identity.logoUrl) {
-    return identity.logoUrl;
-  }
-  if (identity.domain) {
-    return `https://logo.clearbit.com/${identity.domain}`;
-  }
-  return undefined;
+  return isSafeLogoUrl(identity.logoUrl) ? identity.logoUrl : undefined;
 }
 
 /**
@@ -130,16 +183,15 @@ export function getMerchantInitialsAvatar(identity: MerchantIdentity): {
 }
 
 /**
- * P4 AI Schema Object
+ * Merchant Identity Schema Object
  *
- * Structured documentation of the MerchantIdentity shape for AI reasoning.
- * This object can be fed into prompt contexts to help LLMs understand
- * merchant data semantics.
+ * Structured documentation of the MerchantIdentity shape for UI rendering,
+ * caching and import-review trust explanations.
  */
 export const MerchantIdentitySchema = {
   type: "object",
   description:
-    "A resolved merchant identity containing display metadata, logo information, and confidence scores. Used for logo rendering and AI-driven merchant clustering.",
+    "A resolved merchant identity containing display metadata, logo/branded-avatar information, aliases, and confidence scores.",
   properties: {
     name: {
       type: "string",
@@ -156,6 +208,11 @@ export const MerchantIdentitySchema = {
       description:
         "Human-readable merchant name optimised for UI display. May differ from raw name due to cleaning and variant mapping.",
     },
+    aliases: {
+      type: "array",
+      description:
+        "Known merchant aliases that resolve to the same identity.",
+    },
     domain: {
       type: "string",
       description:
@@ -164,13 +221,13 @@ export const MerchantIdentitySchema = {
     logoUrl: {
       type: "string",
       description:
-        "Direct URL to a merchant logo image. Sources may be the provider registry, Clearbit API, local SVG assets, or generated placeholders.",
+        "Safe local or data URL for a merchant logo image when available. External lookup URLs are intentionally omitted from browser rendering.",
     },
     logoSource: {
       type: "string",
-      enum: ["registry", "clearbit", "generated", "fallback"],
+      enum: ["registry", "branded_identity", "cached", "fallback"],
       description:
-        "Provenance of the logo. 'registry' = curated local data (highest trust), 'clearbit' = external logo API, 'generated' = programmatically created, 'fallback' = none available.",
+        "Provenance of the visible merchant mark. 'registry' = safe local/data image, 'branded_identity' = curated local identity rendered as initials, 'cached' = reused local resolution, 'fallback' = deterministic unknown merchant initials.",
     },
     category: {
       type: "string",

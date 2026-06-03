@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseUrl, getSupabaseAnonKey } from "@/lib/env";
+import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/env";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/dashboard";
 
   const url = getSupabaseUrl();
-  const key = getSupabaseAnonKey();
+  const key = getSupabasePublishableKey();
 
   if (!url || !key) {
     return NextResponse.redirect(`${origin}/login?error=not_configured`);

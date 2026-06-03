@@ -29,6 +29,8 @@ const tooltipStyle = {
 };
 
 const scenarioColors = ["#F43F5E", "#FBBF24", "#22C55E", "#8B5CF6"];
+const formatMonthLabel = (month: string) =>
+  new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
 
 interface RunwayMetrics {
   cashBalance: number;
@@ -95,7 +97,7 @@ export default function RunwayClient({
     scenario: "15% revenue drop, 10% expense increase",
   };
 
-  const burnTrend = monthlyMetrics.map((m) => ({ month: m.month.slice(5), burn: m.expenses }));
+  const burnTrend = monthlyMetrics.map((m) => ({ month: formatMonthLabel(m.month), burn: m.expenses }));
 
   // Real burn change
   const sorted = [...monthlyMetrics].sort((a, b) => a.month.localeCompare(b.month));
