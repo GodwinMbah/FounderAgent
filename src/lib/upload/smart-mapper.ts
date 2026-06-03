@@ -9,7 +9,7 @@ import { detectProvider, buildColumnMapping, getAdapter, scoreHeaderMatch } from
 
 
 import { detectSubscriptions } from "@/lib/intelligence/subscription-detector";
-import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions, isKpiExcludedCategory } from "@/lib/upload/categorisation-runner";
+import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
 import { buildPreviewIntelligenceSummary } from "@/lib/upload/intelligence-groups";
 import type {
   SourceType,
@@ -211,6 +211,7 @@ export async function smartMapCsv(
     displayMerchant: row.displayMerchant,
     kpiTreatment: row.kpiTreatment,
     kpiExclusionReason: parseResult.transactions[i]?.kpiExclusionReason,
+    reportingTreatment: parseResult.transactions[i]?.reportingTreatment,
     businessMeaning: row.businessMeaning,
     intelligenceGroupId: parseResult.transactions[i]?.intelligenceGroupId,
     intelligenceGroupLabel: parseResult.transactions[i]?.intelligenceGroupLabel,
@@ -236,12 +237,11 @@ export async function smartMapCsv(
     .reduce((s, r) => s + r.amount, 0);
 
   // Compute estimated impact
-  const isKpiExcluded = (r: PreviewRow) => r.kpiTreatment === "excluded" || isKpiExcludedCategory(r.category);
   const incomeToAdd = previewRows
-    .filter((r) => r.type === "income" && !r.isPossibleDuplicate && !isKpiExcluded(r))
+    .filter((r) => r.reportingTreatment?.includedInOperatingRevenue)
     .reduce((s, r) => s + r.amount, 0);
   const expensesToAdd = previewRows
-    .filter((r) => r.type === "expense" && !r.isPossibleDuplicate && !isKpiExcluded(r))
+    .filter((r) => r.reportingTreatment?.includedInOperatingExpenses)
     .reduce((s, r) => s + r.amount, 0);
   const duplicatesToSkip = previewRows.filter((r) => r.isPossibleDuplicate).length;
   const detectedSubs = detectSubscriptions(categorisedRows);

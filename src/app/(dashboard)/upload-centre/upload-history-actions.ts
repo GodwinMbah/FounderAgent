@@ -31,6 +31,12 @@ export interface UploadHistoryItem extends Upload {
     rowsIncludedInRevenue: number;
     rowsIncludedInExpenses: number;
     rowsIncludedInCashFlow: number;
+    rowsIncludedInCashMovement: number;
+    rowsIncludedInProfitAndLoss: number;
+    rowsIncludedInDebtTracking: number;
+    rowsIncludedInOwnerMovement: number;
+    rowsIncludedInTaxReporting: number;
+    rowsIncludedInDataQualityReporting: number;
     rowsLinkedToSubscriptions: number;
     rowsWithFees: number;
     rowsWithRefunds: number;
@@ -78,6 +84,12 @@ export async function getUploadHistory(): Promise<{
           rowsIncludedInRevenue: rec?.rowsIncludedInRevenue ?? 0,
           rowsIncludedInExpenses: rec?.rowsIncludedInExpenses ?? 0,
           rowsIncludedInCashFlow: rec?.rowsIncludedInCashFlow ?? 0,
+          rowsIncludedInCashMovement: rec?.rowsIncludedInCashMovement ?? 0,
+          rowsIncludedInProfitAndLoss: rec?.rowsIncludedInProfitAndLoss ?? 0,
+          rowsIncludedInDebtTracking: rec?.rowsIncludedInDebtTracking ?? 0,
+          rowsIncludedInOwnerMovement: rec?.rowsIncludedInOwnerMovement ?? 0,
+          rowsIncludedInTaxReporting: rec?.rowsIncludedInTaxReporting ?? 0,
+          rowsIncludedInDataQualityReporting: rec?.rowsIncludedInDataQualityReporting ?? 0,
           rowsLinkedToSubscriptions: rec?.rowsLinkedToSubscriptions ?? 0,
           rowsWithFees: rec?.rowsWithFees ?? 0,
           rowsWithRefunds: rec?.rowsWithRefunds ?? 0,
@@ -186,6 +198,7 @@ export async function getUploadTransactions(
         groupingConfidence: metadata?.grouping_confidence as number | undefined,
         businessMeaning: metadata?.business_meaning as string | undefined,
         kpiTreatment: metadata?.kpi_treatment as Transaction["kpiTreatment"] | undefined,
+        reportingTreatment: metadata?.reporting_treatment as Transaction["reportingTreatment"] | undefined,
         categorySource: metadata?.category_source as Transaction["categorySource"] | undefined,
         userConfirmedCategory: metadata?.user_confirmed_category as boolean | undefined,
         intelligenceGroupId: metadata?.intelligence_group_id as string | undefined,
@@ -271,6 +284,7 @@ function mapRefreshTransaction(t: Record<string, unknown>): Transaction {
     rowStatus: (t.row_status as string | undefined) ?? (metadata?.row_status as string | undefined),
     kpiExcluded: (t.kpi_excluded as boolean | undefined) ?? (metadata?.kpi_excluded as boolean | undefined),
     kpiExclusionReason: (t.kpi_exclusion_reason as string | undefined) ?? (metadata?.kpi_exclusion_reason as string | undefined),
+    reportingTreatment: metadata?.reporting_treatment as Transaction["reportingTreatment"] | undefined,
     duplicateOfTransactionId: (t.duplicate_of_transaction_id as string | undefined) ?? (metadata?.duplicate_of_transaction_id as string | undefined),
     feeAmount: (t.fee_amount as number | undefined) ?? (metadata?.fee_amount as number | undefined),
     runningBalance: (t.running_balance as number | undefined) ?? (metadata?.running_balance as number | undefined),

@@ -9,7 +9,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils/formatters";
 import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import { calculateChangePercent } from "@/lib/reporting/kpis";
-import { isIncome, isExpense } from "@/lib/reporting/filters";
+import { isCashMovementIn, isCashMovementOut } from "@/lib/reporting/filters";
 import { getDateRange, type DateRangePreset } from "@/lib/date-range";
 import {
   ArrowDownLeft,
@@ -46,6 +46,13 @@ interface Transaction {
   amount: number;
   type: string;
   tags?: string[];
+  rowStatus?: string;
+  row_status?: string;
+  kpiExcluded?: boolean;
+  kpi_excluded?: boolean;
+  kpiExclusionReason?: string;
+  kpi_exclusion_reason?: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface Props {
@@ -68,29 +75,29 @@ export default function CashFlowClient({
   const { currency } = useCompanyCurrency();
   const latest = monthlyMetrics[monthlyMetrics.length - 1];
   const prev = monthlyMetrics[monthlyMetrics.length - 2];
-  const operatingCashIn = latest?.cashIn ?? 0;
-  const operatingCashOut = latest?.cashOut ?? 0;
-  const netCashFlow = latest?.profit ?? 0;
+  const cashIn = latest?.cashIn ?? 0;
+  const cashOut = latest?.cashOut ?? 0;
+  const netCashMovement = cashIn - cashOut;
   const closingBalance = totalCashBalance;
 
   const cashInChange = calculateChangePercent(latest?.cashIn, prev?.cashIn);
   const cashOutChange = calculateChangePercent(latest?.cashOut, prev?.cashOut, true);
-  const netChange = calculateChangePercent(latest?.profit, prev?.profit);
+  const netChange = calculateChangePercent(netCashMovement, prev ? prev.cashIn - prev.cashOut : undefined);
   const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const monthly = monthlyMetrics.map((m) => ({
     month: m.month.slice(5),
     inflow: m.cashIn,
     outflow: m.cashOut,
-    net: m.profit,
+    net: m.cashIn - m.cashOut,
   }));
 
   const inflowMap = new Map<string, number>();
   const outflowMap = new Map<string, number>();
   for (const tx of transactions) {
-    if (isIncome(tx)) {
+    if (isCashMovementIn(tx)) {
       inflowMap.set(tx.category ?? "Other", (inflowMap.get(tx.category ?? "Other") ?? 0) + tx.amount);
-    } else if (isExpense(tx)) {
+    } else if (isCashMovementOut(tx)) {
       outflowMap.set(tx.category ?? "Other", (outflowMap.get(tx.category ?? "Other") ?? 0) + tx.amount);
     }
   }
@@ -110,15 +117,15 @@ export default function CashFlowClient({
         impact: `${Math.round((topOutflow.amount / totalOutflow) * 100)}% of total cash out`,
       });
     }
-    if (netCashFlow < 0) {
+    if (netCashMovement < 0) {
       risks.push({
-        title: "Net cash flow is negative",
+        title: "Net cash movement is negative",
         severity: "warning",
         impact: "Review discretionary expenses to extend runway",
       });
-    } else if (netCashFlow > 0) {
+    } else if (netCashMovement > 0) {
       risks.push({
-        title: "Net cash flow is positive",
+        title: "Net cash movement is positive",
         severity: "info",
         impact: "Healthy operating buffer for growth investments",
       });
@@ -127,7 +134,7 @@ export default function CashFlowClient({
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Cash Flow" subtitle="Track operating cash in, cash out, net cash flow, and closing balance." />
+      <PageHeader title="Cash Flow" subtitle="Track cash movement, operating P&L context, and closing balance." />
 
       {/* Date Range Label */}
       <div className="flex items-center justify-end">
@@ -139,24 +146,24 @@ export default function CashFlowClient({
       {/* KPI Cards */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Operating Cash In"
-          value={formatCurrency(operatingCashIn, 0, currency)}
+          label="Cash In"
+          value={formatCurrency(cashIn, 0, currency)}
           change={cashInChange.text}
           changeType={cashInChange.type}
           icon={<ArrowDownLeft className="h-4 w-4" style={{ color: "#22C55E" }} />}
           iconColor="#22C55E"
         />
         <MetricCard
-          label="Operating Cash Out"
-          value={formatCurrency(operatingCashOut, 0, currency)}
+          label="Cash Out"
+          value={formatCurrency(cashOut, 0, currency)}
           change={cashOutChange.text}
           changeType={cashOutChange.type}
           icon={<ArrowUpRight className="h-4 w-4" style={{ color: "#F43F5E" }} />}
           iconColor="#F43F5E"
         />
         <MetricCard
-          label="Net Cash Flow"
-          value={formatCurrency(netCashFlow, 0, currency)}
+          label="Net Cash Movement"
+          value={formatCurrency(netCashMovement, 0, currency)}
           change={netChange.text}
           changeType={netChange.type}
           icon={<Wallet className="h-4 w-4" style={{ color: "#14B8A6" }} />}
@@ -263,11 +270,11 @@ export default function CashFlowClient({
       <AgentInsightCard title="FounderAgent Cash Analysis" orbSize={64}>
         <div className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
           <Lightbulb className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
-          <span>Your net cash flow of {formatCurrency(netCashFlow, 0, currency)} is {netChange.type === "positive" ? "healthy" : netChange.type === "negative" ? "negative" : "stable"} with a {netChange.text} trend.</span>
+          <span>Your net cash movement of {formatCurrency(netCashMovement, 0, currency)} is {netChange.type === "positive" ? "healthy" : netChange.type === "negative" ? "negative" : "stable"} with a {netChange.text} trend.</span>
         </div>
         <div className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
           <Lightbulb className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
-          <span>Operating cash in covers {operatingCashOut > 0 ? (operatingCashIn / operatingCashOut).toFixed(1) : "—"}x cash out, providing a buffer for growth investments.</span>
+          <span>Cash in covers {cashOut > 0 ? (cashIn / cashOut).toFixed(1) : "—"}x cash out, including non-operating movements for reconciliation.</span>
         </div>
         <div className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
           <Lightbulb className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />

@@ -15,6 +15,7 @@ import type {
   BusinessContext,
   TransactionContext,
 } from "@/lib/intelligence/categorisation-engine";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
 
 export interface CategorisedV3Row extends NormalisedRow {
   category: string;
@@ -26,6 +27,8 @@ export interface CategorisedV3Row extends NormalisedRow {
   displayMerchant?: string;
   subcategory?: string;
   kpiTreatment: "included" | "excluded";
+  kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
   businessMeaning?: string;
   isCreditCardRepayment: boolean;
   isSubscriptionCandidate: boolean;

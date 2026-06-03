@@ -4,7 +4,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import { getCompanyMetrics, recalculateCompanyMetrics } from "./company-metrics";
 import { getSubscriptions } from "./subscriptions";
-import { isIncome, isExpense } from "@/lib/reporting/filters";
+import { isCashMovementIn, isCashMovementOut, isIncome, isExpense } from "@/lib/reporting/filters";
 import { normalizeSubscriptionSpend } from "@/lib/reporting/subscriptions";
 import { profitMargin } from "@/lib/reporting/kpis";
 
@@ -89,12 +89,14 @@ export async function getMonthlyMetrics(
   const data = rawData ?? [];
 
   // Group by month
-  const grouped = new Map<string, { revenue: number; expenses: number }>();
+  const grouped = new Map<string, { revenue: number; expenses: number; cashIn: number; cashOut: number }>();
   for (const tx of data) {
     const month = (tx.date as string).slice(0, 7);
-    const current = grouped.get(month) ?? { revenue: 0, expenses: 0 };
+    const current = grouped.get(month) ?? { revenue: 0, expenses: 0, cashIn: 0, cashOut: 0 };
     if (isIncome(tx)) current.revenue += Number(tx.amount);
     else if (isExpense(tx)) current.expenses += Number(tx.amount);
+    if (isCashMovementIn(tx)) current.cashIn += Number(tx.amount);
+    else if (isCashMovementOut(tx)) current.cashOut += Number(tx.amount);
     grouped.set(month, current);
   }
 
@@ -103,8 +105,8 @@ export async function getMonthlyMetrics(
     revenue: vals.revenue,
     expenses: vals.expenses,
     profit: vals.revenue - vals.expenses,
-    cashIn: vals.revenue,
-    cashOut: vals.expenses,
+    cashIn: vals.cashIn,
+    cashOut: vals.cashOut,
   }));
 }
 

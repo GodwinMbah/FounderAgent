@@ -2,7 +2,7 @@
  * Aggregation utilities — group transactions by category, sum by month, etc.
  */
 
-import { isIncome, isExpense } from "./filters";
+import { isCashMovementIn, isCashMovementOut, isIncome, isExpense } from "./filters";
 import type { TransactionLike } from "./filters";
 
 export interface TransactionWithAmount extends TransactionLike {
@@ -64,13 +64,15 @@ export interface MonthlyAggregate {
 export function sumByMonth(
   transactions: Array<TransactionLike & { date: string; amount: number }>
 ): MonthlyAggregate[] {
-  const grouped = new Map<string, { revenue: number; expenses: number }>();
+  const grouped = new Map<string, { revenue: number; expenses: number; cashIn: number; cashOut: number }>();
 
   for (const t of transactions) {
     const month = t.date.slice(0, 7);
-    const current = grouped.get(month) ?? { revenue: 0, expenses: 0 };
+    const current = grouped.get(month) ?? { revenue: 0, expenses: 0, cashIn: 0, cashOut: 0 };
     if (isIncome(t)) current.revenue += t.amount;
     else if (isExpense(t)) current.expenses += t.amount;
+    if (isCashMovementIn(t)) current.cashIn += t.amount;
+    else if (isCashMovementOut(t)) current.cashOut += t.amount;
     grouped.set(month, current);
   }
 
@@ -80,8 +82,8 @@ export function sumByMonth(
       revenue: vals.revenue,
       expenses: vals.expenses,
       profit: vals.revenue - vals.expenses,
-      cashIn: vals.revenue,
-      cashOut: vals.expenses,
+      cashIn: vals.cashIn,
+      cashOut: vals.cashOut,
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
 }

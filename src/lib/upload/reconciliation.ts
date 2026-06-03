@@ -1,3 +1,5 @@
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
+
 export type ImportRowStatus =
   | "inserted"
   | "duplicate_skipped"
@@ -34,6 +36,7 @@ export interface ImportRowOutcome {
   duplicateStatus?: "duplicate" | "not_duplicate";
   kpiTreatment?: "included" | "excluded";
   kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
   failureReason?: string;
   categoryReason?: string;
   intelligenceGroupId?: string;
@@ -61,6 +64,12 @@ export interface ImportReconciliation {
   rowsIncludedInRevenue: number;
   rowsIncludedInExpenses: number;
   rowsIncludedInCashFlow: number;
+  rowsIncludedInCashMovement?: number;
+  rowsIncludedInProfitAndLoss?: number;
+  rowsIncludedInDebtTracking?: number;
+  rowsIncludedInOwnerMovement?: number;
+  rowsIncludedInTaxReporting?: number;
+  rowsIncludedInDataQualityReporting?: number;
   rowsLinkedToSubscriptions: number;
   rowsWithFees: number;
   rowsWithRefunds: number;
@@ -103,6 +112,12 @@ export function getImportReconciliation(
     rowsIncludedInRevenue: num(rec.rowsIncludedInRevenue),
     rowsIncludedInExpenses: num(rec.rowsIncludedInExpenses),
     rowsIncludedInCashFlow: num(rec.rowsIncludedInCashFlow),
+    rowsIncludedInCashMovement: num(rec.rowsIncludedInCashMovement),
+    rowsIncludedInProfitAndLoss: num(rec.rowsIncludedInProfitAndLoss),
+    rowsIncludedInDebtTracking: num(rec.rowsIncludedInDebtTracking),
+    rowsIncludedInOwnerMovement: num(rec.rowsIncludedInOwnerMovement),
+    rowsIncludedInTaxReporting: num(rec.rowsIncludedInTaxReporting),
+    rowsIncludedInDataQualityReporting: num(rec.rowsIncludedInDataQualityReporting),
     rowsLinkedToSubscriptions: num(rec.rowsLinkedToSubscriptions),
     rowsWithFees: num(rec.rowsWithFees),
     rowsWithRefunds: num(rec.rowsWithRefunds),
