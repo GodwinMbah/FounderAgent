@@ -39,6 +39,7 @@ function mapRow(row: Record<string, unknown>): Transaction {
     categoryEvidence: metadata?.category_evidence as Transaction["categoryEvidence"] | undefined,
     businessMeaning: metadata?.business_meaning as string | undefined,
     kpiTreatment: metadata?.kpi_treatment as Transaction["kpiTreatment"] | undefined,
+    reportingTreatment: metadata?.reporting_treatment as Transaction["reportingTreatment"] | undefined,
     categorySource: metadata?.category_source as Transaction["categorySource"] | undefined,
     userConfirmedCategory: metadata?.user_confirmed_category as boolean | undefined,
     intelligenceGroupId: metadata?.intelligence_group_id as string | undefined,

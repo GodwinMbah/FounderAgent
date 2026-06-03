@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthCompany } from "@/lib/db/company";
 import { recordCategoryCorrection } from "@/lib/intelligence/user-corrections";
-import { getKpiExclusionReasonForCategory, isKpiExcludedCategory } from "@/lib/kpi-treatment";
+import { classifyReportingTreatment } from "@/lib/reporting/treatment-engine";
 import { revalidatePath } from "next/cache";
 
 export async function updateTransactionCategory(
@@ -24,7 +24,7 @@ export async function updateTransactionCategory(
   // 1. Fetch the transaction to verify ownership and get current data
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
-    .select("id, company_id, category, merchant, description, reference, type, metadata")
+    .select("id, company_id, category, merchant, description, reference, amount, type, status, row_status, tags, metadata")
     .eq("id", transactionId)
     .single();
 
@@ -36,8 +36,21 @@ export async function updateTransactionCategory(
   }
 
   const previousCategory = tx.category;
-  const kpiExcluded = isKpiExcludedCategory(newCategory);
-  const kpiExclusionReason = kpiExcluded ? getKpiExclusionReasonForCategory(newCategory) ?? "non_operating_movement" : null;
+  const treatment = classifyReportingTreatment({
+    type: tx.type as string,
+    amount: Number(tx.amount),
+    category: newCategory,
+    merchant: tx.merchant as string | undefined,
+    description: tx.description as string | undefined,
+    reference: tx.reference as string | undefined,
+    status: "user_confirmed",
+    rowStatus: tx.row_status as string | undefined,
+    tags: tx.tags as string[] | undefined,
+    metadata: tx.metadata as Record<string, unknown> | null,
+    userConfirmedCategory: true,
+  });
+  const kpiExcluded = !treatment.includedInOperatingKpis;
+  const kpiExclusionReason = treatment.kpiExclusionReason ?? null;
   const metadata = {
     ...((tx.metadata as Record<string, unknown> | null) ?? {}),
     previous_category_before_user_correction: previousCategory,
@@ -49,6 +62,7 @@ export async function updateTransactionCategory(
     kpi_treatment: kpiExcluded ? "excluded" : "included",
     kpi_excluded: kpiExcluded,
     kpi_exclusion_reason: kpiExclusionReason,
+    reporting_treatment: treatment,
     user_corrected_at: new Date().toISOString(),
   };
 

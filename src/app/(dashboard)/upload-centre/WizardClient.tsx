@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/utils/formatters";
@@ -41,6 +40,7 @@ import { usePatternSuggestions } from "@/components/features/upload/usePatternSu
 import { ApplyToSimilarConfirm } from "@/components/features/upload/ApplyToSimilarConfirm";
 import { FullScreenReview } from "@/components/features/upload/FullScreenReview";
 import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
+import { formatReportingTreatment } from "@/lib/reporting/treatment-engine";
 import type {
   WizardStep,
   SourceType,
@@ -104,6 +104,12 @@ function buildSummaryFromStatus(status: Awaited<ReturnType<typeof getUploadStatu
     rowsIncludedInRevenue: rec?.rowsIncludedInRevenue ?? 0,
     rowsIncludedInExpenses: rec?.rowsIncludedInExpenses ?? 0,
     rowsIncludedInCashFlow: rec?.rowsIncludedInCashFlow ?? 0,
+    rowsIncludedInCashMovement: rec?.rowsIncludedInCashMovement ?? 0,
+    rowsIncludedInProfitAndLoss: rec?.rowsIncludedInProfitAndLoss ?? 0,
+    rowsIncludedInDebtTracking: rec?.rowsIncludedInDebtTracking ?? 0,
+    rowsIncludedInOwnerMovement: rec?.rowsIncludedInOwnerMovement ?? 0,
+    rowsIncludedInTaxReporting: rec?.rowsIncludedInTaxReporting ?? 0,
+    rowsIncludedInDataQualityReporting: rec?.rowsIncludedInDataQualityReporting ?? 0,
     rowsTransfer: rec?.rowsMarkedTransfer ?? 0,
     rowsDuplicate: rec?.rowsSkippedDuplicate ?? 0,
     rowsKpiExcluded: rec?.rowsExcludedFromKpis ?? 0,
@@ -172,8 +178,10 @@ interface WizardError {
 }
 
 export default function UploadWizard() {
-  const searchParams = useSearchParams();
-  const isSetupMode = searchParams.get("setup") === "true";
+  const [isSetupMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("setup") === "true";
+  });
 
   const [uploadId, setUploadId] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -2001,13 +2009,27 @@ function PreviewStep({
                   </td>
                   <td className="px-3 py-2 max-w-[150px]">
                     {row.kpiTreatment === "excluded" ? (
-                      <span className="rounded border border-violet-500/30 px-2 py-1 text-[10px] text-violet-300">
-                        {formatKpiExclusionReason(row.kpiExclusionReason, row.category)}
-                      </span>
+                      <div className="space-y-1">
+                        <span className="inline-flex rounded border border-violet-500/30 px-2 py-1 text-[10px] text-violet-300">
+                          {formatKpiExclusionReason(row.kpiExclusionReason, row.category)}
+                        </span>
+                        {row.reportingTreatment && (
+                          <p className="text-[10px] text-[var(--muted-foreground)]">
+                            {formatReportingTreatment(row.reportingTreatment)}
+                          </p>
+                        )}
+                      </div>
                     ) : (
-                      <span className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300">
-                        Included
-                      </span>
+                      <div className="space-y-1">
+                        <span className="inline-flex rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300">
+                          Included
+                        </span>
+                        {row.reportingTreatment && (
+                          <p className="text-[10px] text-[var(--muted-foreground)]">
+                            {formatReportingTreatment(row.reportingTreatment)}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -2251,6 +2273,12 @@ function SummaryStep({
             <StatCard label="Revenue Rows" value={String(summary.rowsIncludedInRevenue)} icon={<TrendingUp className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Expense Rows" value={String(summary.rowsIncludedInExpenses)} icon={<TrendingDown className="h-4 w-4" />} color="text-rose-400" />
             <StatCard label="Cash Flow Rows" value={String(summary.rowsIncludedInCashFlow)} icon={<Database className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="Cash Movement" value={String(summary.rowsIncludedInCashMovement)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="P&L Rows" value={String(summary.rowsIncludedInProfitAndLoss)} icon={<Database className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Debt Rows" value={String(summary.rowsIncludedInDebtTracking)} icon={<CreditCard className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Owner Rows" value={String(summary.rowsIncludedInOwnerMovement)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Tax Rows" value={String(summary.rowsIncludedInTaxReporting)} icon={<Database className="h-4 w-4" />} color="text-amber-400" />
+            <StatCard label="Quality Rows" value={String(summary.rowsIncludedInDataQualityReporting)} icon={<AlertTriangle className="h-4 w-4" />} color="text-amber-400" />
             <StatCard label="User Rule" value={String(summary.rowsCategorisedByUserRule)} icon={<Tag className="h-4 w-4" />} color="text-sky-400" />
             <StatCard label="System Intel" value={String(summary.rowsCategorisedBySystemIntelligence)} icon={<Brain className="h-4 w-4" />} color="text-violet-400" />
             <StatCard label="Fee Rows" value={String(summary.rowsWithFees)} icon={<Database className="h-4 w-4" />} color="text-amber-400" />

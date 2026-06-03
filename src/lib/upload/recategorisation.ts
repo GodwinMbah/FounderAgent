@@ -36,12 +36,14 @@ export function buildCategoryRefreshUpdate(
 ): Record<string, unknown> | null {
   if (isUserCategoryProtected(existing)) return null;
 
-  const kpiExcluded =
-    categorised.kpiExcluded === true ||
-    categorised.kpiTreatment === "excluded" ||
-    isKpiExcludedCategory(categorised.category);
+  const treatment = categorised.reportingTreatment;
+  const kpiExcluded = treatment
+    ? !treatment.includedInOperatingKpis
+    : categorised.kpiExcluded === true ||
+      categorised.kpiTreatment === "excluded" ||
+      isKpiExcludedCategory(categorised.category);
   const kpiExclusionReason = kpiExcluded
-    ? categorised.kpiExclusionReason ?? getKpiExclusionReasonForCategory(categorised.category) ?? "non_operating_movement"
+    ? treatment?.kpiExclusionReason ?? categorised.kpiExclusionReason ?? getKpiExclusionReasonForCategory(categorised.category) ?? "non_operating_movement"
     : null;
   const existingMetadata = existing.metadata ?? {};
   const metadata = {
@@ -55,6 +57,7 @@ export function buildCategoryRefreshUpdate(
     kpi_treatment: kpiExcluded ? "excluded" : "included",
     kpi_excluded: kpiExcluded,
     kpi_exclusion_reason: kpiExclusionReason,
+    reporting_treatment: treatment,
     normalised_merchant: categorised.normalisedMerchantName,
     display_merchant: categorised.displayMerchantName,
     category_source: categorised.categorySource ?? "system",

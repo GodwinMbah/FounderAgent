@@ -5,6 +5,7 @@
  */
 
 import type { Transaction } from "@/lib/types";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
 
 export type ProviderType = "bank" | "payment_processor" | "accounting" | "generic";
 
@@ -62,6 +63,7 @@ export interface CanonicalTransaction {
   }>;
   businessMeaning?: string;
   kpiTreatment?: "included" | "excluded";
+  reportingTreatment?: ReportingTreatment;
   incomeExpenseStatus?: "income" | "expense";
   merchantCategoryCode?: string;
   categorySource?: "system" | "user" | "user_rule" | "grouping";
@@ -202,6 +204,7 @@ export function toDbTransaction(
       category_evidence: canonical.categoryEvidence,
       business_meaning: canonical.businessMeaning,
       kpi_treatment: canonical.kpiTreatment,
+      reporting_treatment: canonical.reportingTreatment,
       income_expense_status: canonical.incomeExpenseStatus,
       category_source: canonical.categorySource,
       user_confirmed_category: canonical.userConfirmedCategory,
@@ -266,6 +269,7 @@ export function fromDbTransaction(tx: Transaction): CanonicalTransaction {
     categoryEvidence: (meta.category_evidence as CanonicalTransaction["categoryEvidence"]) || undefined,
     businessMeaning: (meta.business_meaning as string) || undefined,
     kpiTreatment: (meta.kpi_treatment as CanonicalTransaction["kpiTreatment"]) || undefined,
+    reportingTreatment: (meta.reporting_treatment as ReportingTreatment | undefined) || undefined,
     incomeExpenseStatus: (meta.income_expense_status as CanonicalTransaction["incomeExpenseStatus"]) || undefined,
     merchantCategoryCode: (meta.merchant_category_code as string) || undefined,
     categorySource: (meta.category_source as CanonicalTransaction["categorySource"]) || undefined,

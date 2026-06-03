@@ -22,6 +22,7 @@ import {
 import type { Transaction } from "@/lib/types";
 import type { ImportRowOutcome } from "@/lib/upload/reconciliation";
 import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
+import { formatReportingTreatment } from "@/lib/reporting/treatment-engine";
 
 type UploadFilter = "all" | "completed" | "failed" | "processing";
 type DetailFilters = {
@@ -426,6 +427,12 @@ function UploadDetailDrawer({
                 <DetailStat label="Revenue Rows" value={String(rec.rowsIncludedInRevenue)} />
                 <DetailStat label="Expense Rows" value={String(rec.rowsIncludedInExpenses)} />
                 <DetailStat label="Cash Flow Rows" value={String(rec.rowsIncludedInCashFlow)} />
+                <DetailStat label="Cash Movement" value={String(rec.rowsIncludedInCashMovement)} />
+                <DetailStat label="P&L Rows" value={String(rec.rowsIncludedInProfitAndLoss)} />
+                <DetailStat label="Debt Rows" value={String(rec.rowsIncludedInDebtTracking)} />
+                <DetailStat label="Owner Rows" value={String(rec.rowsIncludedInOwnerMovement)} />
+                <DetailStat label="Tax Rows" value={String(rec.rowsIncludedInTaxReporting)} />
+                <DetailStat label="Quality Rows" value={String(rec.rowsIncludedInDataQualityReporting)} />
                 <DetailStat label="User Rule" value={String(rec.rowsCategorisedByUserRule)} />
                 <DetailStat label="System Intel" value={String(rec.rowsCategorisedBySystemIntelligence)} />
                 <DetailStat label="Linked Subs" value={String(rec.rowsLinkedToSubscriptions)} />
@@ -533,6 +540,11 @@ function UploadDetailDrawer({
                           {row.category || "No category"}{row.subcategory ? ` / ${row.subcategory}` : ""} · {row.status}
                           {row.kpiTreatment === "excluded" ? ` · KPI excluded: ${formatKpiExclusionReason(row.kpiExclusionReason, row.category)}` : " · KPI included"}
                         </p>
+                        {row.reportingTreatment && (
+                          <p className="text-[10px] text-sky-300/80">
+                            {formatReportingTreatment(row.reportingTreatment)}
+                          </p>
+                        )}
                         <p className="text-[10px] text-[var(--muted-foreground)] truncate">
                           {row.transactionId ? `DB ${row.transactionId}` : "No DB transaction"}
                           {row.externalTransactionId ? ` · External ${row.externalTransactionId}` : ""}
@@ -611,6 +623,9 @@ function UploadDetailDrawer({
                         {formatDate(tx.date)} · {tx.category} · {tx.status}
                         {tx.rowStatus ? ` · ${tx.rowStatus}` : ""}
                         {tx.kpiExcluded ? ` · KPI excluded: ${formatKpiExclusionReason(tx.kpiExclusionReason, tx.category)}` : ""}
+                      </p>
+                      <p className="text-[10px] text-sky-300/80">
+                        {formatReportingTreatment(tx)}
                       </p>
                       <p className="text-[10px] text-[var(--muted-foreground)] truncate">
                         DB {tx.id}

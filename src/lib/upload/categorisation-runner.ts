@@ -8,6 +8,7 @@ import {
   isKpiExcludedCategory,
   isTransferStyleCategory,
 } from "@/lib/kpi-treatment";
+import { applyReportingTreatment } from "@/lib/reporting/treatment-engine";
 import { applyIntelligenceGroups, type TransactionIntelligenceGroup } from "@/lib/upload/intelligence-groups";
 import {
   categoriseWithV3AndV1Fallback,
@@ -137,6 +138,9 @@ export function categoriseCanonicalTransactions(
   }
 
   const intelligenceGroups = applyIntelligenceGroups(transactions);
+  for (const tx of transactions) {
+    applyReportingTreatment(tx);
+  }
   for (let i = 0; i < categorisedRows.length && i < transactions.length; i++) {
     const tx = transactions[i];
     categorisedRows[i] = {
@@ -152,6 +156,7 @@ export function categoriseCanonicalTransactions(
       normalisedMerchant: tx.normalisedMerchantName,
       displayMerchant: tx.displayMerchantName,
       kpiTreatment: tx.kpiTreatment ?? categorisedRows[i].kpiTreatment,
+      kpiExclusionReason: tx.kpiExclusionReason,
       businessMeaning: tx.businessMeaning,
       isCreditCardRepayment: tx.isCreditCardRepayment ?? false,
       isSubscriptionCandidate: tx.isSubscriptionCandidate ?? false,

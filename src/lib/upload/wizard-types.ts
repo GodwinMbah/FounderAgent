@@ -3,6 +3,8 @@
  * Shared types for the multi-step CSV upload wizard
  */
 
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
+
 export type WizardStep =
   | "upload"
   | "mapping"
@@ -98,6 +100,7 @@ export interface PreviewRow {
   displayMerchant?: string;
   kpiTreatment?: "included" | "excluded";
   kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
   businessMeaning?: string;
   intelligenceGroupId?: string;
   intelligenceGroupLabel?: string;
@@ -229,6 +232,12 @@ export interface ImportSummary {
   rowsIncludedInRevenue: number;
   rowsIncludedInExpenses: number;
   rowsIncludedInCashFlow: number;
+  rowsIncludedInCashMovement: number;
+  rowsIncludedInProfitAndLoss: number;
+  rowsIncludedInDebtTracking: number;
+  rowsIncludedInOwnerMovement: number;
+  rowsIncludedInTaxReporting: number;
+  rowsIncludedInDataQualityReporting: number;
   rowsTransfer: number;
   rowsDuplicate: number;
   rowsKpiExcluded: number;

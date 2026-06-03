@@ -23,6 +23,7 @@ import { detectDuplicate } from "@/lib/intelligence/duplicate-detector-v2";
 import { toDbTransaction, type CanonicalTransaction } from "@/lib/providers/canonical-model";
 import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
 import { getKpiExclusionReasonForCategory, isKpiExcludedCategory } from "@/lib/kpi-treatment";
+import { applyReportingTreatment, classifyReportingTreatment } from "@/lib/reporting/treatment-engine";
 import type { TransactionCategoryType, TransactionStatus } from "@/lib/types";
 import type { ImportReconciliation, ImportRowOutcome } from "@/lib/upload/reconciliation";
 import { detectSubscriptions, detectDuplicateTools } from "@/lib/intelligence/subscription-detector";
@@ -82,7 +83,7 @@ async function setPipelineStage(
 }
 
 function isKpiIncludedRow(tx: CanonicalTransaction): boolean {
-  return !tx.isPossibleDuplicate && !tx.isTransfer && tx.kpiExcluded !== true;
+  return tx.reportingTreatment?.includedInOperatingKpis ?? (!tx.isPossibleDuplicate && !tx.isTransfer && tx.kpiExcluded !== true);
 }
 
 function isUncategorisedRow(tx: CanonicalTransaction): boolean {
@@ -324,9 +325,32 @@ export async function runUploadPipeline(
           parseResult.transactions[i].status = "user_confirmed";
           parseResult.transactions[i].categorySource = "user";
           parseResult.transactions[i].userConfirmedCategory = true;
+          applyReportingTreatment(parseResult.transactions[i]);
         }
       }
     }
+
+    for (const tx of parseResult.transactions) {
+      applyReportingTreatment(tx);
+    }
+    categorisedRows = categorisedRows.map((row, i) => {
+      const tx = parseResult.transactions[i];
+      if (!tx) return row;
+      return {
+        ...row,
+        merchant: tx.displayMerchantName ?? tx.merchantName ?? row.merchant,
+        category: tx.category ?? row.category,
+        subcategory: tx.subcategory,
+        status: tx.status ?? row.status,
+        confidenceScore: tx.confidenceScore ?? row.confidenceScore,
+        categoryReason: tx.categoryReason ?? row.categoryReason,
+        categoryConfidence: tx.categoryConfidence ?? row.categoryConfidence,
+        groupingConfidence: tx.groupingConfidence ?? row.groupingConfidence,
+        kpiTreatment: tx.kpiTreatment ?? row.kpiTreatment,
+        kpiExclusionReason: tx.kpiExclusionReason,
+        reportingTreatment: tx.reportingTreatment,
+      };
+    });
 
     // Skip already-detected transfers and duplicates (handled above in canonical flow)
     // Filter out duplicates from insertion
@@ -359,16 +383,19 @@ export async function runUploadPipeline(
     const transactionInserts = parseResult.transactions
       .filter((tx) => !tx.isPossibleDuplicate)
       .map((tx) => {
-        if (tx.isTransfer) {
+        const treatment = applyReportingTreatment(tx).reportingTreatment;
+        if (treatment.includedInCashMovement && !treatment.includedInOperatingKpis && !treatment.includedInDataQualityReporting) {
           tx.rowStatus = "transfer";
           tx.kpiExcluded = true;
-          tx.kpiExclusionReason = tx.kpiExclusionReason ?? getKpiExclusionReasonForCategory(tx.category) ?? "transfer";
-        } else if (tx.status === "needs_review") {
+          tx.kpiExclusionReason = treatment.kpiExclusionReason ?? tx.kpiExclusionReason ?? getKpiExclusionReasonForCategory(tx.category) ?? "transfer";
+        } else if (tx.status === "needs_review" || treatment.includedInDataQualityReporting) {
           tx.rowStatus = "needs_review";
-          tx.kpiExcluded = tx.kpiExcluded ?? false;
+          tx.kpiExcluded = true;
+          tx.kpiExclusionReason = treatment.kpiExclusionReason ?? tx.kpiExclusionReason ?? "needs_review";
         } else {
           tx.rowStatus = "inserted";
-          tx.kpiExcluded = tx.kpiExcluded ?? false;
+          tx.kpiExcluded = !treatment.includedInOperatingKpis;
+          tx.kpiExclusionReason = treatment.kpiExclusionReason;
         }
         const mapped = toDbTransaction(tx, companyId, uploadId, bankAccount.id);
         return {
@@ -642,10 +669,20 @@ export async function runUploadPipeline(
     // If all rows were duplicates (0 inserted but 694 parsed), that's a successful deduplication.
     const totalParsed = parseResult.transactions.length;
     const duplicateCount = parseResult.transactions.filter((tx) => tx.isPossibleDuplicate).length;
-    const transferCount = parseResult.transactions.filter((tx) => tx.isTransfer).length;
-    const rowsIncludedInRevenue = parseResult.transactions.filter((tx) => isKpiIncludedRow(tx) && tx.amount >= 0).length;
-    const rowsIncludedInExpenses = parseResult.transactions.filter((tx) => isKpiIncludedRow(tx) && tx.amount < 0).length;
-    const rowsIncludedInCashFlow = rowsIncludedInRevenue + rowsIncludedInExpenses;
+    const transferCount = parseResult.transactions.filter((tx) =>
+      tx.reportingTreatment?.includedInCashMovement &&
+      !tx.reportingTreatment.includedInOperatingKpis &&
+      !tx.reportingTreatment.includedInDataQualityReporting
+    ).length;
+    const rowsIncludedInRevenue = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInOperatingRevenue).length;
+    const rowsIncludedInExpenses = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInOperatingExpenses).length;
+    const rowsIncludedInCashFlow = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInCashFlow).length;
+    const rowsIncludedInCashMovement = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInCashMovement).length;
+    const rowsIncludedInProfitAndLoss = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInProfitAndLoss).length;
+    const rowsIncludedInDebtTracking = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInDebtTracking).length;
+    const rowsIncludedInOwnerMovement = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInOwnerMovement).length;
+    const rowsIncludedInTaxReporting = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInTaxReporting).length;
+    const rowsIncludedInDataQualityReporting = parseResult.transactions.filter((tx) => tx.reportingTreatment?.includedInDataQualityReporting).length;
     const rowsExcludedFromKpis = parseResult.transactions.filter((tx) => !isKpiIncludedRow(tx)).length;
     const needReviewCount = parseResult.transactions.filter((tx) => tx.status === "needs_review" && !tx.isPossibleDuplicate).length;
     const rowsUncategorised = parseResult.transactions.filter((tx) => isUncategorisedRow(tx) && !tx.isPossibleDuplicate).length;
@@ -663,7 +700,7 @@ export async function runUploadPipeline(
     const rowsCategorisedBySystemIntelligence = parseResult.transactions.filter((tx) => !tx.isPossibleDuplicate && isSystemCategorised(tx)).length;
     const rowsWithFees = parseResult.transactions.filter((tx) => (tx.feeAmount ?? 0) > 0).length;
     const rowsWithRefunds = parseResult.transactions.filter((tx) => isRefundRow(tx)).length;
-    const rowsWithCreditCardRepaymentTreatment = parseResult.transactions.filter((tx) => tx.isCreditCardRepayment).length;
+    const rowsWithCreditCardRepaymentTreatment = parseResult.transactions.filter((tx) => tx.reportingTreatment?.reportingTreatment === "credit_card_repayment").length;
     duplicateCountSnapshot = duplicateCount;
     transferCountSnapshot = transferCount;
     needReviewCountSnapshot = needReviewCount;
@@ -671,21 +708,22 @@ export async function runUploadPipeline(
     kpiExcludedCountSnapshot = rowsExcludedFromKpis;
     const rowOutcomes: ImportRowOutcome[] = [
       ...parseResult.transactions.map((tx) => {
+        const treatment = tx.reportingTreatment ?? applyReportingTreatment(tx).reportingTreatment;
         const transactionId =
           (tx.sourceRowNumber !== undefined ? insertedByLineage.get(`row:${tx.sourceRowNumber}`) : undefined) ??
           (tx.rawRowHash ? insertedByLineage.get(`hash:${tx.rawRowHash}`) : undefined) ??
           (tx.externalTransactionId ? insertedByLineage.get(`external:${tx.externalTransactionId}`) : undefined);
         const status: ImportRowOutcome["status"] = tx.isPossibleDuplicate
           ? "duplicate_skipped"
-          : tx.isTransfer
+          : treatment.includedInCashMovement && !treatment.includedInOperatingKpis && !treatment.includedInDataQualityReporting
           ? "transfer"
-          : tx.status === "needs_review"
+          : tx.status === "needs_review" || treatment.includedInDataQualityReporting
           ? "needs_review"
           : "inserted";
-        const kpiTreatment: ImportRowOutcome["kpiTreatment"] = isKpiIncludedRow(tx) ? "included" : "excluded";
+        const kpiTreatment: ImportRowOutcome["kpiTreatment"] = treatment.includedInOperatingKpis ? "included" : "excluded";
         const direction: ImportRowOutcome["direction"] = tx.amount >= 0 ? "income" : "expense";
         const duplicateStatus: ImportRowOutcome["duplicateStatus"] = tx.isPossibleDuplicate ? "duplicate" : "not_duplicate";
-        const signalsUsed = getEvidenceSources(tx);
+        const signalsUsed = [...new Set([...getEvidenceSources(tx), ...treatment.sourceEvidence])];
         return {
           rowNumber: tx.sourceRowNumber ?? 0,
           status,
@@ -715,13 +753,14 @@ export async function runUploadPipeline(
           duplicateStatus,
           kpiTreatment,
           kpiExclusionReason: kpiTreatment === "excluded"
-            ? tx.kpiExclusionReason ?? (tx.isPossibleDuplicate ? "duplicate" : tx.isTransfer ? "transfer" : "kpi_excluded")
+            ? treatment.kpiExclusionReason ?? tx.kpiExclusionReason ?? (tx.isPossibleDuplicate ? "duplicate" : "kpi_excluded")
             : undefined,
+          reportingTreatment: treatment,
           categoryReason: tx.categoryReason,
           intelligenceGroupId: tx.intelligenceGroupId,
           intelligenceGroupReason: tx.intelligenceGroupReason,
           signalsUsed,
-          reason: tx.reviewReason ?? tx.categoryReason ?? tx.kpiExclusionReason,
+          reason: treatment.explanation ?? tx.reviewReason ?? tx.categoryReason ?? tx.kpiExclusionReason,
         };
       }),
       ...parseResult.failedRows.map((row) => ({
@@ -731,6 +770,14 @@ export async function runUploadPipeline(
         sourceProvider: parseResult.detectedProvider,
         duplicateStatus: "not_duplicate" as const,
         kpiTreatment: "excluded" as const,
+        kpiExclusionReason: "failed_row",
+        reportingTreatment: classifyReportingTreatment({
+          type: "expense",
+          status: "failed",
+          rowStatus: "failed",
+          parseErrors: row.errors,
+          description: row.errors.join("; "),
+        }),
         failureReason: row.errors.join("; "),
         reason: row.errors.join("; "),
       })),
@@ -756,6 +803,12 @@ export async function runUploadPipeline(
       rowsIncludedInRevenue,
       rowsIncludedInExpenses,
       rowsIncludedInCashFlow,
+      rowsIncludedInCashMovement,
+      rowsIncludedInProfitAndLoss,
+      rowsIncludedInDebtTracking,
+      rowsIncludedInOwnerMovement,
+      rowsIncludedInTaxReporting,
+      rowsIncludedInDataQualityReporting,
       rowsLinkedToSubscriptions,
       rowsWithFees,
       rowsWithRefunds,

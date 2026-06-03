@@ -3,6 +3,9 @@
  * Every revenue/expense calculation in the app must use these to stay consistent.
  */
 
+import { getReportingTreatment, getStoredReportingTreatment } from "@/lib/reporting/treatment-engine";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
+
 export interface TransactionLike {
   type: string;
   category?: string;
@@ -13,6 +16,7 @@ export interface TransactionLike {
   kpi_excluded?: boolean;
   kpiExclusionReason?: string;
   kpi_exclusion_reason?: string;
+  reportingTreatment?: ReportingTreatment;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -29,6 +33,17 @@ const TRANSFER_CATEGORIES = new Set([
 ]);
 
 export function isTransfer(t: TransactionLike): boolean {
+  const treatment = getStoredReportingTreatment(t);
+  if (treatment) {
+    return (
+      treatment.reportingTreatment === "internal_transfer" ||
+      treatment.reportingTreatment === "money_transfer" ||
+      treatment.reportingTreatment === "international_transfer" ||
+      treatment.includedInDebtTracking ||
+      treatment.includedInOwnerMovement
+    );
+  }
+
   const metadata = t.metadata ?? {};
   return (
     TRANSFER_CATEGORIES.has(t.category ?? "") ||
@@ -43,16 +58,34 @@ export function isTransfer(t: TransactionLike): boolean {
 }
 
 export function isKpiExcluded(t: TransactionLike): boolean {
-  const metadata = t.metadata ?? {};
-  return t.kpiExcluded === true || t.kpi_excluded === true || metadata.kpi_excluded === true;
+  const treatment = getStoredReportingTreatment(t);
+  if (treatment) return !treatment.includedInOperatingKpis;
+
+  return !getReportingTreatment(t).includedInOperatingKpis;
 }
 
 export function isIncome(t: TransactionLike): boolean {
-  return t.type === "income" && !isTransfer(t) && !isKpiExcluded(t);
+  return t.type === "income" && getReportingTreatment(t).includedInOperatingRevenue;
 }
 
 export function isExpense(t: TransactionLike): boolean {
-  return t.type === "expense" && !isTransfer(t) && !isKpiExcluded(t);
+  return t.type === "expense" && getReportingTreatment(t).includedInOperatingExpenses;
+}
+
+export function isCashMovementIn(t: TransactionLike): boolean {
+  return t.type === "income" && getReportingTreatment(t).includedInCashMovement;
+}
+
+export function isCashMovementOut(t: TransactionLike): boolean {
+  return t.type === "expense" && getReportingTreatment(t).includedInCashMovement;
+}
+
+export function isCashFlowIn(t: TransactionLike): boolean {
+  return t.type === "income" && getReportingTreatment(t).includedInCashFlow;
+}
+
+export function isCashFlowOut(t: TransactionLike): boolean {
+  return t.type === "expense" && getReportingTreatment(t).includedInCashFlow;
 }
 
 const COGS_CATEGORIES = new Set([

@@ -3,6 +3,8 @@
  * Aligned with Supabase schema
  */
 
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
+
 /* ============ Core Entities ============ */
 
 export interface Profile {
@@ -83,6 +85,7 @@ export interface Transaction {
   }>;
   businessMeaning?: string;
   kpiTreatment?: "included" | "excluded";
+  reportingTreatment?: ReportingTreatment;
   categorySource?: "system" | "user" | "user_rule" | "grouping";
   userConfirmedCategory?: boolean;
   intelligenceGroupId?: string;

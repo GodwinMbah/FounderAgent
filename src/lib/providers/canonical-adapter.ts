@@ -5,6 +5,7 @@
  */
 
 import type { CanonicalTransaction } from "./canonical-model";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
 
 export interface NormalisedRow {
   rowNumber: number;
@@ -29,6 +30,9 @@ export interface NormalisedRow {
   groupingConfidence?: number;
   normalisedMerchant?: string;
   displayMerchant?: string;
+  kpiTreatment?: "included" | "excluded";
+  kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
   isCreditCardRepayment?: boolean;
   isSubscriptionCandidate?: boolean;
   isRecurringCandidate?: boolean;
@@ -76,6 +80,8 @@ export function canonicalToNormalised(
       category_evidence: tx.categoryEvidence,
       business_meaning: tx.businessMeaning,
       kpi_treatment: tx.kpiTreatment,
+      kpi_exclusion_reason: tx.kpiExclusionReason,
+      reporting_treatment: tx.reportingTreatment,
       income_expense_status: tx.incomeExpenseStatus,
       is_transfer: tx.isTransfer,
       is_fee: tx.isFee,
@@ -96,6 +102,9 @@ export function canonicalToNormalised(
     groupingConfidence: tx.groupingConfidence,
     normalisedMerchant: tx.normalisedMerchantName,
     displayMerchant: tx.displayMerchantName,
+    kpiTreatment: tx.kpiTreatment,
+    kpiExclusionReason: tx.kpiExclusionReason,
+    reportingTreatment: tx.reportingTreatment,
     isCreditCardRepayment: tx.isCreditCardRepayment,
     isSubscriptionCandidate: tx.isSubscriptionCandidate,
     isRecurringCandidate: tx.isRecurringCandidate,

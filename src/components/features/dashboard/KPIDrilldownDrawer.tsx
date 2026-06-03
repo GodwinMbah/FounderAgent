@@ -9,6 +9,8 @@ import type { KPICardConfig } from "@/lib/business-intelligence/types";
 import { formatKPIValue, getKPIChange } from "@/lib/business-intelligence/kpi-eligibility";
 import { isIncome, isExpense, isKpiExcluded, isTransfer } from "@/lib/reporting/filters";
 import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
+import { formatReportingTreatment, getReportingTreatment } from "@/lib/reporting/treatment-engine";
+import type { ReportingTreatment } from "@/lib/reporting/treatment-engine";
 import {
   AreaChart,
   Area,
@@ -146,6 +148,7 @@ function OverviewTab({
   const includedCategories = summariseCategories(includedTransactions);
   const excludedCategories = summariseCategories(excludedTransactions);
   const exclusionReasons = summariseExclusionReasons(excludedTransactions);
+  const includedTreatments = summariseReportingTreatments(includedTransactions);
 
   return (
     <div className="space-y-6">
@@ -170,6 +173,7 @@ function OverviewTab({
           <TraceRow label="Source transactions" value={String(includedTransactions.length)} />
           <TraceRow label="Source uploads" value={String(sourceUploadCount)} />
           <TraceRow label="Included categories" value={includedCategories || "None"} />
+          <TraceRow label="Included treatments" value={includedTreatments || "None"} />
           <TraceRow label="Excluded categories" value={excludedCategories || "None"} />
           <TraceRow label="Excluded rows" value={String(excludedTransactions.length)} />
           <TraceRow label="Exclusion reasons" value={exclusionReasons || "None"} />
@@ -320,6 +324,7 @@ type DrilldownTransaction = {
   rowStatus?: string;
   kpiExcluded?: boolean;
   kpiExclusionReason?: string;
+  reportingTreatment?: ReportingTreatment;
   metadata?: Record<string, unknown>;
 };
 
@@ -354,6 +359,7 @@ function TransactionsTab({ transactions, kpi }: { transactions?: DrilldownTransa
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-[var(--foreground)] truncate">{t.merchant || t.description}</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">{formatDate(t.date)} · {t.category}</p>
+            <p className="text-[10px] text-sky-300/80">{formatReportingTreatment(t)}</p>
           </div>
           <span className={`text-xs font-semibold shrink-0 ml-3 ${t.type === "income" ? "text-emerald-400" : "text-rose-400"}`}>
             {t.type === "income" ? "+" : "-"}{formatCurrency(Math.abs(t.amount), 0, currency)}
@@ -424,17 +430,29 @@ function summariseCategories(transactions: Transaction[]): string {
 function summariseExclusionReasons(transactions: Transaction[]): string {
   const counts = new Map<string, number>();
   for (const tx of transactions) {
-    const reason =
-      tx.kpiExclusionReason ||
-      (tx.metadata?.kpi_exclusion_reason as string | undefined) ||
-      (isTransfer(tx) ? "transfer" : "kpi_excluded");
-    const label = formatKpiExclusionReason(reason, tx.category);
+    const treatment = getReportingTreatment(tx);
+    const label = treatment.kpiExclusionReason
+      ? formatKpiExclusionReason(treatment.kpiExclusionReason, tx.category)
+      : treatment.label;
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([reason, count]) => `${reason} (${count})`)
+    .join(", ");
+}
+
+function summariseReportingTreatments(transactions: Transaction[]): string {
+  const counts = new Map<string, number>();
+  for (const tx of transactions) {
+    const label = getReportingTreatment(tx).label;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label, count]) => `${label} (${count})`)
     .join(", ");
 }
 
@@ -488,6 +506,7 @@ function buildDrilldown(
       rowStatus: t.rowStatus,
       kpiExcluded: t.kpiExcluded,
       kpiExclusionReason: t.kpiExclusionReason,
+      reportingTreatment: t.reportingTreatment,
       metadata: t.metadata,
     })),
   };
