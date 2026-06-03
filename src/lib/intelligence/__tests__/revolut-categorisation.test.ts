@@ -106,7 +106,7 @@ describe("Revolut CSV categorisation", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Asda → Food and Meals", () => {
+  it("Asda Stores → Office Costs for generic business retail", () => {
     const result = categoriseTransaction(
       makeTx({
         merchant: "Asda Stores",
@@ -115,8 +115,22 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Food and Meals");
+    expect(result.category).toBe("Office Costs");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
+  });
+
+  it("Asda Petrol → Vehicle and Fuel", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Asda Petrol",
+        description: "Asda Petrol Station",
+        amount: -45,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Vehicle and Fuel");
+    expect(result.subcategory).toBe("Fuel");
+    expect(result.confidence).toBeGreaterThanOrEqual(80);
   });
 
   it("Capital On Tap → Credit Card Payment or Transfer", () => {
@@ -155,7 +169,8 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Transfers");
+    expect(result.category).toBe("Internal Transfer");
+    expect(result.kpiTreatment).toBe("excluded");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
@@ -238,5 +253,57 @@ describe("Revolut CSV categorisation", () => {
     expect(result.normalisedMerchant).toBe("Amazon");
     expect(result.reason).not.toContain("Payment Processor Fees");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
+  });
+
+  it("Refund Processed outgoing → Revenue Adjustment", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Client Refund",
+        description: "Refund Processed",
+        amount: -40,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Revenue Adjustment");
+    expect(result.subcategory).toBe("Refund");
+    expect(result.kpiTreatment).toBe("included");
+  });
+
+  it("Hostinger → Cloud Infrastructure", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Hostinger.com",
+        description: "Hostinger web hosting",
+        amount: -14.47,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Cloud Infrastructure");
+    expect(result.confidence).toBeGreaterThanOrEqual(80);
+  });
+
+  it("Quick Printing roller banner → Marketing", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Quick Printing Ltd",
+        description: "Roller Banner Fee",
+        amount: -99,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Marketing");
+    expect(result.reason).toContain("Marketing");
+  });
+
+  it("Teleperformance contact centre → Customer Service", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Teleperformance Contact",
+        description: "Customer service management",
+        amount: -2,
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Customer Service");
   });
 });

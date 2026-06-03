@@ -146,7 +146,7 @@ const UNIVERSAL_MERCHANT_REGISTRY: Record<string, RegistryEntry> = {
   woocommerce: { category: "Revenue", confidence: 85, reason: "WooCommerce is an ecommerce platform — incoming likely sales revenue", incomeCategory: "Revenue", expenseCategory: "Software" },
 
   // Ecommerce marketplaces
-  amazon: { category: "Revenue", confidence: 85, reason: "Amazon is a marketplace — incoming likely sales revenue", incomeCategory: "Revenue", expenseCategory: "Office Costs" },
+  amazon: { category: "Revenue", confidence: 85, reason: "Amazon is a marketplace; direction and business model determine revenue, office cost, inventory, or fulfilment treatment", incomeCategory: "Revenue", expenseCategory: "Office Costs" },
   ebay: { category: "Revenue", confidence: 80, reason: "eBay is a marketplace — incoming likely sales revenue", incomeCategory: "Revenue", expenseCategory: "Office Costs" },
   etsy: { category: "Revenue", confidence: 80, reason: "Etsy is a marketplace — incoming likely sales revenue", incomeCategory: "Revenue", expenseCategory: "Office Costs" },
 
@@ -159,6 +159,7 @@ const UNIVERSAL_MERCHANT_REGISTRY: Record<string, RegistryEntry> = {
   azure: { category: "Cloud Infrastructure", confidence: 90, reason: "Azure is cloud infrastructure" },
   heroku: { category: "Cloud Infrastructure", confidence: 85, reason: "Heroku is cloud hosting" },
   digitalocean: { category: "Cloud Infrastructure", confidence: 85, reason: "DigitalOcean is cloud hosting" },
+  hostinger: { category: "Cloud Infrastructure", confidence: 88, reason: "Hostinger is web hosting/cloud infrastructure" },
   linode: { category: "Cloud Infrastructure", confidence: 85, reason: "Linode is cloud hosting" },
   fastly: { category: "Cloud Infrastructure", confidence: 85, reason: "Fastly is CDN infrastructure" },
   akamai: { category: "Cloud Infrastructure", confidence: 85, reason: "Akamai is CDN infrastructure" },
@@ -371,17 +372,19 @@ const UNIVERSAL_MERCHANT_REGISTRY: Record<string, RegistryEntry> = {
   digitbook: { category: "Software", confidence: 70, reason: "Digitbook appears to be digital/software spend" },
 
   // Groceries
-  asda: { category: "Food and Meals", confidence: 85, reason: "Asda is a grocery store" },
+  "asda petrol": { category: "Vehicle and Fuel", confidence: 88, reason: "Asda Petrol is fuel/vehicle spend" },
+  asda: { category: "Office Costs", confidence: 72, reason: "Asda is grocery/retail spend; often office or staff supplies for a business unless marked personal" },
   tesco: { category: "Food and Meals", confidence: 85, reason: "Tesco is a grocery store" },
   sainsburys: { category: "Food and Meals", confidence: 85, reason: "Sainsbury's is a grocery store" },
   "sainsbury's": { category: "Food and Meals", confidence: 85, reason: "Sainsbury's is a grocery store" },
   sainsbury: { category: "Food and Meals", confidence: 85, reason: "Sainsbury's is a grocery store" },
 
   // Financial / Transfer
-  remitly: { category: "Transfers", confidence: 85, reason: "Remitly is a money transfer service" },
-  lemfi: { category: "Transfers", confidence: 85, reason: "LemFi is a money transfer service" },
-  bumper: { category: "Financial Services", confidence: 80, reason: "Bumper is a financial services provider" },
-  "bumper.co.uk": { category: "Financial Services", confidence: 80, reason: "Bumper is a financial services provider" },
+  remitly: { category: "International Transfer", confidence: 88, reason: "Remitly is an international money transfer service" },
+  lemfi: { category: "International Transfer", confidence: 88, reason: "LemFi is an international money transfer service" },
+  moneyway: { category: "Loan Repayment", confidence: 86, reason: "Moneyway is a vehicle finance/loan provider" },
+  bumper: { category: "Vehicle and Fuel", confidence: 80, reason: "Bumper is vehicle repair/automotive finance context" },
+  "bumper.co.uk": { category: "Vehicle and Fuel", confidence: 82, reason: "Bumper.co.uk is vehicle repair/automotive finance context" },
 
   // Shopping
   klarna: { category: "Ambiguous", confidence: 35, reason: "Klarna is payment method context; inspect underlying merchant before categorising" },
@@ -408,12 +411,12 @@ const UNIVERSAL_MERCHANT_REGISTRY: Record<string, RegistryEntry> = {
   "ksn foods": { category: "Food and Meals", confidence: 70, reason: "Food merchant spend" },
 
   // Automotive
-  "greenhithe hand car wash": { category: "Automotive", confidence: 75, reason: "Car wash service" },
+  "greenhithe hand car wash": { category: "Vehicle and Fuel", confidence: 80, reason: "Car wash service is vehicle maintenance" },
   ncp: { category: "Travel", confidence: 75, reason: "NCP is car parking/travel spend" },
   "ncp limited": { category: "Travel", confidence: 75, reason: "NCP is car parking/travel spend" },
   "gatwick airport": { category: "Travel", confidence: 78, reason: "Airport spend is travel-related" },
   "canary wharf car parks": { category: "Travel", confidence: 75, reason: "Car park spend is travel/parking" },
-  dvla: { category: "Automotive", confidence: 70, reason: "DVLA is vehicle administration/tax context" },
+  dvla: { category: "Vehicle and Fuel", confidence: 70, reason: "DVLA is vehicle administration/tax context" },
   cex: { category: "Office Costs", confidence: 65, reason: "CeX is electronics retail; likely equipment/office cost if business-related" },
   companieshouse: { category: "Professional Services", confidence: 75, reason: "Companies House filing/admin fee" },
   "companies house": { category: "Professional Services", confidence: 75, reason: "Companies House filing/admin fee" },
@@ -451,9 +454,12 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
 
   // Expense signals
   { keywords: ["commission received", "sales commission received", "affiliate commission received"], category: "Revenue", confidence: 82, reason: "Incoming commission received is revenue", amountCondition: "positive" },
-  { keywords: ["sales rep commission", "marketing commission", "commission payout", "affiliate payout", "referal pay out", "referral pay out", "referral payout", "sales commission", "commission"], category: "Sales Commission", confidence: 86, reason: "Commission payout is a sales/marketing commission expense", amountCondition: "negative" },
+  { keywords: ["sales rep commission", "sales rep commision", "marketing commission", "commission payout", "commision payout", "affiliate payout", "referal pay out", "referral pay out", "referral payout", "sales commission", "sales commision", "commission", "commision"], category: "Sales Commission", confidence: 86, reason: "Commission payout is a sales/marketing commission expense", amountCondition: "negative" },
   { keywords: ["consultancy", "consulting fee", "consultant fee", "advisory fee"], category: "Professional Services", confidence: 80, reason: "Consultancy/advisory fee" },
+  { keywords: ["mentoring consultancy", "mentoring fee", "salesforce mentoring"], category: "Professional Services", confidence: 82, reason: "Mentoring/consultancy service fee", amountCondition: "negative" },
+  { keywords: ["mentoring consultancy", "mentoring fee", "salesforce mentoring", "training fee", "course payment"], category: "Mentoring Income", confidence: 84, reason: "Mentoring/training income", amountCondition: "positive", businessModels: ["coaching", "consultancy", "mixed"] },
   { keywords: ["director fee", "directors fee", "board fee"], category: "Professional Services", confidence: 75, reason: "Director/board fee" },
+  { keywords: ["customer service management", "customer service management fee"], category: "Customer Service", confidence: 82, reason: "Customer service management fee" },
   { keywords: ["salary", "wages", "payroll", "employee pay", "engagement manager"], category: "Payroll", confidence: 90, reason: "Salary/wages payment" },
   { keywords: ["pension", "auto-enrolment", "workplace pension"], category: "Payroll", confidence: 90, reason: "Pension contribution" },
   { keywords: ["rent", "lease", "lease payment", "property rent"], category: "Office Costs", confidence: 85, reason: "Rent/lease payment" },
@@ -463,7 +469,7 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["software", "saas", "app subscription", "license"], category: "Software", confidence: 80, reason: "Software/SaaS payment" },
   { keywords: ["cloud hosting", "server hosting", "hosting"], category: "Cloud Infrastructure", confidence: 80, reason: "Hosting/cloud infrastructure" },
   { keywords: ["advertising", "ads", "ad spend", "campaign", "ppc"], category: "Advertising", confidence: 85, reason: "Advertising spend" },
-  { keywords: ["marketing", "seo", "content marketing", "video shoot payment", "challenge 1st price", "challenge 3rd price"], category: "Marketing", confidence: 70, reason: "Marketing spend" },
+  { keywords: ["marketing", "seo", "content marketing", "video shoot payment", "roller banner", "printing", "print collateral", "challenge 1st price", "challenge 3rd price"], category: "Marketing", confidence: 75, reason: "Marketing spend or collateral" },
   { keywords: ["contractor", "freelancer", " freelancer payment", "freelance fee"], category: "Contractors", confidence: 80, reason: "Contractor/freelancer payment" },
   { keywords: ["fiverr", "upwork", "freelance marketplace"], category: "Contractors", confidence: 82, reason: "Freelance/contractor marketplace spend" },
   { keywords: ["supplier", "vendor payment", "supplier payment", "invoice payment"], category: "COGS", confidence: 75, reason: "Supplier/vendor payment" },
@@ -480,11 +486,13 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["cinema", "vue entertainment", "national trust", "historic royal", "royal pavilion", "gravity max"], category: "Personal Spending", confidence: 60, reason: "Leisure/tourism spend is usually personal unless confirmed as business-related" },
 
   // Transfer signals
-  { keywords: ["credit card repayment", "card repayment", "credit card payment", "moneyway", "close brothers"], category: "Credit Card Payment", confidence: 85, reason: "Credit card or loan repayment" },
+  { keywords: ["credit card repayment", "card repayment", "credit card payment"], category: "Credit Card Payment", confidence: 85, reason: "Credit card repayment" },
+  { keywords: ["moneyway", "close brothers", "loan repayment", "loan payment"], category: "Loan Repayment", confidence: 85, reason: "Loan or vehicle finance repayment" },
   { keywords: ["top up", "top-up", "account top up"], category: "Ambiguous", confidence: 45, reason: "Top-up without processor/capital context is ambiguous" },
 
   // Refunds
-  { keywords: ["refund", "refunded", "return", "money back", "reimbursement", "over payment"], category: "Refunds", confidence: 70, reason: "Refund/return" },
+  { keywords: ["refund", "refunded", "return", "returned", "money back", "reimbursement", "over payment"], category: "Revenue Adjustment", confidence: 78, reason: "Outgoing refund/revenue adjustment", amountCondition: "negative" },
+  { keywords: ["refund", "refunded", "return", "returned", "money back", "reimbursement", "over payment"], category: "Refunds", confidence: 78, reason: "Incoming refund/reversal", amountCondition: "positive" },
 
   // HighLevel specific
   { keywords: ["highlevel", "gohighlevel", "high level", "agency sub"], category: "Software", confidence: 85, reason: "HighLevel/GoHighLevel is marketing automation SaaS" },
@@ -506,6 +514,7 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["google cloud", "gcp"], category: "Cloud Infrastructure", confidence: 85, reason: "Google Cloud infrastructure" },
   { keywords: ["heroku"], category: "Cloud Infrastructure", confidence: 80, reason: "Heroku hosting" },
   { keywords: ["digitalocean"], category: "Cloud Infrastructure", confidence: 80, reason: "DigitalOcean hosting" },
+  { keywords: ["hostinger"], category: "Cloud Infrastructure", confidence: 88, reason: "Hostinger web hosting" },
 
   // AI Tools (description fallback)
   { keywords: ["openai", "chatgpt"], category: "AI Tools", confidence: 90, reason: "OpenAI AI services" },
@@ -625,7 +634,7 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["sky"], category: "Utilities", confidence: 80, reason: "Sky telecom/media" },
   { keywords: ["o2"], category: "Utilities", confidence: 80, reason: "O2 mobile telecom" },
   { keywords: ["vodafone"], category: "Utilities", confidence: 80, reason: "Vodafone mobile telecom" },
-  { keywords: ["ee"], category: "Utilities", confidence: 80, reason: "EE mobile telecom" },
+  { keywords: ["ee mobile", "ee ltd"], category: "Utilities", confidence: 80, reason: "EE mobile telecom" },
   { keywords: ["three"], category: "Utilities", confidence: 80, reason: "Three mobile telecom" },
 
   // Insurance
@@ -647,7 +656,8 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["just eat"], category: "Food and Meals", confidence: 80, reason: "Just Eat food delivery" },
 
   // Groceries
-  { keywords: ["asda"], category: "Food and Meals", confidence: 80, reason: "Asda grocery store" },
+  { keywords: ["asda petrol", "petrol", "fuel"], category: "Vehicle and Fuel", confidence: 85, reason: "Fuel/vehicle spend" },
+  { keywords: ["asda"], category: "Office Costs", confidence: 65, reason: "Asda grocery/retail spend can be office or staff supplies if business-related" },
   { keywords: ["tesco"], category: "Food and Meals", confidence: 80, reason: "Tesco grocery store" },
   { keywords: ["sainsbury", "sainsbury's"], category: "Food and Meals", confidence: 80, reason: "Sainsbury's grocery store" },
   { keywords: ["butcher", "food market", "foods", "food and wine", "grocery"], category: "Food and Meals", confidence: 70, reason: "Food/grocery merchant" },
@@ -655,13 +665,14 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["ikea", "dunelm", "homeware", "furniture"], category: "Office Costs", confidence: 65, reason: "Furniture/homeware can be office or premises cost if business-related" },
   { keywords: ["pharmacy", "boots"], category: "Office Costs", confidence: 65, reason: "Pharmacy/retail spend can be office/staff supplies if business-related" },
   { keywords: ["companieshouse", "companies house"], category: "Professional Services", confidence: 75, reason: "Companies House filing/admin fee" },
+  { keywords: ["teleperformance"], category: "Customer Service", confidence: 75, reason: "Teleperformance is customer-service/contact-centre operations" },
   { keywords: ["primark", "prima"], category: "Personal Spending", confidence: 60, reason: "Retail spend is usually personal unless confirmed as business-related" },
   { keywords: ["must have ideas"], category: "Shopping", confidence: 65, reason: "Retail/product merchant spend" },
 
   // Travel
   { keywords: ["trainline"], category: "Travel", confidence: 85, reason: "Trainline rail ticketing" },
   { keywords: ["parking", "car park", "car parks", "ncp", "airport"], category: "Travel", confidence: 75, reason: "Parking/airport spend is travel-related" },
-  { keywords: ["dvla"], category: "Automotive", confidence: 70, reason: "DVLA vehicle administration/tax context" },
+  { keywords: ["dvla"], category: "Vehicle and Fuel", confidence: 70, reason: "DVLA vehicle administration/tax context" },
   { keywords: ["british airways"], category: "Travel", confidence: 85, reason: "British Airways airline" },
   { keywords: ["easyjet"], category: "Travel", confidence: 85, reason: "EasyJet airline" },
   { keywords: ["ryanair"], category: "Travel", confidence: 85, reason: "Ryanair airline" },
@@ -686,15 +697,15 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["stripe payments uk ltd", "money added from stripe"], category: "Revenue", confidence: 95, reason: "Stripe top-up/payout is revenue", amountCondition: "positive" },
   { keywords: ["revolut business fee"], category: "Bank Fees", confidence: 90, reason: "Revolut business account fee" },
   { keywords: ["director consultancy fee"], category: "Professional Services", confidence: 80, reason: "Director consultancy fee" },
-  { keywords: ["sales rep commission"], category: "Sales Commission", confidence: 90, reason: "Sales rep commission" },
+  { keywords: ["sales rep commission", "sales rep commision"], category: "Sales Commission", confidence: 90, reason: "Sales rep commission" },
   { keywords: ["marketing commission"], category: "Sales Commission", confidence: 90, reason: "Marketing commission" },
   { keywords: ["klarna*amazon", "klarna amazon"], category: "Office Costs", confidence: 78, reason: "Amazon purchase via Klarna; Klarna is payment context, not the fee category" },
   { keywords: ["nyx*asda"], category: "Shopping", confidence: 70, reason: "Purchase via Asda" },
-  { keywords: ["car wash"], category: "Automotive", confidence: 70, reason: "Car wash service" },
+  { keywords: ["car wash"], category: "Vehicle and Fuel", confidence: 75, reason: "Car wash/vehicle maintenance service" },
   { keywords: ["ades ltd"], category: "Food and Meals", confidence: 70, reason: "Restaurant/cafe purchase" },
 
   // Transfer patterns
-  { keywords: ["from british pound", "to british pound", "main · eur", "main · gbp"], category: "Transfers", confidence: 80, reason: "Currency/account movement suggests internal transfer" },
+  { keywords: ["from british pound", "to british pound", "main · eur", "main · gbp"], category: "Internal Transfer", confidence: 85, reason: "Currency/account movement suggests internal transfer" },
 
   // Credit card
   { keywords: ["capital on tap"], category: "Credit Card Payment", confidence: 90, reason: "Capital On Tap credit card provider" },
@@ -825,7 +836,6 @@ const CREDIT_CARD_PROVIDER_TERMS = [
   "tide credit",
   "revolut card",
   "credit card",
-  "moneyway",
   "close brothers",
 ];
 
@@ -872,6 +882,21 @@ function textValue(value: unknown): string {
 
 function normaliseSearchText(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function keywordMatches(text: string, keyword: string): boolean {
+  const trimmed = keyword.toLowerCase().trim();
+  if (!trimmed) return false;
+  const pattern = trimmed.split(/\s+/).map(escapeRegExp).join("\\s+");
+  const startsWithWord = /^[a-z0-9]/.test(trimmed);
+  const endsWithWord = /[a-z0-9]$/.test(trimmed);
+  const prefix = startsWithWord ? "(^|[^a-z0-9])" : "";
+  const suffix = endsWithWord ? "(?=$|[^a-z0-9])" : "";
+  return new RegExp(`${prefix}${pattern}${suffix}`, "i").test(text);
 }
 
 function rawSignalText(rawData?: Record<string, unknown>, metadata?: Record<string, unknown>): string {
@@ -935,8 +960,7 @@ function extractSignals(tx: TransactionContext): TransactionSignals {
   const payoutSeen = /\b(payout|settlement|sales|invoice|customer payment|order payment|money added from)\b/.test(allText);
   const creditCardRepayment = CREDIT_CARD_PROVIDER_TERMS.some((term) => allText.includes(term)) && tx.type === "expense";
   const internalMovement =
-    Boolean(tx.isTransfer) ||
-    /\b(internal transfer|own account|between accounts|main\s*[·-]\s*[a-z]{3}\s*[→>-]\s*main|currency exchange|from british pound|to british pound)\b/i.test(allText);
+    /\b(internal transfer|own account|between accounts|business savings|main\s*[·-]\s*[a-z]{3}\s*[→>-]\s*main|currency exchange|from british pound|to british pound)\b/i.test(allText);
   const subscriptionLike =
     /\b(subscription|monthly|annual|annually|recurring|plan|membership|agency sub|license|licence)\b/i.test(allText);
 
@@ -977,7 +1001,7 @@ export class UniversalCategorisationEngine {
       merchant: signals.normalisedMerchant,
       description: tx.description || signals.descriptionText,
       reference: tx.reference || signals.referenceText,
-      isTransfer: tx.isTransfer || signals.isInternalMovement,
+      isTransfer: signals.isInternalMovement,
     };
 
     if (signals.paymentMethodContext && signals.underlyingMerchant) {
@@ -1074,13 +1098,13 @@ export class UniversalCategorisationEngine {
     const transferSignals = [
       { pattern: "credit card repayment", category: "Credit Card Payment", confidence: 90 },
       { pattern: "credit card payment", category: "Credit Card Payment", confidence: 85 },
-      { pattern: "loan repayment", category: "Transfers", confidence: 85 },
-      { pattern: "internal transfer", category: "Transfers", confidence: 90 },
-      { pattern: "transfer to savings", category: "Transfers", confidence: 85 },
-      { pattern: "transfer from savings", category: "Transfers", confidence: 85 },
+      { pattern: "loan repayment", category: "Loan Repayment", confidence: 85 },
+      { pattern: "internal transfer", category: "Internal Transfer", confidence: 90 },
+      { pattern: "transfer to savings", category: "Internal Transfer", confidence: 85 },
+      { pattern: "transfer from savings", category: "Internal Transfer", confidence: 85 },
       { pattern: "owner drawing", category: "Owner Drawings", confidence: 80 },
       { pattern: "director loan", category: "Owner Drawings", confidence: 75 },
-      { pattern: "capital repayment", category: "Transfers", confidence: 80 },
+      { pattern: "capital repayment", category: "Internal Transfer", confidence: 80 },
     ];
 
     for (const signal of transferSignals) {
@@ -1096,7 +1120,7 @@ export class UniversalCategorisationEngine {
 
     if (signals.isInternalMovement) {
       return {
-        category: "Transfers",
+        category: "Internal Transfer",
         confidence: 85,
         source: "transfer_detection",
         reason: "Account/currency movement pattern suggests an internal transfer",
@@ -1133,9 +1157,9 @@ export class UniversalCategorisationEngine {
       });
     }
 
-    if ((tx.isTransfer || signals.isInternalMovement) && !signals.isPaymentProcessorPayout) {
+    if (signals.isInternalMovement && !signals.isPaymentProcessorPayout) {
       evidence.push({
-        category: "Transfers",
+        category: "Internal Transfer",
         confidence: 85,
         source: "transfer_detection",
         reason: "Internal movement evidence indicates a transfer between accounts",
@@ -1152,7 +1176,7 @@ export class UniversalCategorisationEngine {
         });
       } else if (signals.isInternalMovement) {
         evidence.push({
-          category: "Transfers",
+          category: "Internal Transfer",
           confidence: 80,
           source: "transaction_type",
           reason: "Top-up has internal account/currency movement signals",
@@ -1176,16 +1200,16 @@ export class UniversalCategorisationEngine {
 
     if (type === "REFUND") {
       evidence.push({
-        category: "Refunds",
+        category: tx.type === "income" ? "Refunds" : "Revenue Adjustment",
         confidence: 80,
         source: "transaction_type",
-        reason: "Refund transaction",
+        reason: tx.type === "income" ? "Incoming refund/reversal" : "Outgoing refund/revenue adjustment",
       });
     }
 
     if (type === "EXCHANGE") {
       evidence.push({
-        category: "Transfers",
+        category: "Internal Transfer",
         confidence: 70,
         source: "transaction_type",
         reason: "Currency exchange",
@@ -1204,8 +1228,10 @@ export class UniversalCategorisationEngine {
       "5812": { category: "Food and Meals", confidence: 65, reason: "MCC 5812 — restaurant" },
       "5813": { category: "Food and Meals", confidence: 65, reason: "MCC 5813 — bar/restaurant" },
       "5814": { category: "Food and Meals", confidence: 65, reason: "MCC 5814 — fast food" },
-      "5541": { category: "Automotive", confidence: 65, reason: "MCC 5541 — service station" },
-      "7538": { category: "Automotive", confidence: 65, reason: "MCC 7538 — automotive service" },
+      "5511": { category: "Vehicle and Fuel", confidence: 65, reason: "MCC 5511 — vehicle dealer/automotive" },
+      "5541": { category: "Vehicle and Fuel", confidence: 65, reason: "MCC 5541 — service station" },
+      "5542": { category: "Vehicle and Fuel", confidence: 70, reason: "MCC 5542 — fuel/service station" },
+      "7538": { category: "Vehicle and Fuel", confidence: 65, reason: "MCC 7538 — automotive service" },
       "7372": { category: "Software", confidence: 65, reason: "MCC 7372 — computer programming" },
       "7375": { category: "Software", confidence: 65, reason: "MCC 7375 — information retrieval services" },
       "7392": { category: "Professional Services", confidence: 65, reason: "MCC 7392 — business consulting" },
@@ -1263,7 +1289,8 @@ export class UniversalCategorisationEngine {
     // Partial match
     if (!entry) {
       for (const [key, value] of Object.entries(UNIVERSAL_MERCHANT_REGISTRY)) {
-        if (merchantKey.includes(key) || key.includes(merchantKey)) {
+        const canPartialMatch = key.length >= 4 && merchantKey.length >= 4;
+        if (canPartialMatch && (merchantKey.includes(key) || key.includes(merchantKey))) {
           entry = value;
           break;
         }
@@ -1310,8 +1337,13 @@ export class UniversalCategorisationEngine {
       { prefix: "crd", category: "Credit Card Payment", confidence: 75, reason: "Reference prefix 'CRD' suggests credit card" },
     ];
 
+    const hasReferencePrefix = (prefix: string) => {
+      if (ref === prefix) return true;
+      return new RegExp(`^${prefix}(?:[\\d\\s_\\-:/#]|$)`).test(ref);
+    };
+
     for (const pattern of prefixPatterns) {
-      if (ref.startsWith(pattern.prefix)) {
+      if (hasReferencePrefix(pattern.prefix)) {
         evidence.push({
           category: pattern.category,
           confidence: pattern.confidence,
@@ -1340,7 +1372,7 @@ export class UniversalCategorisationEngine {
       if (pattern.businessModels && !pattern.businessModels.includes(this.businessContext.model)) continue;
 
       // Check if any keyword matches
-      const matchedKeyword = pattern.keywords.find((kw) => text.includes(kw.toLowerCase()));
+      const matchedKeyword = pattern.keywords.find((kw) => keywordMatches(text, kw));
       if (matchedKeyword) {
         scoredMatches.push({
           category: pattern.category,
@@ -1569,7 +1601,11 @@ export class UniversalCategorisationEngine {
 
     const kpiExcludedCategories = new Set([
       "Transfers",
+      "Internal Transfer",
+      "International Transfer",
+      "Money Transfer",
       "Credit Card Payment",
+      "Loan Repayment",
       "Owner Drawings",
       "Capital Injection",
       "Loans",
@@ -1577,7 +1613,14 @@ export class UniversalCategorisationEngine {
       "Uncategorised Review",
     ]);
     const isCreditCardRepayment = bestCategory === "Credit Card Payment" || signals.isCreditCardRepayment;
-    const isTransfer = bestCategory === "Transfers" || isCreditCardRepayment || bestCategory === "Owner Drawings";
+    const isTransfer =
+      bestCategory === "Transfers" ||
+      bestCategory === "Internal Transfer" ||
+      bestCategory === "International Transfer" ||
+      bestCategory === "Money Transfer" ||
+      bestCategory === "Loan Repayment" ||
+      isCreditCardRepayment ||
+      bestCategory === "Owner Drawings";
     const isSubscription = bestCategory === "Subscriptions" || signals.isSubscriptionLike;
     const kpiTreatment = kpiExcludedCategories.has(bestCategory) ? "excluded" : "included";
 
@@ -1654,8 +1697,17 @@ export class UniversalCategorisationEngine {
       if (text.includes("sales rep")) return "Sales Rep";
       return "Commission";
     }
+    if (category === "Vehicle and Fuel") {
+      if (text.includes("petrol") || text.includes("fuel")) return "Fuel";
+      if (text.includes("car wash")) return "Vehicle Maintenance";
+      return "Vehicle";
+    }
     if (category === "Revenue" && signals.isPaymentProcessorPayout) return "Processor Payout";
     if (category === "Credit Card Payment") return "Repayment";
+    if (category === "Loan Repayment") return "Repayment";
+    if (category === "Internal Transfer") return "Account Movement";
+    if (category === "International Transfer" || category === "Money Transfer") return "Remittance";
+    if (category === "Revenue Adjustment") return "Refund";
     return undefined;
   }
 

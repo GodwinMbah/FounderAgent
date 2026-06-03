@@ -231,7 +231,8 @@ describe("UniversalCategorisationEngine", () => {
 
     it("detects internal transfer as Transfer", () => {
       const result = categoriseTransaction(makeTx({ merchant: "", description: "Transfer to savings account", amount: -2000 }), ctx);
-      expect(result.category).toBe("Transfers");
+      expect(result.category).toBe("Internal Transfer");
+      expect(result.kpiTreatment).toBe("excluded");
     });
 
     it("detects owner drawing as Owner Drawings", () => {
@@ -434,6 +435,80 @@ describe("UniversalCategorisationEngine", () => {
 
       expect(result.category).toBe("Revenue");
       expect(result.reason).toContain("invoice");
+    });
+
+    it("uses reference context over personal-name merchant for marketing commission", () => {
+      const result = categoriseTransaction(makeTx({
+        merchant: "Catherine Bull",
+        description: "To Catherine Bull",
+        reference: "Marketing Commission Payout",
+        transactionType: "TRANSFER",
+        provider: "revolut_business_csv",
+        amount: -35,
+      }), ctx);
+
+      expect(result.category).toBe("Sales Commission");
+      expect(result.isTransfer).toBe(false);
+      expect(result.kpiTreatment).toBe("included");
+      expect(result.categoryConfidence).toBeGreaterThanOrEqual(80);
+    });
+
+    it("does not treat Salesforce Mentoring as salary because of the Sales prefix", () => {
+      const result = categoriseTransaction(makeTx({
+        merchant: "Salesforce Mentoring",
+        description: "Salesforce Mentoring fee",
+        reference: "MENTORING",
+        amount: -250,
+      }), ctx);
+
+      expect(result.category).toBe("Professional Services");
+      expect(result.category).not.toBe("Payroll");
+      expect(result.category).not.toBe("Revenue");
+    });
+
+    it("classifies coaching mentoring income using business profile context", () => {
+      const coachingCtx = makeContext("coaching");
+      const result = categoriseTransaction(makeTx({
+        merchant: "Client Student",
+        description: "Mentoring fee received",
+        reference: "Course mentoring fee",
+        amount: 750,
+        type: "income",
+      }), coachingCtx);
+
+      expect(result.category).toBe("Mentoring Income");
+      expect(result.kpiTreatment).toBe("included");
+      expect(result.confidence).toBeGreaterThanOrEqual(80);
+    });
+
+    it("keeps genuinely unclear personal transfers in review", () => {
+      const result = categoriseTransaction(makeTx({
+        merchant: "O Akinwoleola",
+        description: "Godwin",
+        reference: "Godwin",
+        amount: -30,
+        transactionType: "TRANSFER",
+      }), ctx);
+
+      expect(result.category).toBe("Uncategorised Review");
+      expect(result.status).toBe("needs_review");
+      expect(result.confidence).toBe(0);
+      expect(result.reason).toContain("Not enough information");
+    });
+
+    it("handles open banking style canonical transactions through the same engine", () => {
+      const result = categoriseTransaction(makeTx({
+        merchant: "Hostinger.com",
+        description: "HOSTINGER SUBSCRIPTION",
+        reference: "card transaction",
+        provider: "truelayer",
+        transactionType: "CARD_PAYMENT",
+        amount: -28.6,
+      }), ctx);
+
+      expect(result.category).toBe("Cloud Infrastructure");
+      expect(result.isSubscription).toBe(true);
+      expect(result.reason).toContain("Hostinger");
     });
   });
 });

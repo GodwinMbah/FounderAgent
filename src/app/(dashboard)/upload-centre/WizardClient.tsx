@@ -152,6 +152,8 @@ const FIELD_OPTIONS = [
   { value: "balance", label: "Balance" },
   { value: "type", label: "Transaction Type" },
   { value: "reference", label: "Reference" },
+  { value: "externalTransactionId", label: "External Transaction ID" },
+  { value: "merchantCategoryCode", label: "Merchant Category Code (MCC)" },
   { value: "category", label: "Category" },
 ];
 
@@ -1428,9 +1430,41 @@ function PreviewStep({
   const readyCount = preview.previewRows.filter((r) => r.issues.length === 0).length;
   const warningCount = preview.previewRows.filter((r) => r.issues.length > 0).length;
   const hasCriticalErrors = preview.failedRows.length > 0 && preview.previewRows.length === 0;
+  const reviewCategories = new Set(["Uncategorised Review", "Needs Review", "Ambiguous"]);
+  const transferCategories = new Set(["Transfers", "Internal Transfer", "International Transfer", "Money Transfer", "Credit Card Payment", "Loan Repayment"]);
 
   const getRowCategory = (row: typeof preview.previewRows[0]) => {
     return editedCategories[row.rowNumber] ?? row.category;
+  };
+
+  const rowCategory = (row: typeof preview.previewRows[0]) => getRowCategory(row);
+
+  const isNeedsReviewRow = (row: typeof preview.previewRows[0]) => {
+    const category = rowCategory(row);
+    const status = row.status.toLowerCase();
+    return status === "needs_review" || reviewCategories.has(category) || (row.categoryConfidence ?? row.confidenceScore) < 70;
+  };
+
+  const isSuggestedRow = (row: typeof preview.previewRows[0]) => {
+    if (isNeedsReviewRow(row)) return false;
+    const status = row.status.toLowerCase();
+    const confidence = row.categoryConfidence ?? row.confidenceScore;
+    return status === "ai_suggested" || (confidence >= 70 && confidence < 90);
+  };
+
+  const isAutoCategorisedRow = (row: typeof preview.previewRows[0]) => {
+    if (isNeedsReviewRow(row) || isSuggestedRow(row)) return false;
+    const status = row.status.toLowerCase();
+    const confidence = row.categoryConfidence ?? row.confidenceScore;
+    return status === "categorised" || confidence >= 90;
+  };
+
+  const getDisplayStatus = (row: typeof preview.previewRows[0]) => {
+    if (row.isPossibleDuplicate) return "Possible Duplicate";
+    if (transferCategories.has(rowCategory(row)) || row.status === "transfer") return "Transfer";
+    if (isNeedsReviewRow(row)) return "Needs Review";
+    if (isSuggestedRow(row)) return "Suggested";
+    return "Categorised";
   };
 
   const handleCategoryChange = (rowNumber: number, newCategory: string) => {
@@ -1558,7 +1592,7 @@ function PreviewStep({
   // Build dynamic columns from mapped fields
   const mappedFields = preview.columnMappings.map((m) => m.field);
   const extraFields = mappedFields.filter(
-    (f) => !["date", "merchant", "description", "amount", "type", "category"].includes(f)
+    (f) => !["date", "merchant", "description", "amount", "type", "category", "reference"].includes(f)
   );
 
   const isRevolut = preview.detectedProvider === "revolut_business_csv";
@@ -1621,9 +1655,11 @@ function PreviewStep({
 
       {/* Category Summary */}
       {(() => {
-        const categorised = preview.previewRows.filter((r) => r.confidenceScore >= 90).length;
-        const suggested = preview.previewRows.filter((r) => r.confidenceScore >= 75 && r.confidenceScore < 90).length;
-        const review = preview.previewRows.filter((r) => r.confidenceScore < 75).length;
+        const categorised = preview.previewRows.filter(isAutoCategorisedRow).length;
+        const suggested = preview.previewRows.filter(isSuggestedRow).length;
+        const review = preview.previewRows.filter(isNeedsReviewRow).length;
+        const ambiguous = preview.previewRows.filter((r) => rowCategory(r) === "Ambiguous").length;
+        const transfers = preview.previewRows.filter((r) => transferCategories.has(rowCategory(r)) || r.status === "transfer").length;
         const total = preview.previewRows.length;
         const pct = total > 0 ? Math.round((categorised / total) * 100) : 0;
         return (
@@ -1636,6 +1672,8 @@ function PreviewStep({
               <span className="text-emerald-400">● Categorised: {categorised}</span>
               <span className="text-amber-400">● Suggested: {suggested}</span>
               <span className="text-rose-400">● Needs Review: {review}</span>
+              <span className="text-violet-300">● Transfers: {transfers}</span>
+              {ambiguous > 0 && <span className="text-orange-300">● Ambiguous: {ambiguous}</span>}
             </div>
             <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(148,163,184,0.12)" }}>
               <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500" style={{ width: `${total > 0 ? 100 : 0}%`, opacity: 0.7 }} />
@@ -1771,19 +1809,22 @@ function PreviewStep({
           <span className="text-xs text-[var(--muted-foreground)]">{fileName}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[800px]">
+          <table className="w-full text-xs min-w-[1280px]">
             <thead>
               <tr className="text-left text-[var(--muted-foreground)]" style={{ background: "rgba(17,24,39,0.8)" }}>
                 <th className="px-3 py-2 font-medium">Row</th>
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium">Merchant</th>
                 <th className="px-3 py-2 font-medium">Description</th>
+                <th className="px-3 py-2 font-medium">Reference</th>
+                <th className="px-3 py-2 font-medium">Counterparty</th>
+                <th className="px-3 py-2 font-medium">Bank Type</th>
                 <th className="px-3 py-2 font-medium text-right">Amount</th>
                 <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 font-medium">Category</th>
-                {extraFields.includes("reference") && <th className="px-3 py-2 font-medium">Ref</th>}
                 {extraFields.includes("balance") && <th className="px-3 py-2 font-medium text-right">Balance</th>}
                 {extraFields.includes("currency") && <th className="px-3 py-2 font-medium">Cur</th>}
+                <th className="px-3 py-2 font-medium">Reason</th>
                 <th className="px-3 py-2 font-medium">Conf</th>
                 <th className="px-3 py-2 font-medium">Status</th>
               </tr>
@@ -1814,7 +1855,17 @@ function PreviewStep({
                       <span className="text-xs text-[var(--foreground)] max-w-[120px] truncate">{row.merchant || "—"}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[160px] truncate">{row.description}</td>
+                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[200px]">
+                    <div className="truncate">{row.description || "—"}</div>
+                    {row.bankDescription && row.bankDescription !== row.description && (
+                      <div className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">
+                        Bank: {row.bankDescription}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[150px] truncate">{row.reference || "—"}</td>
+                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[150px] truncate">{row.counterparty || row.payer || "—"}</td>
+                  <td className="px-3 py-2 text-[var(--muted-foreground)] max-w-[100px] truncate">{row.transactionType || "—"}</td>
                   <td className="px-3 py-2 text-right font-mono">
                     <span className={row.type === "income" ? "text-emerald-400" : "text-rose-400"}>
                       {row.type === "income" ? "+" : "-"}
@@ -1851,35 +1902,51 @@ function PreviewStep({
                       )}
                     </div>
                   </td>
-                  {extraFields.includes("reference") && (
-                    <td className="px-3 py-2 text-[var(--foreground)] max-w-[80px] truncate">
-                      {row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("ref")) || ""] || "-"}
-                    </td>
-                  )}
                   {extraFields.includes("balance") && (
                     <td className="px-3 py-2 text-right font-mono text-[var(--muted-foreground)]">
-                      {row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("balance")) || ""] || "-"}
+                      {row.runningBalance !== undefined ? row.runningBalance.toFixed(2) : row.rawData[Object.keys(row.rawData).find((k) => k.toLowerCase().includes("balance")) || ""] || "-"}
                     </td>
                   )}
                   {extraFields.includes("currency") && (
                     <td className="px-3 py-2 text-[var(--foreground)]">{row.currency || "-"}</td>
                   )}
+                  <td className="px-3 py-2 max-w-[260px]">
+                    <div className="text-[var(--foreground)] line-clamp-2">
+                      {row.categoryReason || row.reviewReason || "No category reason available"}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {row.kpiTreatment && (
+                        <span className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                          row.kpiTreatment === "included"
+                            ? "border-emerald-500/30 text-emerald-300"
+                            : "border-violet-500/30 text-violet-300"
+                        }`}>
+                          KPI {row.kpiTreatment}
+                        </span>
+                      )}
+                      {row.subcategory && (
+                        <span className="rounded border border-slate-500/25 px-1.5 py-0.5 text-[10px] text-[var(--muted-foreground)]">
+                          {row.subcategory}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2">
-                    <span className={row.confidenceScore >= 85 ? "text-emerald-400" : row.confidenceScore >= 60 ? "text-amber-400" : "text-rose-400"}>
-                      {row.confidenceScore}%
+                    <span className={(row.categoryConfidence ?? row.confidenceScore) >= 85 ? "text-emerald-400" : (row.categoryConfidence ?? row.confidenceScore) >= 60 ? "text-amber-400" : "text-rose-400"}>
+                      {row.categoryConfidence ?? row.confidenceScore}%
                     </span>
                   </td>
                   <td className="px-3 py-2">
                     <StatusBadge
                       variant={
-                        row.status === "Categorised"
+                        getDisplayStatus(row) === "Categorised"
                           ? "success"
-                          : row.status === "Needs Review"
+                          : getDisplayStatus(row) === "Needs Review"
                           ? "warning"
                           : "neutral"
                       }
                     >
-                      {row.status}
+                      {getDisplayStatus(row)}
                     </StatusBadge>
                   </td>
                 </tr>

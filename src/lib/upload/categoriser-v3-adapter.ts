@@ -38,6 +38,20 @@ export interface CategorisedV3Row extends NormalisedRow {
   }>;
 }
 
+const KPI_EXCLUDED_FALLBACK_CATEGORIES = new Set([
+  "Transfers",
+  "Internal Transfer",
+  "International Transfer",
+  "Money Transfer",
+  "Credit Card Payment",
+  "Loan Repayment",
+  "Owner Drawings",
+  "Capital Injection",
+  "Loans",
+  "Ambiguous",
+  "Uncategorised Review",
+]);
+
 function mapBusinessModel(raw: string | undefined): BusinessModel {
   const valid: BusinessModel[] = [
     "saas",
@@ -161,6 +175,21 @@ export function categoriseWithV3AndV1Fallback(
           ? "ai_suggested"
           : "needs_review",
       categoryReason: v1Result.reason,
+      categoryConfidence: v1Result.confidenceScore,
+      kpiTreatment: KPI_EXCLUDED_FALLBACK_CATEGORIES.has(v1Result.suggestedCategory)
+        ? "excluded"
+        : "included",
+      businessMeaning: `Fallback categorisation selected ${v1Result.suggestedCategory}.`,
+      isCreditCardRepayment: v1Result.suggestedCategory === "Credit Card Payment",
+      categoryEvidence: [
+        ...row.categoryEvidence,
+        {
+          category: v1Result.suggestedCategory,
+          confidence: v1Result.confidenceScore,
+          source: "v1_fallback",
+          reason: v1Result.reason,
+        },
+      ],
     };
   });
 }

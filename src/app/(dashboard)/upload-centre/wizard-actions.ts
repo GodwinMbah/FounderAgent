@@ -48,12 +48,13 @@ export async function validateAndPreview(
     }
 
     // Get company settings
+    let companySettings: Awaited<ReturnType<typeof getCompanySettings>> = null;
     let companyCurrency: string | undefined;
     let companyCountry: string | undefined;
     try {
-      const settings = await getCompanySettings(companyId);
-      companyCurrency = settings?.currency ?? undefined;
-      companyCountry = settings?.country ?? undefined;
+      companySettings = await getCompanySettings(companyId);
+      companyCurrency = companySettings?.currency ?? undefined;
+      companyCountry = companySettings?.country ?? undefined;
     } catch {
       // Settings may not exist
     }
@@ -94,6 +95,7 @@ export async function validateAndPreview(
         companyId,
         companyCurrency,
         companyCountry,
+        companySettings,
         sourceTypeHint,
         overrides: defaultOverrides,
       });
@@ -105,6 +107,7 @@ export async function validateAndPreview(
         companyId,
         companyCurrency,
         companyCountry,
+        companySettings,
         sourceTypeHint,
         overrides: defaultOverrides,
       });
@@ -175,12 +178,13 @@ export async function applyMappingOverrides(
       return { success: false, error: "Session expired. Please upload again." };
     }
 
+    let companySettings: Awaited<ReturnType<typeof getCompanySettings>> = null;
     let companyCurrency: string | undefined;
     let companyCountry: string | undefined;
     try {
-      const settings = await getCompanySettings(companyId);
-      companyCurrency = settings?.currency ?? undefined;
-      companyCountry = settings?.country ?? undefined;
+      companySettings = await getCompanySettings(companyId);
+      companyCurrency = companySettings?.currency ?? undefined;
+      companyCountry = companySettings?.country ?? undefined;
     } catch {
       // Settings may not exist
     }
@@ -203,6 +207,7 @@ export async function applyMappingOverrides(
       companyId,
       companyCurrency,
       companyCountry,
+      companySettings,
       sourceTypeHint,
       overrides,
     });
@@ -256,12 +261,13 @@ export async function confirmAndProcess(
     const text = await fileData.text();
 
     // Re-parse with final overrides
+    let companySettings: Awaited<ReturnType<typeof getCompanySettings>> = null;
     let companyCurrency: string | undefined;
     let companyCountry: string | undefined;
     try {
-      const settings = await getCompanySettings(companyId);
-      companyCurrency = settings?.currency ?? undefined;
-      companyCountry = settings?.country ?? undefined;
+      companySettings = await getCompanySettings(companyId);
+      companyCurrency = companySettings?.currency ?? undefined;
+      companyCountry = companySettings?.country ?? undefined;
     } catch {
       // Settings may not exist
     }
@@ -270,6 +276,7 @@ export async function confirmAndProcess(
       companyId,
       companyCurrency,
       companyCountry,
+      companySettings,
       overrides,
     });
 

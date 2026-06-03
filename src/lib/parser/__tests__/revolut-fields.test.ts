@@ -136,7 +136,7 @@ describe("Revolut — CARD_PAYMENT merchant cleaning", () => {
 });
 
 describe("Revolut — MCC category mapping", () => {
-  it("maps MCC 5734 to Electronics", () => {
+  it("maps MCC 5734 to Software", () => {
     const csv = [
       REVOLUT_HEADERS,
       "2026-05-23,2026-05-23,tx-011,CARD_PAYMENT,COMPLETED,Base44,,Godwin Mbah Mbah,516760******7513,Standard,ACTIVE,USD,10.00,GBP,-7.46,-7.53,1.342198,-0.07,GBP,10313.09,GBP Main,,,,,5734,,",
@@ -145,10 +145,10 @@ describe("Revolut — MCC category mapping", () => {
     const result = parseUpload(csv, { companyId: "test-company" });
     expect(result.transactions).toHaveLength(1);
     expect(result.transactions[0].merchantCategoryCode).toBe("5734");
-    expect(result.transactions[0].category).toBe("Electronics");
+    expect(result.transactions[0].category).toBe("Software");
   });
 
-  it("maps MCC 5812 to Restaurants", () => {
+  it("maps MCC 5812 to Food and Meals", () => {
     const csv = [
       REVOLUT_HEADERS,
       "2026-05-23,2026-05-23,tx-012,CARD_PAYMENT,COMPLETED,Efes,,Godwin Mbah Mbah,516760******7513,Standard,ACTIVE,USD,15.00,GBP,-11.18,-11.29,1.342198,-0.11,GBP,10273.03,GBP Main,,,,,5812,,",
@@ -156,10 +156,10 @@ describe("Revolut — MCC category mapping", () => {
 
     const result = parseUpload(csv, { companyId: "test-company" });
     expect(result.transactions).toHaveLength(1);
-    expect(result.transactions[0].category).toBe("Restaurants");
+    expect(result.transactions[0].category).toBe("Food and Meals");
   });
 
-  it("maps MCC 5411 to Groceries", () => {
+  it("maps MCC 5411 to Food and Meals", () => {
     const csv = [
       REVOLUT_HEADERS,
       "2026-05-23,2026-05-23,tx-013,CARD_PAYMENT,COMPLETED,Asda Stores,,Godwin Mbah Mbah,516760******7513,Standard,ACTIVE,USD,50.00,GBP,-37.27,-37.63,1.342198,-0.36,GBP,10273.03,GBP Main,,,,,5411,,",
@@ -167,7 +167,7 @@ describe("Revolut — MCC category mapping", () => {
 
     const result = parseUpload(csv, { companyId: "test-company" });
     expect(result.transactions).toHaveLength(1);
-    expect(result.transactions[0].category).toBe("Groceries");
+    expect(result.transactions[0].category).toBe("Food and Meals");
   });
 });
 
