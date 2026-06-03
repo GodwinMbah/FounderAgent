@@ -219,6 +219,18 @@ export default function UploadWizard() {
   const [providerConfirmed, setProviderConfirmed] = useState(false);
   const [editedCategories, setEditedCategories] = useState<Record<number, string>>({});
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("focus") !== "upload") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("upload-file-dropzone")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, []);
+
   function startPolling(id: string) {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
@@ -830,6 +842,7 @@ function UploadStep({
           onDrop={onDrop}
         >
           <label
+            id="upload-file-dropzone"
             className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-12 text-center transition-colors ${
               dragActive ? "border-[#14B8A6]/60" : ""
             } hover:border-[#14B8A6]/40`}

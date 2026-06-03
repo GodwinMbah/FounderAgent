@@ -1,6 +1,8 @@
 import { getTransactionsPage, requireAuthCompany } from "@/lib/db";
 import { getGlobalDateRange } from "@/lib/date-range-server";
 import { getUploads } from "@/lib/db/uploads";
+import { getFinancialDataSourceStatus } from "@/lib/db/data-source";
+import { ConnectDataSourceState } from "@/components/features/shared/ConnectDataSourceState";
 import TransactionsContent from "./content";
 
 interface Props {
@@ -24,6 +26,9 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
+  const dataSourceStatus = await getFinancialDataSourceStatus(companyId, { from, to });
+  if (!dataSourceStatus.hasActiveDataSource) return <ConnectDataSourceState />;
+
   const initialFilters = {
     type: resolvedSearchParams?.type,
     uploadId: resolvedSearchParams?.uploadId,

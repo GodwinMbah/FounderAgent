@@ -139,10 +139,10 @@ export function FullScreenReview({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--background)]">
+    <div className="fixed inset-0 z-[100] flex h-dvh w-screen max-w-screen flex-col overflow-hidden bg-[var(--background)]">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6">
-        <div>
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3 sm:px-6">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Intelligence Review</h2>
           <p className="text-xs text-[var(--muted-foreground)]">
             Inspect category evidence, unresolved rows, grouping, and KPI treatment before importing
@@ -157,7 +157,7 @@ export function FullScreenReview({
       </header>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 gap-2 border-b border-[var(--border)] bg-[var(--secondary)]/30 px-4 py-3 sm:grid-cols-4 sm:px-6 lg:grid-cols-9">
+      <div className="grid max-h-[28vh] shrink-0 grid-cols-2 gap-2 overflow-y-auto border-b border-[var(--border)] bg-[var(--secondary)]/30 px-4 py-3 sm:grid-cols-4 sm:px-6 lg:grid-cols-9">
         <StatItem label="Total rows" value={stats.total} icon={<Filter className="h-3.5 w-3.5" />} />
         <StatItem label="Auto-categorised" value={stats.autoApplied} icon={<CheckCircle2 className="h-3.5 w-3.5 text-[var(--success)]" />} />
         <StatItem label="Suggested" value={stats.pending} icon={<Zap className="h-3.5 w-3.5 text-[var(--warning)]" />} />
@@ -170,7 +170,7 @@ export function FullScreenReview({
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-3 sm:flex-row sm:items-center sm:px-6">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-[var(--border)] px-4 py-3 sm:flex-row sm:items-center sm:px-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
           <input
@@ -198,7 +198,7 @@ export function FullScreenReview({
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-[var(--border)] px-4 py-2 sm:px-6">
+      <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--border)] px-4 py-2 sm:px-6">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -216,7 +216,7 @@ export function FullScreenReview({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
         {filteredSuggestions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-[var(--muted-foreground)]">
             <Filter className="mb-3 h-10 w-10 opacity-30" />

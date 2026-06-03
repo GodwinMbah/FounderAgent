@@ -53,6 +53,11 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
   const upcomingRenewals = [...subscriptions]
     .sort((a, b) => new Date(a.nextBillingDate).getTime() - new Date(b.nextBillingDate).getTime())
     .slice(0, 5);
+  const getSourceLabel = (sub: Subscription) => {
+    const metadata = sub.metadata ?? {};
+    if (metadata.detected_from_upload || metadata.source_upload_id || metadata.upload_id) return "Upload generated";
+    return "Manual";
+  };
 
   // Dynamic insights based on real subscription data
   const insights: string[] = [];
@@ -219,7 +224,7 @@ export default function SubscriptionsContent({ subscriptions, stats }: Subscript
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-[var(--foreground)] truncate">{sub.name}</p>
                   <p className="text-xs text-[var(--muted-foreground)]">
-                    {sub.vendor} · {sub.billingCycle}
+                    {sub.vendor} · {sub.billingCycle} · {getSourceLabel(sub)}
                   </p>
                 </div>
               </div>

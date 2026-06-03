@@ -1,6 +1,8 @@
 import { getBudgets, getBudgetStats, getTransactions, requireAuthCompany, getCompanyById } from "@/lib/db";
 import { getGlobalDateRange } from "@/lib/date-range-server";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { getFinancialDataSourceStatus } from "@/lib/db/data-source";
+import { ConnectDataSourceState } from "@/components/features/shared/ConnectDataSourceState";
 import BudgetsClient from "./BudgetsClient";
 
 interface Props {
@@ -13,6 +15,8 @@ export default async function BudgetsPage({ searchParams }: Props) {
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
+  const dataSourceStatus = await getFinancialDataSourceStatus(companyId, { from, to });
+  if (!dataSourceStatus.hasActiveDataSource) return <ConnectDataSourceState />;
 
   const transactions = await getTransactions(companyId, { startDate: from, endDate: to });
   const [, stats] = await Promise.all([

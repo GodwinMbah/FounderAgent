@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import type { Transaction } from "@/lib/types";
 import { isIncome, isExpense } from "@/lib/reporting/filters";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { applyActiveSourceFilter } from "./data-source-shared";
 
 function mapRow(row: Record<string, unknown>): Transaction {
   const metadata = row.metadata as Record<string, unknown> | undefined;
@@ -88,6 +90,7 @@ export async function getTransactions(
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   let query = supabase
     .from("transactions")
@@ -96,6 +99,8 @@ export async function getTransactions(
     .order("date", { ascending: false })
     .order("source_row_number", { ascending: true, nullsFirst: false })
     .order("id", { ascending: true });
+
+  query = applyActiveSourceFilter(query, activeUploadIds);
 
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);
@@ -137,6 +142,7 @@ export async function getTransactionsPage(
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   let query = supabase
     .from("transactions")
@@ -145,6 +151,8 @@ export async function getTransactionsPage(
     .order("date", { ascending: false })
     .order("source_row_number", { ascending: true, nullsFirst: false })
     .order("id", { ascending: true });
+
+  query = applyActiveSourceFilter(query, activeUploadIds);
 
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);

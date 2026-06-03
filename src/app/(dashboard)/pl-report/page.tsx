@@ -1,5 +1,7 @@
 import { getMonthlyMetrics, getTransactions, requireAuthCompany } from "@/lib/db";
 import { getGlobalDateRange } from "@/lib/date-range-server";
+import { getFinancialDataSourceStatus } from "@/lib/db/data-source";
+import { ConnectDataSourceState } from "@/components/features/shared/ConnectDataSourceState";
 import PLReportClient from "./PLReportClient";
 
 interface Props {
@@ -11,6 +13,8 @@ export default async function PLReportPage({ searchParams }: Props) {
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
+  const dataSourceStatus = await getFinancialDataSourceStatus(companyId, { from, to });
+  if (!dataSourceStatus.hasActiveDataSource) return <ConnectDataSourceState />;
 
   const [monthlyMetrics, transactions] = await Promise.all([
     getMonthlyMetrics(companyId, from, to),

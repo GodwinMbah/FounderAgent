@@ -1,4 +1,6 @@
 import { getReports, requireAuthCompany } from "@/lib/db";
+import { getFinancialDataSourceStatus } from "@/lib/db/data-source";
+import { ConnectDataSourceState } from "@/components/features/shared/ConnectDataSourceState";
 import ReportsClient from "./ReportsClient";
 
 function formatFileSize(bytes?: number): string {
@@ -25,6 +27,9 @@ function mapReportType(type: string): string {
 
 export default async function ReportsPage() {
   const { companyId } = await requireAuthCompany();
+  const dataSourceStatus = await getFinancialDataSourceStatus(companyId);
+  if (!dataSourceStatus.hasActiveDataSource) return <ConnectDataSourceState />;
+
   const reports = await getReports(companyId);
 
   const reportsData = reports.map((r) => ({

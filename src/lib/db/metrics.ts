@@ -7,6 +7,8 @@ import { getSubscriptions } from "./subscriptions";
 import { isCashMovementIn, isCashMovementOut, isIncome, isExpense } from "@/lib/reporting/filters";
 import { normalizeSubscriptionSpend } from "@/lib/reporting/subscriptions";
 import { profitMargin } from "@/lib/reporting/kpis";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { applyActiveSourceFilter } from "./data-source-shared";
 
 export { getCompanyMetrics, recalculateCompanyMetrics };
 
@@ -68,6 +70,7 @@ export async function getMonthlyMetrics(
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   // Default to last 12 months
   const defaultTo = new Date().toISOString().slice(0, 10);
@@ -77,13 +80,17 @@ export async function getMonthlyMetrics(
   const from = fromDate ?? defaultFrom.toISOString().slice(0, 10);
   const to = toDate ?? defaultTo;
 
-  const { data: rawData, error } = await supabase
+  let query = supabase
     .from("transactions")
     .select("date, amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", effectiveCompanyId)
     .gte("date", from)
     .lte("date", to)
     .order("date", { ascending: true });
+
+  query = applyActiveSourceFilter(query, activeUploadIds);
+
+  const { data: rawData, error } = await query;
 
   if (error) throw error;
   const data = rawData ?? [];
@@ -131,13 +138,18 @@ export async function getMetricsForRange(
 
   const admin = await import("@/lib/supabase/admin").then((m) => m.createAdminClient());
   if (!admin) throw new Error("Admin client not available");
+  const activeUploadIds = await getActiveUploadIdsForCompany(companyId, admin);
 
-  const { data: txs, error } = await admin
+  let query = admin
     .from("transactions")
     .select("amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .gte("date", fromDate)
     .lte("date", toDate);
+
+  query = applyActiveSourceFilter(query, activeUploadIds);
+
+  const { data: txs, error } = await query;
 
   if (error) throw error;
 

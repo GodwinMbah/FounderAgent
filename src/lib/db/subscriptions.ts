@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { getActiveCompanyForUser } from "./company";
 import type { Subscription } from "@/lib/types";
 import { toMonthly } from "@/lib/reporting/subscriptions";
+import { getActiveUploadIdsForCompany } from "./data-source";
+import { hasActiveSubscriptionSource } from "./source-filters";
 
 function mapRow(row: Record<string, unknown>): Subscription {
   return {
@@ -35,6 +37,7 @@ export async function getSubscriptions(companyId?: string): Promise<Subscription
 
   const supabase = await createServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+  const activeUploadIds = await getActiveUploadIdsForCompany(effectiveCompanyId, supabase);
 
   const { data, error } = await supabase
     .from("subscriptions")
@@ -46,12 +49,13 @@ export async function getSubscriptions(companyId?: string): Promise<Subscription
     throw error;
   }
 
-  return (data ?? []).map(mapRow);
+  return (data ?? []).map(mapRow).filter((subscription) => hasActiveSubscriptionSource(subscription, activeUploadIds));
 }
 
 export async function getSubscriptionsForCompany(companyId: string): Promise<Subscription[]> {
   const admin = createAdminClient();
   if (!admin) throw new Error("Admin client not available");
+  const activeUploadIds = await getActiveUploadIdsForCompany(companyId, admin);
 
   const { data, error } = await admin
     .from("subscriptions")
@@ -63,7 +67,7 @@ export async function getSubscriptionsForCompany(companyId: string): Promise<Sub
     throw error;
   }
 
-  return (data ?? []).map(mapRow);
+  return (data ?? []).map(mapRow).filter((subscription) => hasActiveSubscriptionSource(subscription, activeUploadIds));
 }
 
 export async function getSubscriptionStats(companyId?: string) {

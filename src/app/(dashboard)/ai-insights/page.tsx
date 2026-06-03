@@ -4,6 +4,9 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { AgentOrb } from "@/components/AgentOrb";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { getAgentRecommendations, getAgentTasks, requireAuthCompany } from "@/lib/db";
+import { getFinancialDataSourceStatus } from "@/lib/db/data-source";
+import { ConnectDataSourceState } from "@/components/features/shared/ConnectDataSourceState";
+import { getGlobalDateRange } from "@/lib/date-range-server";
 import { Lightbulb, AlertTriangle, TrendingUp, BarChart3, FileText } from "lucide-react";
 
 const priorityVariantMap: Record<string, "danger" | "warning" | "success" | "info"> = {
@@ -20,22 +23,36 @@ const priorityLabelMap: Record<string, string> = {
   info: "Info",
 };
 
-export default async function AIInsightsPage() {
+export default async function AIInsightsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+}) {
   const { companyId } = await requireAuthCompany();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
+  const dataSourceStatus = await getFinancialDataSourceStatus(companyId, { from, to });
+  if (!dataSourceStatus.hasActiveDataSource) return <ConnectDataSourceState />;
+
   const [recommendations, tasks] = await Promise.all([
     getAgentRecommendations(companyId),
     getAgentTasks(companyId),
   ]);
 
+  const scopedRecommendations =
+    preset === "allTime" ? recommendations : recommendations.filter((rec) => rec.createdAt.slice(0, 10) >= from && rec.createdAt.slice(0, 10) <= to);
+  const scopedTasks =
+    preset === "allTime" ? tasks : tasks.filter((task) => (task.createdAt ?? "").slice(0, 10) >= from && (task.createdAt ?? "").slice(0, 10) <= to);
+
   const insights = [
-    ...recommendations.map((rec) => ({
+    ...scopedRecommendations.map((rec) => ({
       id: rec.id,
       title: rec.title,
       description: rec.description,
       priority: rec.category === "cost_saving" || rec.category === "growth" ? "opportunity" : rec.category === "efficiency" ? "info" : "info",
       recommendedAction: rec.status === "new" ? "Review recommendation" : undefined,
     })),
-    ...tasks.map((task) => ({
+    ...scopedTasks.map((task) => ({
       id: task.id,
       title: task.title,
       description: task.resultSummary ?? `Task status: ${task.status}`,
