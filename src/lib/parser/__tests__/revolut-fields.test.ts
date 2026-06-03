@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseUpload } from "../unified-parser";
+import { canonicalListToNormalised } from "@/lib/providers/canonical-adapter";
+import { categoriseWithV3AndV1Fallback } from "@/lib/upload/categoriser-v3-adapter";
 
 const REVOLUT_HEADERS =
   "Date started (UTC),Date completed (UTC),ID,Type,State,Description,Reference,Payer,Card number,Card label,Card state,Orig currency,Orig amount,Payment currency,Amount,Total amount,Exchange rate,Fee,Fee currency,Balance,Account,Beneficiary account number,Beneficiary sort code or routing number,Beneficiary IBAN,Beneficiary BIC,MCC,Related transaction id,Spend program";
@@ -253,5 +255,51 @@ describe("Revolut — Full 694-row file import", () => {
     const internalTransfer = result.transactions.find((t) => t.description === "From British Pound");
     expect(internalTransfer).toBeDefined();
     expect(internalTransfer!.merchantName).toBe("Internal Transfer");
+  });
+
+  it("keeps real-file uncategorised review as a last resort", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const filePath = path.resolve(process.cwd(), "references/account-statement_01-Jan-2026_24-May-2026.csv");
+    const csvText = fs.readFileSync(filePath, "utf-8");
+
+    const result = parseUpload(csvText, {
+      companyId: "test-company",
+      companyCurrency: "GBP",
+      companyCountry: "GB",
+      uploadId: "test-upload",
+    });
+    const rows = canonicalListToNormalised(result.transactions);
+    const categorised = categoriseWithV3AndV1Fallback(rows, {
+      id: "settings-1",
+      companyId: "test-company",
+      businessModel: "mixed",
+      country: "GB",
+      currency: "GBP",
+      revenueModels: [],
+      costStructure: [],
+      categoryRules: [],
+      topRevenueChannels: [],
+      paymentTools: [],
+      toolsUsed: [],
+      agentFocus: [],
+      weeklyDigestEnabled: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    const uncategorised = categorised.filter((row) => row.category === "Uncategorised Review");
+    const ambiguous = categorised.filter((row) => row.category === "Ambiguous");
+    const stripeTopups = categorised.filter((row) =>
+      row.type === "income" &&
+      `${row.merchant} ${row.description}`.toLowerCase().includes("stripe")
+    );
+
+    expect(categorised).toHaveLength(694);
+    expect(uncategorised.length).toBeLessThanOrEqual(10);
+    expect(ambiguous.length).toBeLessThanOrEqual(5);
+    expect(stripeTopups.length).toBeGreaterThan(0);
+    expect(stripeTopups.every((row) => row.category === "Revenue")).toBe(true);
+    expect(categorised.every((row) => row.categoryConfidence >= 0 && row.categoryConfidence <= 100)).toBe(true);
+    expect(categorised.every((row) => row.groupingConfidence >= 0 && row.groupingConfidence <= 100)).toBe(true);
   });
 });

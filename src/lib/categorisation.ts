@@ -249,7 +249,7 @@ const MERCHANT_PATTERNS: MerchantPattern[] = [
   { keywords: ["tide credit"], category: "Credit Card Payment", confidence: 85 },
   { keywords: ["credit card fee", "card fee", "annual fee"], category: "Credit Card Fees", confidence: 85 },
   { keywords: ["interest charge", "card interest"], category: "Interest Charges", confidence: 85 },
-  { keywords: ["klarna"], category: "Payment Processor Fees", confidence: 70, action: "review" },
+  { keywords: ["klarna amazon"], category: "Office Costs", confidence: 70, action: "review" },
 ];
 
 function suggestCategoryFromMcc(mcc: string): { category: TransactionCategoryType; confidence: number } | null {

@@ -46,7 +46,23 @@ export interface CanonicalTransaction {
   accountNumber?: string;
 
   // Categorisation
+  originalMerchantName?: string;
+  normalisedMerchantName?: string;
+  displayMerchantName?: string;
   category?: string;
+  subcategory?: string;
+  categoryReason?: string;
+  categoryConfidence?: number;
+  groupingConfidence?: number;
+  categoryEvidence?: Array<{
+    category: string;
+    confidence: number;
+    source: string;
+    reason: string;
+  }>;
+  businessMeaning?: string;
+  kpiTreatment?: "included" | "excluded";
+  incomeExpenseStatus?: "income" | "expense";
   merchantCategoryCode?: string;
 
   // Status & Confidence
@@ -66,6 +82,9 @@ export interface CanonicalTransaction {
   // Intelligence flags
   isTransfer: boolean;
   isFee: boolean;
+  isCreditCardRepayment?: boolean;
+  isSubscriptionCandidate?: boolean;
+  isRecurringCandidate?: boolean;
   isPossibleDuplicate: boolean;
   isPersonalName?: boolean;
   transferPairId?: string;
@@ -164,8 +183,22 @@ export function toDbTransaction(
       raw_row_hash: canonical.rawRowHash,
       row_status: canonical.rowStatus,
       currency: canonical.currency,
+      original_merchant: canonical.originalMerchantName,
+      normalised_merchant: canonical.normalisedMerchantName,
+      display_merchant: canonical.displayMerchantName,
+      detected_subcategory: canonical.subcategory,
+      category_reason: canonical.categoryReason,
+      category_confidence: canonical.categoryConfidence,
+      grouping_confidence: canonical.groupingConfidence,
+      category_evidence: canonical.categoryEvidence,
+      business_meaning: canonical.businessMeaning,
+      kpi_treatment: canonical.kpiTreatment,
+      income_expense_status: canonical.incomeExpenseStatus,
       is_transfer: canonical.isTransfer,
       is_fee: canonical.isFee,
+      is_credit_card_repayment: canonical.isCreditCardRepayment,
+      is_subscription_candidate: canonical.isSubscriptionCandidate,
+      is_recurring_candidate: canonical.isRecurringCandidate,
       is_possible_duplicate: canonical.isPossibleDuplicate,
       kpi_excluded: canonical.kpiExcluded,
       kpi_exclusion_reason: canonical.kpiExclusionReason,
@@ -208,6 +241,17 @@ export function fromDbTransaction(tx: Transaction): CanonicalTransaction {
     accountName: (meta.account_name as string) || undefined,
     accountNumber: (meta.account_number as string) || undefined,
     category: tx.category,
+    originalMerchantName: (meta.original_merchant as string) || tx.merchant || undefined,
+    normalisedMerchantName: (meta.normalised_merchant as string) || undefined,
+    displayMerchantName: (meta.display_merchant as string) || tx.merchant || undefined,
+    subcategory: (meta.detected_subcategory as string) || undefined,
+    categoryReason: (meta.category_reason as string) || undefined,
+    categoryConfidence: (meta.category_confidence as number) || undefined,
+    groupingConfidence: (meta.grouping_confidence as number) || undefined,
+    categoryEvidence: (meta.category_evidence as CanonicalTransaction["categoryEvidence"]) || undefined,
+    businessMeaning: (meta.business_meaning as string) || undefined,
+    kpiTreatment: (meta.kpi_treatment as CanonicalTransaction["kpiTreatment"]) || undefined,
+    incomeExpenseStatus: (meta.income_expense_status as CanonicalTransaction["incomeExpenseStatus"]) || undefined,
     merchantCategoryCode: (meta.merchant_category_code as string) || undefined,
     status: tx.status,
     confidenceScore: tx.confidenceScore ?? 0,
@@ -221,6 +265,9 @@ export function fromDbTransaction(tx: Transaction): CanonicalTransaction {
     duplicateOfTransactionId: (tx.duplicateOfTransactionId as string | undefined) ?? (meta.duplicate_of_transaction_id as string | undefined),
     isTransfer: (meta.is_transfer as boolean) ?? false,
     isFee: (meta.is_fee as boolean) ?? false,
+    isCreditCardRepayment: (meta.is_credit_card_repayment as boolean) || undefined,
+    isSubscriptionCandidate: (meta.is_subscription_candidate as boolean) || undefined,
+    isRecurringCandidate: (meta.is_recurring_candidate as boolean) || undefined,
     isPossibleDuplicate: (meta.is_possible_duplicate as boolean) ?? false,
     isPersonalName: (meta.is_personal_name as boolean) || undefined,
     transferPairId: (meta.transfer_pair_id as string) || undefined,
