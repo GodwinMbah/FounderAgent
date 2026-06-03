@@ -8,6 +8,7 @@ import type { DashboardMetrics, MonthlyMetric, Transaction } from "@/lib/types";
 import type { KPICardConfig } from "@/lib/business-intelligence/types";
 import { formatKPIValue, getKPIChange } from "@/lib/business-intelligence/kpi-eligibility";
 import { isIncome, isExpense, isKpiExcluded, isTransfer } from "@/lib/reporting/filters";
+import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
 import {
   AreaChart,
   Area,
@@ -427,7 +428,8 @@ function summariseExclusionReasons(transactions: Transaction[]): string {
       tx.kpiExclusionReason ||
       (tx.metadata?.kpi_exclusion_reason as string | undefined) ||
       (isTransfer(tx) ? "transfer" : "kpi_excluded");
-    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    const label = formatKpiExclusionReason(reason, tx.category);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])

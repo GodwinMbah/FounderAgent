@@ -37,10 +37,10 @@ import {
   saveCurrentMappingProfile,
 } from "./wizard-actions";
 import MerchantLogo from "@/components/features/transaction/MerchantLogo";
-import { SuggestionsPanel } from "@/components/features/upload/SuggestionsPanel";
 import { usePatternSuggestions } from "@/components/features/upload/usePatternSuggestions";
 import { ApplyToSimilarConfirm } from "@/components/features/upload/ApplyToSimilarConfirm";
 import { FullScreenReview } from "@/components/features/upload/FullScreenReview";
+import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
 import type {
   WizardStep,
   SourceType,
@@ -1588,6 +1588,10 @@ function PreviewStep({
   };
 
   const visibleSuggestions = allSuggestions.filter((s) => !handledSuggestions.has(s.id));
+  const reviewRows = preview.previewRows.filter(isNeedsReviewRow);
+  const summary = preview.intelligenceSummary;
+  const kpiExcludedCount = summary?.kpiExcludedRows ?? preview.previewRows.filter((row) => row.kpiTreatment === "excluded").length;
+  const groupedCount = summary?.intelligenceGroups ?? new Set(preview.previewRows.map((row) => row.intelligenceGroupId).filter(Boolean)).size;
 
   // Build dynamic columns from mapped fields
   const mappedFields = preview.columnMappings.map((m) => m.field);
@@ -1653,27 +1657,35 @@ function PreviewStep({
         <StatCard label="Failed" value={String(preview.failedRows.length)} icon={<AlertCircle className="h-4 w-4" />} color="text-rose-400" />
       </div>
 
-      {/* Category Summary */}
+      {/* Intelligence Summary */}
       {(() => {
-        const categorised = preview.previewRows.filter(isAutoCategorisedRow).length;
-        const suggested = preview.previewRows.filter(isSuggestedRow).length;
-        const review = preview.previewRows.filter(isNeedsReviewRow).length;
-        const ambiguous = preview.previewRows.filter((r) => rowCategory(r) === "Ambiguous").length;
-        const transfers = preview.previewRows.filter((r) => transferCategories.has(rowCategory(r)) || r.status === "transfer").length;
+        const categorised = summary?.rowsAutoCategorised ?? preview.previewRows.filter(isAutoCategorisedRow).length;
+        const suggested = summary?.rowsSuggested ?? preview.previewRows.filter(isSuggestedRow).length;
+        const review = summary?.rowsNeedingReview ?? reviewRows.length;
+        const ambiguous = summary?.rowsAmbiguous ?? preview.previewRows.filter((r) => rowCategory(r) === "Ambiguous").length;
+        const transfers = summary?.transfersDetected ?? preview.previewRows.filter((r) => transferCategories.has(rowCategory(r)) || r.status === "transfer").length;
+        const creditCards = summary?.creditCardPaymentsDetected ?? preview.previewRows.filter((r) => r.isCreditCardRepayment || rowCategory(r) === "Credit Card Payment").length;
+        const recurring = summary?.recurringGroupsDetected ?? preview.previewRows.filter((r) => r.isRecurringCandidate).length;
+        const subscriptions = summary?.subscriptionsDetected ?? preview.previewRows.filter((r) => r.isSubscriptionCandidate).length;
         const total = preview.previewRows.length;
         const pct = total > 0 ? Math.round((categorised / total) * 100) : 0;
         return (
           <div className="rounded-xl border px-4 py-3" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-[var(--foreground)]">Categorisation</span>
-              <span className="text-xs text-[var(--muted-foreground)]">{pct}% auto-categorised</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">Intelligence Summary</span>
+              <span className="text-xs text-[var(--muted-foreground)]">{pct}% auto-categorised · {groupedCount} groups</span>
             </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-emerald-400">● Categorised: {categorised}</span>
-              <span className="text-amber-400">● Suggested: {suggested}</span>
-              <span className="text-rose-400">● Needs Review: {review}</span>
-              <span className="text-violet-300">● Transfers: {transfers}</span>
-              {ambiguous > 0 && <span className="text-orange-300">● Ambiguous: {ambiguous}</span>}
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+              <MiniIntel label="Auto categorised" value={categorised} tone="text-emerald-400" />
+              <MiniIntel label="Suggested" value={suggested} tone="text-amber-300" />
+              <MiniIntel label="Needs review" value={review} tone="text-rose-300" />
+              <MiniIntel label="Ambiguous" value={ambiguous} tone="text-orange-300" />
+              <MiniIntel label="Transfers" value={transfers} tone="text-violet-300" />
+              <MiniIntel label="Card payments" value={creditCards} tone="text-violet-300" />
+              <MiniIntel label="Recurring groups" value={recurring} tone="text-sky-300" />
+              <MiniIntel label="Subscriptions" value={subscriptions} tone="text-sky-300" />
+              <MiniIntel label="KPI excluded" value={kpiExcludedCount} tone="text-violet-300" />
+              <MiniIntel label="Groups" value={groupedCount} tone="text-[var(--muted-foreground)]" />
             </div>
             <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(148,163,184,0.12)" }}>
               <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500" style={{ width: `${total > 0 ? 100 : 0}%`, opacity: 0.7 }} />
@@ -1767,29 +1779,63 @@ function PreviewStep({
         </div>
       )}
 
-      {visibleSuggestions.length > 0 && (
-        <>
-          <div className="mb-2 flex items-center justify-between">
+      <div className="rounded-xl border p-4" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">Review Remaining Items</h3>
             <p className="text-xs text-[var(--muted-foreground)]">
-              {visibleSuggestions.length} suggestion{visibleSuggestions.length === 1 ? "" : "s"} pending review
+              {reviewRows.length} row{reviewRows.length === 1 ? "" : "s"} need attention. {visibleSuggestions.length} intelligence group{visibleSuggestions.length === 1 ? "" : "s"} can be inspected if needed.
             </p>
+          </div>
+          <div className="flex gap-2">
             <button
               onClick={() => setShowFullScreenReview(true)}
-              className="text-xs font-medium text-[var(--accent)] hover:underline"
+              className="btn-secondary text-xs px-3 py-1.5"
             >
-              Expand Review →
+              <Eye className="h-3.5 w-3.5" />
+              Intelligence Review
             </button>
+            {visibleSuggestions.length > 0 && (
+              <button onClick={handleApproveAll} className="btn-secondary text-xs px-3 py-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Approve safe groups
+              </button>
+            )}
           </div>
-          <SuggestionsPanel
-            suggestions={visibleSuggestions}
-            onApprove={handleApproveSuggestion}
-            onReject={handleRejectSuggestion}
-            onApproveAll={handleApproveAll}
-            onDismissAll={() => setHandledSuggestions(new Set(allSuggestions.map((s) => s.id)))}
-            previewRows={preview.previewRows}
-          />
-        </>
-      )}
+        </div>
+        {reviewRows.length > 0 ? (
+          <div className="mt-3 grid gap-2">
+            {reviewRows.slice(0, 8).map((row) => (
+              <div key={row.rowNumber} className="flex flex-col gap-2 rounded-lg border border-[var(--border)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-[var(--foreground)] truncate">
+                    Row {row.rowNumber} · {row.merchant || row.reference || row.description || "Unknown"}
+                  </p>
+                  <p className="text-[11px] text-[var(--muted-foreground)] line-clamp-2">
+                    {row.reviewReason || row.categoryReason || "Needs review because the available merchant/reference evidence is not strong enough."}
+                  </p>
+                </div>
+                <select
+                  value={getRowCategory(row)}
+                  onChange={(e) => handleCategoryChange(row.rowNumber, e.target.value)}
+                  className="text-xs bg-transparent border border-[var(--border)] rounded px-2 py-1.5 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] min-h-[36px]"
+                >
+                  {ALL_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            {reviewRows.length > 8 && (
+              <button onClick={() => setShowFullScreenReview(true)} className="text-xs font-medium text-[var(--accent)] hover:underline">
+                Review all {reviewRows.length} items
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-emerald-300">No unresolved rows detected in the preview.</p>
+        )}
+      </div>
 
       <FullScreenReview
         open={showFullScreenReview}
@@ -1809,23 +1855,23 @@ function PreviewStep({
           <span className="text-xs text-[var(--muted-foreground)]">{fileName}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[1280px]">
+          <table className="w-full text-xs min-w-[1320px]">
             <thead>
               <tr className="text-left text-[var(--muted-foreground)]" style={{ background: "rgba(17,24,39,0.8)" }}>
                 <th className="px-3 py-2 font-medium">Row</th>
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium">Merchant</th>
-                <th className="px-3 py-2 font-medium">Description</th>
                 <th className="px-3 py-2 font-medium">Reference</th>
                 <th className="px-3 py-2 font-medium">Counterparty</th>
                 <th className="px-3 py-2 font-medium">Bank Type</th>
                 <th className="px-3 py-2 font-medium text-right">Amount</th>
-                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Direction</th>
                 <th className="px-3 py-2 font-medium">Category</th>
                 {extraFields.includes("balance") && <th className="px-3 py-2 font-medium text-right">Balance</th>}
                 {extraFields.includes("currency") && <th className="px-3 py-2 font-medium">Cur</th>}
                 <th className="px-3 py-2 font-medium">Reason</th>
                 <th className="px-3 py-2 font-medium">Conf</th>
+                <th className="px-3 py-2 font-medium">KPI Treatment</th>
                 <th className="px-3 py-2 font-medium">Status</th>
               </tr>
             </thead>
@@ -1852,18 +1898,30 @@ function PreviewStep({
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <MerchantLogo name={row.merchant || ""} size="sm" />
-                      <span className="text-xs text-[var(--foreground)] max-w-[120px] truncate">{row.merchant || "—"}</span>
+                      <div className="min-w-0">
+                        <span className="block text-xs text-[var(--foreground)] max-w-[140px] truncate">{row.merchant || "—"}</span>
+                        {row.intelligenceGroupLabel && (
+                          <span className="block text-[10px] text-[var(--muted-foreground)] max-w-[140px] truncate">
+                            Group: {row.intelligenceGroupLabel}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[200px]">
-                    <div className="truncate">{row.description || "—"}</div>
-                    {row.bankDescription && row.bankDescription !== row.description && (
-                      <div className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">
-                        Bank: {row.bankDescription}
+                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[220px]">
+                    <div className="truncate">{row.reference || "—"}</div>
+                    <details className="mt-0.5">
+                      <summary className="cursor-pointer text-[10px] text-[var(--muted-foreground)]">Row details</summary>
+                      <div className="mt-1 space-y-0.5 text-[10px] text-[var(--muted-foreground)]">
+                        {row.description && <p>Description: {row.description}</p>}
+                        {row.bankDescription && <p>Bank description: {row.bankDescription}</p>}
+                        {row.externalTransactionId && <p>External ID: {row.externalTransactionId}</p>}
+                        {row.merchantCategoryCode && <p>MCC: {row.merchantCategoryCode}</p>}
+                        {row.accountName && <p>Account: {row.accountName}</p>}
+                        {row.payer && <p>Payer: {row.payer}</p>}
                       </div>
-                    )}
+                    </details>
                   </td>
-                  <td className="px-3 py-2 text-[var(--foreground)] max-w-[150px] truncate">{row.reference || "—"}</td>
                   <td className="px-3 py-2 text-[var(--foreground)] max-w-[150px] truncate">{row.counterparty || row.payer || "—"}</td>
                   <td className="px-3 py-2 text-[var(--muted-foreground)] max-w-[100px] truncate">{row.transactionType || "—"}</td>
                   <td className="px-3 py-2 text-right font-mono">
@@ -1914,6 +1972,11 @@ function PreviewStep({
                     <div className="text-[var(--foreground)] line-clamp-2">
                       {row.categoryReason || row.reviewReason || "No category reason available"}
                     </div>
+                    {row.intelligenceGroupReason && (
+                      <div className="mt-0.5 text-[10px] text-[var(--muted-foreground)] line-clamp-1">
+                        {row.intelligenceGroupReason}
+                      </div>
+                    )}
                     <div className="mt-1 flex flex-wrap gap-1">
                       {row.kpiTreatment && (
                         <span className={`rounded border px-1.5 py-0.5 text-[10px] ${
@@ -1935,6 +1998,17 @@ function PreviewStep({
                     <span className={(row.categoryConfidence ?? row.confidenceScore) >= 85 ? "text-emerald-400" : (row.categoryConfidence ?? row.confidenceScore) >= 60 ? "text-amber-400" : "text-rose-400"}>
                       {row.categoryConfidence ?? row.confidenceScore}%
                     </span>
+                  </td>
+                  <td className="px-3 py-2 max-w-[150px]">
+                    {row.kpiTreatment === "excluded" ? (
+                      <span className="rounded border border-violet-500/30 px-2 py-1 text-[10px] text-violet-300">
+                        {formatKpiExclusionReason(row.kpiExclusionReason, row.category)}
+                      </span>
+                    ) : (
+                      <span className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300">
+                        Included
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <StatusBadge
@@ -2255,6 +2329,15 @@ function StatCard({
         <span className="text-xs text-[var(--muted-foreground)]">{label}</span>
       </div>
       <p className="text-xl font-bold text-[var(--foreground)]">{value}</p>
+    </div>
+  );
+}
+
+function MiniIntel({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] px-2.5 py-2">
+      <p className={`text-sm font-semibold ${tone}`}>{value}</p>
+      <p className="text-[10px] uppercase text-[var(--muted-foreground)]">{label}</p>
     </div>
   );
 }

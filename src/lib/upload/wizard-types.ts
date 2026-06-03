@@ -81,6 +81,8 @@ export interface PreviewRow {
   transactionType?: string;
   sourceProvider?: string;
   accountName?: string;
+  externalTransactionId?: string;
+  merchantCategoryCode?: string;
   feeAmount?: number;
   runningBalance?: number;
   amount: number;
@@ -95,7 +97,13 @@ export interface PreviewRow {
   normalisedMerchant?: string;
   displayMerchant?: string;
   kpiTreatment?: "included" | "excluded";
+  kpiExclusionReason?: string;
   businessMeaning?: string;
+  intelligenceGroupId?: string;
+  intelligenceGroupLabel?: string;
+  intelligenceGroupReason?: string;
+  intelligenceGroupSignals?: string[];
+  categorySource?: "system" | "user" | "user_rule" | "grouping";
   isCreditCardRepayment?: boolean;
   isSubscriptionCandidate?: boolean;
   isRecurringCandidate?: boolean;
@@ -142,6 +150,32 @@ export interface WizardPreview {
   latestBalance?: number;
   matchedHeaders?: string[];
   missingHeaders?: string[];
+  intelligenceSummary?: {
+    rowsAutoCategorised: number;
+    rowsSuggested: number;
+    rowsNeedingReview: number;
+    rowsAmbiguous: number;
+    transfersDetected: number;
+    creditCardPaymentsDetected: number;
+    recurringGroupsDetected: number;
+    subscriptionsDetected: number;
+    kpiExcludedRows: number;
+    intelligenceGroups: number;
+  };
+  intelligenceGroups?: Array<{
+    id: string;
+    label: string;
+    rowCount: number;
+    rowNumbers: number[];
+    category?: string;
+    categoryConfidence: number;
+    groupConfidence: number;
+    kpiTreatment: "included" | "excluded";
+    kpiExclusionReason?: string;
+    reason: string;
+    signals: string[];
+    reviewRequiredCount: number;
+  }>;
   estimatedImpact?: {
     incomeToAdd: number;
     expensesToAdd: number;
@@ -149,6 +183,9 @@ export interface WizardPreview {
     duplicatesToSkip: number;
     failedRows: number;
     subscriptionsDetected: number;
+    kpiExcludedRows?: number;
+    creditCardPaymentsDetected?: number;
+    recurringGroupsDetected?: number;
     latestBalanceDetected?: number;
   };
 }

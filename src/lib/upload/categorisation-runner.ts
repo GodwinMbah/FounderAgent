@@ -4,45 +4,15 @@ import { canonicalListToNormalised, type NormalisedRow } from "@/lib/providers/c
 import type { CanonicalTransaction } from "@/lib/providers/canonical-model";
 import type { CompanySettings } from "@/lib/db/company_settings";
 import {
+  getKpiExclusionReasonForCategory,
+  isKpiExcludedCategory,
+  isTransferStyleCategory,
+} from "@/lib/kpi-treatment";
+import { applyIntelligenceGroups, type TransactionIntelligenceGroup } from "@/lib/upload/intelligence-groups";
+import {
   categoriseWithV3AndV1Fallback,
   type CategorisedV3Row,
 } from "@/lib/upload/categoriser-v3-adapter";
-
-const TRANSFER_STYLE_CATEGORIES = new Set([
-  "Transfers",
-  "Internal Transfer",
-  "International Transfer",
-  "Money Transfer",
-  "Credit Card Payment",
-  "Loan Repayment",
-  "Owner Drawings",
-]);
-
-const KPI_EXCLUDED_CATEGORIES = new Set([
-  ...TRANSFER_STYLE_CATEGORIES,
-  "Capital Injection",
-  "Loans",
-  "Ambiguous",
-  "Uncategorised Review",
-]);
-
-export function isTransferStyleCategory(category?: string): boolean {
-  return TRANSFER_STYLE_CATEGORIES.has(category ?? "");
-}
-
-export function isKpiExcludedCategory(category?: string): boolean {
-  return KPI_EXCLUDED_CATEGORIES.has(category ?? "");
-}
-
-function categoryToExclusionReason(category?: string): string | undefined {
-  if (!category) return undefined;
-  if (category === "Credit Card Payment") return "credit_card_payment";
-  if (category === "Loan Repayment") return "loan_repayment";
-  if (isTransferStyleCategory(category)) return "transfer";
-  if (category === "Ambiguous" || category === "Uncategorised Review") return "needs_review";
-  if (isKpiExcludedCategory(category)) return category.toLowerCase().replace(/\s+/g, "_");
-  return undefined;
-}
 
 function classifyStructuralTransfer(tx: CanonicalTransaction): string {
   const text = `${tx.transactionType ?? ""} ${tx.description ?? ""} ${tx.reference ?? ""} ${tx.merchantName ?? ""} ${tx.counterpartyName ?? ""}`.toLowerCase();
@@ -100,7 +70,7 @@ export function applyMerchantAndTransferSignals(transactions: CanonicalTransacti
     tx.rowStatus = "transfer";
     tx.category = category;
     tx.kpiExcluded = true;
-    tx.kpiExclusionReason = categoryToExclusionReason(category) ?? "transfer";
+    tx.kpiExclusionReason = getKpiExclusionReasonForCategory(category) ?? "transfer";
     tx.transferPairId = transferResult.transferPairId;
     tx.reviewReason = transferResult.reviewReason;
     tx.isCreditCardRepayment = category === "Credit Card Payment";
@@ -129,6 +99,7 @@ function applyCategoryToCanonical(tx: CanonicalTransaction, row: CategorisedV3Ro
   tx.businessMeaning = row.businessMeaning;
   tx.kpiTreatment = row.kpiTreatment;
   tx.incomeExpenseStatus = row.type;
+  tx.categorySource = tx.categorySource ?? "system";
   tx.isCreditCardRepayment = row.isCreditCardRepayment;
   tx.isSubscriptionCandidate = row.isSubscriptionCandidate;
   tx.isRecurringCandidate = row.isRecurringCandidate;
@@ -136,7 +107,7 @@ function applyCategoryToCanonical(tx: CanonicalTransaction, row: CategorisedV3Ro
 
   if (!tx.isPossibleDuplicate && (isTransferStyleCategory(tx.category) || row.kpiTreatment === "excluded")) {
     tx.kpiExcluded = true;
-    tx.kpiExclusionReason = categoryToExclusionReason(tx.category) ?? "kpi_excluded";
+    tx.kpiExclusionReason = getKpiExclusionReasonForCategory(tx.category) ?? "kpi_excluded";
   }
 
   if (!tx.isPossibleDuplicate && isTransferStyleCategory(tx.category)) {
@@ -156,6 +127,7 @@ export function categoriseCanonicalTransactions(
 ): {
   normalisedRows: NormalisedRow[];
   categorisedRows: CategorisedV3Row[];
+  intelligenceGroups: TransactionIntelligenceGroup[];
 } {
   const normalisedRows = canonicalListToNormalised(transactions);
   const categorisedRows = categoriseWithV3AndV1Fallback(normalisedRows, companySettings);
@@ -164,5 +136,31 @@ export function categoriseCanonicalTransactions(
     applyCategoryToCanonical(transactions[i], categorisedRows[i]);
   }
 
-  return { normalisedRows, categorisedRows };
+  const intelligenceGroups = applyIntelligenceGroups(transactions);
+  for (let i = 0; i < categorisedRows.length && i < transactions.length; i++) {
+    const tx = transactions[i];
+    categorisedRows[i] = {
+      ...categorisedRows[i],
+      merchant: tx.displayMerchantName ?? tx.merchantName,
+      category: tx.category ?? categorisedRows[i].category,
+      subcategory: tx.subcategory,
+      confidenceScore: tx.confidenceScore ?? categorisedRows[i].confidenceScore,
+      status: tx.status ?? categorisedRows[i].status,
+      categoryReason: tx.categoryReason ?? categorisedRows[i].categoryReason,
+      categoryConfidence: tx.categoryConfidence ?? categorisedRows[i].categoryConfidence,
+      groupingConfidence: tx.groupingConfidence ?? categorisedRows[i].groupingConfidence,
+      normalisedMerchant: tx.normalisedMerchantName,
+      displayMerchant: tx.displayMerchantName,
+      kpiTreatment: tx.kpiTreatment ?? categorisedRows[i].kpiTreatment,
+      businessMeaning: tx.businessMeaning,
+      isCreditCardRepayment: tx.isCreditCardRepayment ?? false,
+      isSubscriptionCandidate: tx.isSubscriptionCandidate ?? false,
+      isRecurringCandidate: tx.isRecurringCandidate ?? false,
+      categoryEvidence: tx.categoryEvidence ?? categorisedRows[i].categoryEvidence,
+    };
+  }
+
+  return { normalisedRows, categorisedRows, intelligenceGroups };
 }
+
+export { isKpiExcludedCategory, isTransferStyleCategory };

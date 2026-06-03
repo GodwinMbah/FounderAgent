@@ -83,6 +83,12 @@ export interface Transaction {
   }>;
   businessMeaning?: string;
   kpiTreatment?: "included" | "excluded";
+  categorySource?: "system" | "user" | "user_rule" | "grouping";
+  userConfirmedCategory?: boolean;
+  intelligenceGroupId?: string;
+  intelligenceGroupLabel?: string;
+  intelligenceGroupReason?: string;
+  intelligenceGroupSignals?: string[];
   isCreditCardRepayment?: boolean;
   categoryId?: string;
   amount: number;

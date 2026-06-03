@@ -64,6 +64,12 @@ export interface CanonicalTransaction {
   kpiTreatment?: "included" | "excluded";
   incomeExpenseStatus?: "income" | "expense";
   merchantCategoryCode?: string;
+  categorySource?: "system" | "user" | "user_rule" | "grouping";
+  userConfirmedCategory?: boolean;
+  intelligenceGroupId?: string;
+  intelligenceGroupLabel?: string;
+  intelligenceGroupReason?: string;
+  intelligenceGroupSignals?: string[];
 
   // Status & Confidence
   status: string; // "needs_review" | "completed" | "pending" | "ai_suggested" | "possible_duplicate" | "transfer"
@@ -197,6 +203,12 @@ export function toDbTransaction(
       business_meaning: canonical.businessMeaning,
       kpi_treatment: canonical.kpiTreatment,
       income_expense_status: canonical.incomeExpenseStatus,
+      category_source: canonical.categorySource,
+      user_confirmed_category: canonical.userConfirmedCategory,
+      intelligence_group_id: canonical.intelligenceGroupId,
+      intelligence_group_label: canonical.intelligenceGroupLabel,
+      intelligence_group_reason: canonical.intelligenceGroupReason,
+      intelligence_group_signals: canonical.intelligenceGroupSignals,
       is_transfer: canonical.isTransfer,
       is_fee: canonical.isFee,
       is_credit_card_repayment: canonical.isCreditCardRepayment,
@@ -256,6 +268,12 @@ export function fromDbTransaction(tx: Transaction): CanonicalTransaction {
     kpiTreatment: (meta.kpi_treatment as CanonicalTransaction["kpiTreatment"]) || undefined,
     incomeExpenseStatus: (meta.income_expense_status as CanonicalTransaction["incomeExpenseStatus"]) || undefined,
     merchantCategoryCode: (meta.merchant_category_code as string) || undefined,
+    categorySource: (meta.category_source as CanonicalTransaction["categorySource"]) || undefined,
+    userConfirmedCategory: (meta.user_confirmed_category as boolean) || undefined,
+    intelligenceGroupId: (meta.intelligence_group_id as string) || undefined,
+    intelligenceGroupLabel: (meta.intelligence_group_label as string) || undefined,
+    intelligenceGroupReason: (meta.intelligence_group_reason as string) || undefined,
+    intelligenceGroupSignals: (meta.intelligence_group_signals as string[]) || undefined,
     status: tx.status,
     confidenceScore: tx.confidenceScore ?? 0,
     sourceProvider: tx.sourceProvider || (meta.source_provider as string) || "unknown",

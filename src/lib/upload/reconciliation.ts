@@ -36,6 +36,8 @@ export interface ImportRowOutcome {
   kpiExclusionReason?: string;
   failureReason?: string;
   categoryReason?: string;
+  intelligenceGroupId?: string;
+  intelligenceGroupReason?: string;
   signalsUsed?: string[];
   reason?: string;
 }

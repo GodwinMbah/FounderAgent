@@ -16,10 +16,12 @@ import {
   getUploadHistory,
   getUploadTransactions,
   deleteUploadAndTransactions,
+  refreshUploadCategories,
   type UploadHistoryItem,
 } from "@/app/(dashboard)/upload-centre/upload-history-actions";
 import type { Transaction } from "@/lib/types";
 import type { ImportRowOutcome } from "@/lib/upload/reconciliation";
+import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
 
 type UploadFilter = "all" | "completed" | "failed" | "processing";
 type DetailFilters = {
@@ -49,6 +51,8 @@ export default function UploadHistoryList() {
   const [txError, setTxError] = useState<string | null>(null);
   const [detailFilters, setDetailFilters] = useState<DetailFilters>(DEFAULT_DETAIL_FILTERS);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState<UploadFilter>("all");
 
   useEffect(() => {
@@ -126,6 +130,32 @@ export default function UploadHistoryList() {
     }
   }
 
+  async function handleRefreshCategories(uploadId: string) {
+    setRefreshingId(uploadId);
+    setRefreshMessage(null);
+    const result = await refreshUploadCategories(uploadId);
+    setRefreshingId(null);
+
+    if (!result.success) {
+      setRefreshMessage(result.error ?? "Category refresh failed.");
+      return;
+    }
+
+    setRefreshMessage(
+      `Category refresh updated ${result.refreshed ?? 0} row${result.refreshed === 1 ? "" : "s"}; protected ${result.protectedRows ?? 0} user-confirmed row${result.protectedRows === 1 ? "" : "s"}.`
+    );
+
+    const history = await getUploadHistory();
+    if (history.success && history.uploads) {
+      setUploads(history.uploads);
+      const refreshedUpload = history.uploads.find((upload) => upload.id === uploadId);
+      if (refreshedUpload) setSelectedUpload(refreshedUpload);
+    }
+    if (selectedUpload?.id === uploadId) {
+      await loadUploadTransactions(uploadId, detailFilters, 0, true);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
@@ -163,6 +193,11 @@ export default function UploadHistoryList() {
         <h3 className="text-sm font-semibold text-[var(--foreground)]">Upload History</h3>
         <span className="text-xs text-[var(--muted-foreground)]">{uploads.length} upload{uploads.length !== 1 ? "s" : ""}</span>
       </div>
+      {refreshMessage && (
+        <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
+          {refreshMessage}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1">
@@ -274,6 +309,8 @@ export default function UploadHistoryList() {
           filters={detailFilters}
           onFiltersChange={handleDetailFiltersChange}
           onLoadMore={() => loadUploadTransactions(selectedUpload.id, detailFilters, transactions.length, false)}
+          onRefreshCategories={() => handleRefreshCategories(selectedUpload.id)}
+          refreshingCategories={refreshingId === selectedUpload.id}
           onClose={() => setSelectedUpload(null)}
         />
       )}
@@ -292,6 +329,8 @@ function UploadDetailDrawer({
   filters,
   onFiltersChange,
   onLoadMore,
+  onRefreshCategories,
+  refreshingCategories,
   onClose,
 }: {
   upload: UploadHistoryItem;
@@ -304,10 +343,14 @@ function UploadDetailDrawer({
   filters: DetailFilters;
   onFiltersChange: (filters: DetailFilters) => void;
   onLoadMore: () => void;
+  onRefreshCategories: () => void;
+  refreshingCategories: boolean;
   onClose: () => void;
 }) {
   const { currency } = useCompanyCurrency();
   const rec = upload.reconciliation;
+  const lastCategoryRefreshAt = upload.metadata?.last_category_refresh_at as string | undefined;
+  const lastCategoryRefreshCount = upload.metadata?.last_category_refresh_count as number | undefined;
   const outcomeFilterKey = `${upload.id}:${filters.status}:${filters.category}:${filters.currency}:${filters.duplicateStatus}`;
   const [outcomePage, setOutcomePage] = useState({ key: outcomeFilterKey, count: PAGE_SIZE });
   const categories = Array.from(new Set([
@@ -344,9 +387,20 @@ function UploadDetailDrawer({
               {formatDate(upload.uploadedAt)} · {upload.status}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--border)] text-[var(--muted-foreground)] transition-colors">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onRefreshCategories}
+              disabled={refreshingCategories || transactions.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/40 disabled:opacity-50"
+              title="Refresh system categories without creating duplicate rows or overwriting user-confirmed corrections"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingCategories ? "animate-spin" : ""}`} />
+              Refresh categories
+            </button>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--border)] text-[var(--muted-foreground)] transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -397,6 +451,13 @@ function UploadDetailDrawer({
                 <DetailStat label="Alerts" value={String(rec.alertsCreated)} />
                 <DetailStat label="Recommendations" value={String(rec.recommendationsCreated)} />
               </div>
+              {lastCategoryRefreshAt && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Categories refreshed {formatDate(lastCategoryRefreshAt)}
+                  {lastCategoryRefreshCount !== undefined ? ` · ${lastCategoryRefreshCount} row${lastCategoryRefreshCount === 1 ? "" : "s"} updated` : ""}
+                  . User-confirmed corrections are protected.
+                </p>
+              )}
             </div>
           )}
 
@@ -470,7 +531,7 @@ function UploadDetailDrawer({
                         <p className="text-[10px] text-[var(--muted-foreground)]">
                           {row.transactionDate ? `${formatDate(row.transactionDate)} · ` : ""}
                           {row.category || "No category"}{row.subcategory ? ` / ${row.subcategory}` : ""} · {row.status}
-                          {row.kpiTreatment === "excluded" ? ` · KPI excluded${row.kpiExclusionReason ? `: ${row.kpiExclusionReason}` : ""}` : " · KPI included"}
+                          {row.kpiTreatment === "excluded" ? ` · KPI excluded: ${formatKpiExclusionReason(row.kpiExclusionReason, row.category)}` : " · KPI included"}
                         </p>
                         <p className="text-[10px] text-[var(--muted-foreground)] truncate">
                           {row.transactionId ? `DB ${row.transactionId}` : "No DB transaction"}
@@ -480,6 +541,11 @@ function UploadDetailDrawer({
                         {(row.reason || row.failureReason || row.categoryReason) && (
                           <p className="mt-1 text-[10px] text-[var(--muted-foreground)] line-clamp-2">
                             {row.reason || row.failureReason || row.categoryReason}
+                          </p>
+                        )}
+                        {row.intelligenceGroupReason && (
+                          <p className="mt-1 text-[10px] text-sky-300/80 line-clamp-2">
+                            {row.intelligenceGroupReason}
                           </p>
                         )}
                       </div>
@@ -544,7 +610,7 @@ function UploadDetailDrawer({
                       <p className="text-[10px] text-[var(--muted-foreground)]">
                         {formatDate(tx.date)} · {tx.category} · {tx.status}
                         {tx.rowStatus ? ` · ${tx.rowStatus}` : ""}
-                        {tx.kpiExcluded ? ` · KPI excluded${tx.kpiExclusionReason ? `: ${tx.kpiExclusionReason}` : ""}` : ""}
+                        {tx.kpiExcluded ? ` · KPI excluded: ${formatKpiExclusionReason(tx.kpiExclusionReason, tx.category)}` : ""}
                       </p>
                       <p className="text-[10px] text-[var(--muted-foreground)] truncate">
                         DB {tx.id}
