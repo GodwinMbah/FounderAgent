@@ -37,6 +37,7 @@ export function detectTransfer(
   const refUpper = reference.toUpperCase();
   const merchLower = merchantName.toLowerCase();
   const combinedLower = `${description} ${reference} ${merchantName} ${transaction.counterpartyName ?? ""}`.toLowerCase();
+  const sourceProvider = (options?.sourceProvider || "").toLowerCase();
 
   const paymentProcessorSignals = [
     "stripe",
@@ -61,6 +62,57 @@ export function detectTransfer(
   // They must remain KPI-eligible income, not be swallowed by generic top-up/transfer rules.
   if (typeLower.includes("topup") && transaction.amount > 0 && isPaymentProcessor) {
     return { isTransfer: false, confidence: 95 };
+  }
+
+  // Revolut Business uses the raw TRANSFER type for ordinary bank payments
+  // as well as genuine internal movements. Do not exclude KPI rows on type
+  // alone; require internal-account, owner/capital, or card/loan repayment
+  // evidence.
+  if (sourceProvider === "revolut_business_csv" && typeLower.includes("transfer")) {
+    const internalMovementSignals = [
+      "internal transfer",
+      "own account",
+      "between accounts",
+      "currency exchange",
+      "from british pound",
+      "to british pound",
+      "business savings",
+      "main ·",
+      "main ->",
+      "main →",
+    ];
+    if (internalMovementSignals.some((signal) => combinedLower.includes(signal))) {
+      return { isTransfer: true, confidence: 90 };
+    }
+
+    const creditOrLoanRepaymentSignals = [
+      "capital on tap",
+      "capital one",
+      "moneyway",
+      "close brothers",
+      "credit card repayment",
+      "credit card payment",
+      "loan repayment",
+    ];
+    if (transaction.amount < 0 && creditOrLoanRepaymentSignals.some((signal) => combinedLower.includes(signal))) {
+      return { isTransfer: true, confidence: 90 };
+    }
+
+    if (
+      combinedLower.includes("owner transfer") ||
+      combinedLower.includes("director loan") ||
+      combinedLower.includes("shareholder") ||
+      combinedLower.includes("capital injection") ||
+      combinedLower.includes("capital repayment")
+    ) {
+      return {
+        isTransfer: true,
+        confidence: 70,
+        reviewReason: "Internal ownership or capital movement requires manual review",
+      };
+    }
+
+    return { isTransfer: false, confidence: 0 };
   }
 
   // 1. Type-based (confidence 90)
@@ -103,8 +155,6 @@ export function detectTransfer(
   }
 
   // 5. Provider-specific rules
-  const sourceProvider = (options?.sourceProvider || "").toLowerCase();
-
   if (sourceProvider === "stripe_csv" && typeLower === "payout") {
     return { isTransfer: true, confidence: 95 };
   }

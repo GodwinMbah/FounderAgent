@@ -247,7 +247,25 @@ export function parseRevolutCsv(
       rawData["related_transaction_id"] = getValue(row, effectiveRelatedTransactionIdIdx);
     }
 
-    const isTransfer = typeValue === "TRANSFER";
+    const transferEvidence = `${description} ${reference}`.toLowerCase();
+    const isTransfer = typeValue === "TRANSFER" && [
+      "internal transfer",
+      "from british pound",
+      "to british pound",
+      "business savings",
+      "currency exchange",
+      "capital on tap",
+      "capital one",
+      "moneyway",
+      "close brothers",
+      "credit card repayment",
+      "loan repayment",
+      "owner transfer",
+      "director loan",
+      "shareholder",
+      "capital injection",
+      "capital repayment",
+    ].some((signal) => transferEvidence.includes(signal));
     if (isTransfer) {
       rawData["is_transfer"] = "true";
     }

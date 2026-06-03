@@ -49,6 +49,23 @@ export async function getSubscriptions(companyId?: string): Promise<Subscription
   return (data ?? []).map(mapRow);
 }
 
+export async function getSubscriptionsForCompany(companyId: string): Promise<Subscription[]> {
+  const admin = createAdminClient();
+  if (!admin) throw new Error("Admin client not available");
+
+  const { data, error } = await admin
+    .from("subscriptions")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("amount", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map(mapRow);
+}
+
 export async function getSubscriptionStats(companyId?: string) {
   const subs = await getSubscriptions(companyId);
   const monthlySpend = subs

@@ -104,6 +104,10 @@ export async function getTotalCashBalance(companyId: string): Promise<number> {
   if (!ctx) throw new Error("Unauthorized");
   if (companyId !== ctx.companyId) throw new Error("Forbidden: company mismatch");
 
+  return getTotalCashBalanceForCompany(companyId);
+}
+
+export async function getTotalCashBalanceForCompany(companyId: string): Promise<number> {
   const admin = createAdminClient();
   if (!admin) return 0;
 

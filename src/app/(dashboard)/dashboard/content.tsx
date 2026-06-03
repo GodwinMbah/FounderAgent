@@ -139,6 +139,7 @@ export default function DashboardContent({
                 changeType={change?.type ?? "neutral"}
                 icon={Icon ? <Icon className="h-4 w-4" style={{ color: kpi.iconColor }} /> : null}
                 iconColor={kpi.iconColor}
+                onDrillDown={() => setSelectedKPI(kpi)}
               />
             );
           })}

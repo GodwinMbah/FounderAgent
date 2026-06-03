@@ -13,6 +13,11 @@ interface CatTx {
   category?: string;
   confidenceScore: number;
   status?: string;
+  isPossibleDuplicate?: boolean;
+  isTransfer?: boolean;
+  rowStatus?: string;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
 }
 
 
@@ -21,6 +26,11 @@ interface CatTx {
 
 interface DupTx {
   isPossibleDuplicate?: boolean;
+  isTransfer?: boolean;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  rowStatus?: string;
+  status?: string;
   category?: string;
   amount?: number;
 }
@@ -70,6 +80,33 @@ describe("pipeline duplicate filtering logic", () => {
 
     const transactionInserts = parseResultTransactions.filter((tx) => !tx.isPossibleDuplicate);
     expect(transactionInserts.length).toBe(2);
+  });
+
+  it("does not erase explicit KPI exclusions for non-transfer review rows", () => {
+    const tx: DupTx = {
+      isTransfer: false,
+      isPossibleDuplicate: false,
+      status: "needs_review",
+      kpiExcluded: true,
+      kpiExclusionReason: "needs_review",
+      category: "Ambiguous",
+    };
+
+    if (tx.isTransfer) {
+      tx.rowStatus = "transfer";
+      tx.kpiExcluded = true;
+      tx.kpiExclusionReason = "transfer";
+    } else if (tx.status === "needs_review") {
+      tx.rowStatus = "needs_review";
+      tx.kpiExcluded = tx.kpiExcluded ?? false;
+    } else {
+      tx.rowStatus = "inserted";
+      tx.kpiExcluded = tx.kpiExcluded ?? false;
+    }
+
+    expect(tx.rowStatus).toBe("needs_review");
+    expect(tx.kpiExcluded).toBe(true);
+    expect(tx.kpiExclusionReason).toBe("needs_review");
   });
 });
 
@@ -145,6 +182,37 @@ describe("pipeline category override logic", () => {
     expect(canonicalTxs[0].confidenceScore).toBe(95);
     expect(canonicalTxs[1].category).toBe("Software");
     expect(canonicalTxs[1].confidenceScore).toBe(88);
+  });
+
+  it("normalises smart-categorised Transfers into transfer row status", () => {
+    const canonicalTx: CatTx = {
+      category: undefined,
+      confidenceScore: 0,
+      status: "completed",
+      isPossibleDuplicate: false,
+      isTransfer: false,
+    };
+    const categorisedRow: CatTx = {
+      category: "Transfers",
+      confidenceScore: 85,
+      status: "categorised",
+    };
+
+    if (categorisedRow.category) {
+      canonicalTx.category = categorisedRow.category;
+      if (categorisedRow.category === "Transfers" && !canonicalTx.isPossibleDuplicate) {
+        canonicalTx.isTransfer = true;
+        canonicalTx.status = "transfer";
+        canonicalTx.rowStatus = "transfer";
+        canonicalTx.kpiExcluded = true;
+        canonicalTx.kpiExclusionReason = "transfer";
+      }
+    }
+
+    expect(canonicalTx.isTransfer).toBe(true);
+    expect(canonicalTx.rowStatus).toBe("transfer");
+    expect(canonicalTx.kpiExcluded).toBe(true);
+    expect(canonicalTx.kpiExclusionReason).toBe("transfer");
   });
 
   it("ensures category overrides from preview make it into final DB insert", () => {

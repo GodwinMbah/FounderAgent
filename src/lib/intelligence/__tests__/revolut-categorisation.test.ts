@@ -171,6 +171,23 @@ describe("Revolut CSV categorisation", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
+  it("Revolut TRANSFER Marketing Commission → Sales Commission, not transfer", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Catherine Bull",
+        description: "Marketing Commission Payout",
+        reference: "Marketing Commission Payout",
+        amount: -35,
+        transactionType: "TRANSFER",
+        provider: "revolut_business_csv",
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Sales Commission");
+    expect(result.isTransfer).toBe(false);
+    expect(result.kpiTreatment).toBe("included");
+  });
+
   it("Sales Rep Commission → Sales Commission", () => {
     const result = categoriseTransaction(
       makeTx({

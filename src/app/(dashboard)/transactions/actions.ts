@@ -13,7 +13,9 @@ export async function loadTransactionsPage(input: {
   category?: string;
   status?: string;
   duplicateStatus?: "all" | "duplicates" | "not_duplicates";
+  kpiTreatment?: "all" | "included" | "excluded";
   currency?: string;
+  sourceProvider?: string;
 }): Promise<{ success: boolean; transactions?: Transaction[]; total?: number; error?: string }> {
   try {
     const { companyId } = await requireAuthCompany();
@@ -27,7 +29,9 @@ export async function loadTransactionsPage(input: {
       category: input.category && input.category !== "all" ? input.category : undefined,
       status: input.status && input.status !== "all" ? input.status : undefined,
       duplicateStatus: input.duplicateStatus,
+      kpiTreatment: input.kpiTreatment,
       currency: input.currency && input.currency !== "all" ? input.currency : undefined,
+      sourceProvider: input.sourceProvider && input.sourceProvider !== "all" ? input.sourceProvider : undefined,
     });
 
     return { success: true, transactions: result.transactions, total: result.total };

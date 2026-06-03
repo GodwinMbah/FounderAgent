@@ -45,8 +45,8 @@ describe("Revolut — TRANSFER counterparty extraction", () => {
     expect(result.transactions[0].merchantName).toBe("Catherine Bull");
     expect(result.transactions[0].counterpartyName).toBe("Catherine Bull");
     expect(result.transactions[0].description).toBe("Marketing Commission Payout");
-    expect(result.transactions[0].isTransfer).toBe(true);
-    expect(result.transactions[0].category).toBe("Transfers");
+    expect(result.transactions[0].isTransfer).toBe(false);
+    expect(result.transactions[0].category).not.toBe("Transfers");
   });
 
   it("extracts 'OLUWATOSIN AKINWOLEOLA' from 'To OLUWATOSIN AKINWOLEOLA'", () => {
@@ -60,6 +60,7 @@ describe("Revolut — TRANSFER counterparty extraction", () => {
     expect(result.transactions[0].merchantName).toBe("OLUWATOSIN AKINWOLEOLA");
     expect(result.transactions[0].counterpartyName).toBe("OLUWATOSIN AKINWOLEOLA");
     expect(result.transactions[0].description).toBe("Sales Rep Commision Fee");
+    expect(result.transactions[0].isTransfer).toBe(false);
   });
 
   it("marks 'From British Pound' as internal transfer", () => {

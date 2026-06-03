@@ -4,7 +4,7 @@ import { requireAuthCompany } from "@/lib/db/company";
 import { getUploads } from "@/lib/db/uploads";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Upload, Transaction } from "@/lib/types";
-import { getImportReconciliation } from "@/lib/upload/reconciliation";
+import { getImportReconciliation, type ImportRowOutcome } from "@/lib/upload/reconciliation";
 
 export interface UploadHistoryItem extends Upload {
   reconciliation?: {
@@ -17,8 +17,19 @@ export interface UploadHistoryItem extends Upload {
     rowsExcludedFromKpis: number;
     rowsFailed: number;
     rowsNeedingReview: number;
+    rowsUncategorised: number;
+    rowsAmbiguous: number;
     rowsCategorised: number;
+    rowsHighConfidence: number;
+    rowsCategorisedByUserRule: number;
+    rowsCategorisedBySystemIntelligence: number;
+    rowsIncludedInRevenue: number;
+    rowsIncludedInExpenses: number;
+    rowsIncludedInCashFlow: number;
     rowsLinkedToSubscriptions: number;
+    rowsWithFees: number;
+    rowsWithRefunds: number;
+    rowsWithCreditCardRepaymentTreatment: number;
     reconciliationBalanced: boolean;
     explanation: string;
     subscriptionsDetected: number;
@@ -53,8 +64,19 @@ export async function getUploadHistory(): Promise<{
           rowsExcludedFromKpis: rec?.rowsExcludedFromKpis ?? ((meta.transfer_count as number) ?? 0) + ((meta.duplicate_count as number) ?? 0),
           rowsFailed: rec?.rowsFailed ?? (meta.failed_rows as number) ?? 0,
           rowsNeedingReview: rec?.rowsNeedingReview ?? (meta.needs_review_count as number) ?? 0,
+          rowsUncategorised: rec?.rowsUncategorised ?? 0,
+          rowsAmbiguous: rec?.rowsAmbiguous ?? 0,
           rowsCategorised: rec?.rowsCategorised ?? (meta.categorised_count as number) ?? 0,
+          rowsHighConfidence: rec?.rowsHighConfidence ?? 0,
+          rowsCategorisedByUserRule: rec?.rowsCategorisedByUserRule ?? 0,
+          rowsCategorisedBySystemIntelligence: rec?.rowsCategorisedBySystemIntelligence ?? (meta.categorised_count as number) ?? 0,
+          rowsIncludedInRevenue: rec?.rowsIncludedInRevenue ?? 0,
+          rowsIncludedInExpenses: rec?.rowsIncludedInExpenses ?? 0,
+          rowsIncludedInCashFlow: rec?.rowsIncludedInCashFlow ?? 0,
           rowsLinkedToSubscriptions: rec?.rowsLinkedToSubscriptions ?? 0,
+          rowsWithFees: rec?.rowsWithFees ?? 0,
+          rowsWithRefunds: rec?.rowsWithRefunds ?? 0,
+          rowsWithCreditCardRepaymentTreatment: rec?.rowsWithCreditCardRepaymentTreatment ?? 0,
           reconciliationBalanced: rec?.reconciliationBalanced ?? upload.status === "completed",
           explanation: rec?.explanation ?? "",
           subscriptionsDetected: (meta.subscriptions_detected as number) ?? 0,
@@ -89,6 +111,7 @@ export async function getUploadTransactions(
   transactions?: Transaction[];
   total?: number;
   hasMore?: boolean;
+  rowOutcomes?: ImportRowOutcome[];
   error?: string;
 }> {
   try {
@@ -98,6 +121,14 @@ export async function getUploadTransactions(
 
     const limit = options?.limit ?? 100;
     const offset = options?.offset ?? 0;
+
+    const { data: uploadRow } = await admin
+      .from("uploads")
+      .select("metadata")
+      .eq("company_id", companyId)
+      .eq("id", uploadId)
+      .maybeSingle();
+    const rowOutcomes = getImportReconciliation(uploadRow?.metadata as Record<string, unknown> | undefined)?.rowOutcomes ?? [];
 
     let query = admin
       .from("transactions")
@@ -126,6 +157,7 @@ export async function getUploadTransactions(
         accountId: t.bank_account_id as string,
         sourceRowNumber: (t.source_row_number as number | undefined) ?? (metadata?.source_row_number as number | undefined),
         externalTransactionId: (t.external_transaction_id as string | undefined) ?? (metadata?.external_transaction_id as string | undefined),
+        postedDate: (t.posted_date as string | undefined) ?? (metadata?.posted_date as string | undefined),
         currency: (t.currency as string | undefined) ?? (metadata?.currency as string | undefined),
         sourceProvider: (t.source_provider as string | undefined) ?? (metadata?.source_provider as string | undefined),
         rawRowHash: (t.raw_row_hash as string | undefined) ?? (metadata?.raw_row_hash as string | undefined),
@@ -134,10 +166,22 @@ export async function getUploadTransactions(
         kpiExcluded: (t.kpi_excluded as boolean | undefined) ?? (metadata?.kpi_excluded as boolean | undefined),
         kpiExclusionReason: (t.kpi_exclusion_reason as string | undefined) ?? (metadata?.kpi_exclusion_reason as string | undefined),
         duplicateOfTransactionId: (t.duplicate_of_transaction_id as string | undefined) ?? (metadata?.duplicate_of_transaction_id as string | undefined),
+        originalAmount: metadata?.original_amount as number | undefined,
+        originalCurrency: metadata?.original_currency as string | undefined,
+        feeAmount: (t.fee_amount as number | undefined) ?? (metadata?.fee_amount as number | undefined),
+        feeCurrency: metadata?.fee_currency as string | undefined,
+        runningBalance: (t.running_balance as number | undefined) ?? (metadata?.running_balance as number | undefined),
         date: t.date as string,
         merchant: t.merchant as string,
         description: t.description as string,
         category: t.category as string,
+        subcategory: metadata?.detected_subcategory as string | undefined,
+        categoryReason: metadata?.category_reason as string | undefined,
+        categoryConfidence: metadata?.category_confidence as number | undefined,
+        groupingConfidence: metadata?.grouping_confidence as number | undefined,
+        businessMeaning: metadata?.business_meaning as string | undefined,
+        kpiTreatment: metadata?.kpi_treatment as Transaction["kpiTreatment"] | undefined,
+        isCreditCardRepayment: metadata?.is_credit_card_repayment as boolean | undefined,
         amount: Number(t.amount),
         type: t.type as "income" | "expense",
         status: t.status as string,
@@ -151,6 +195,7 @@ export async function getUploadTransactions(
       transactions,
       total: count ?? transactions.length,
       hasMore: offset + transactions.length < (count ?? transactions.length),
+      rowOutcomes,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load transactions";

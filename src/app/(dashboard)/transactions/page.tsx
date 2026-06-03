@@ -4,7 +4,19 @@ import { getUploads } from "@/lib/db/uploads";
 import TransactionsContent from "./content";
 
 interface Props {
-  searchParams?: Promise<{ preset?: string; from?: string; to?: string }>;
+  searchParams?: Promise<{
+    preset?: string;
+    from?: string;
+    to?: string;
+    uploadId?: string;
+    type?: string;
+    category?: string;
+    status?: string;
+    duplicateStatus?: "all" | "duplicates" | "not_duplicates";
+    kpiTreatment?: "all" | "included" | "excluded";
+    currency?: string;
+    sourceProvider?: string;
+  }>;
 }
 
 export default async function TransactionsPage({ searchParams }: Props) {
@@ -12,9 +24,32 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
+  const initialFilters = {
+    type: resolvedSearchParams?.type,
+    uploadId: resolvedSearchParams?.uploadId,
+    category: resolvedSearchParams?.category,
+    status: resolvedSearchParams?.status,
+    duplicateStatus: resolvedSearchParams?.duplicateStatus,
+    kpiTreatment: resolvedSearchParams?.kpiTreatment,
+    currency: resolvedSearchParams?.currency,
+    sourceProvider: resolvedSearchParams?.sourceProvider,
+  };
 
   const [transactionPage, uploads] = await Promise.all([
-    getTransactionsPage(companyId, { startDate: from, endDate: to, limit: 100, offset: 0 }),
+    getTransactionsPage(companyId, {
+      startDate: from,
+      endDate: to,
+      limit: 100,
+      offset: 0,
+      type: initialFilters.type === "income" || initialFilters.type === "expense" ? initialFilters.type : undefined,
+      uploadId: initialFilters.uploadId && initialFilters.uploadId !== "all" ? initialFilters.uploadId : undefined,
+      category: initialFilters.category && initialFilters.category !== "all" ? initialFilters.category : undefined,
+      status: initialFilters.status && initialFilters.status !== "all" ? initialFilters.status : undefined,
+      duplicateStatus: initialFilters.duplicateStatus,
+      kpiTreatment: initialFilters.kpiTreatment,
+      currency: initialFilters.currency && initialFilters.currency !== "all" ? initialFilters.currency : undefined,
+      sourceProvider: initialFilters.sourceProvider && initialFilters.sourceProvider !== "all" ? initialFilters.sourceProvider : undefined,
+    }),
     getUploads(companyId),
   ]);
 
@@ -26,6 +61,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
       initialPreset={preset}
       initialFrom={from}
       initialTo={to}
+      initialFilters={initialFilters}
     />
   );
 }

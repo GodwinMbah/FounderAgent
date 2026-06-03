@@ -49,7 +49,7 @@ export async function signUp(formData: FormData) {
     // Create company
     const { data: company, error: companyError } = await admin
       .from("companies")
-      .insert({ name: companyName, slug })
+      .insert({ name: companyName, slug, currency: "GBP" })
       .select("id")
       .single();
 
@@ -75,6 +75,22 @@ export async function signUp(formData: FormData) {
       }, { onConflict: "company_id, user_id" });
       if (memberError) {
         console.error("[signUp] Membership upsert failed:", memberError.message);
+      }
+
+      const { error: settingsError } = await admin.from("company_settings").upsert({
+        company_id: company.id,
+        country: "GB",
+        currency: "GBP",
+        timezone: "Europe/London",
+        fiscal_year_start: "1",
+        weekly_digest_enabled: true,
+        top_revenue_channels: [],
+        payment_tools: [],
+        tools_used: [],
+        agent_focus: [],
+      }, { onConflict: "company_id" });
+      if (settingsError) {
+        console.error("[signUp] Company settings upsert failed:", settingsError.message);
       }
 
       // Set cookies so middleware recognises the company immediately

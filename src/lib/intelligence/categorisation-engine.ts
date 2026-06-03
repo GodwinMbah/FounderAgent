@@ -451,10 +451,10 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
 
   // Expense signals
   { keywords: ["commission received", "sales commission received", "affiliate commission received"], category: "Revenue", confidence: 82, reason: "Incoming commission received is revenue", amountCondition: "positive" },
-  { keywords: ["sales rep commission", "marketing commission", "commission payout", "affiliate payout", "sales commission", "commission"], category: "Sales Commission", confidence: 86, reason: "Commission payout is a sales/marketing commission expense", amountCondition: "negative" },
+  { keywords: ["sales rep commission", "marketing commission", "commission payout", "affiliate payout", "referal pay out", "referral pay out", "referral payout", "sales commission", "commission"], category: "Sales Commission", confidence: 86, reason: "Commission payout is a sales/marketing commission expense", amountCondition: "negative" },
   { keywords: ["consultancy", "consulting fee", "consultant fee", "advisory fee"], category: "Professional Services", confidence: 80, reason: "Consultancy/advisory fee" },
   { keywords: ["director fee", "directors fee", "board fee"], category: "Professional Services", confidence: 75, reason: "Director/board fee" },
-  { keywords: ["salary", "wages", "payroll", "employee pay"], category: "Payroll", confidence: 90, reason: "Salary/wages payment" },
+  { keywords: ["salary", "wages", "payroll", "employee pay", "engagement manager"], category: "Payroll", confidence: 90, reason: "Salary/wages payment" },
   { keywords: ["pension", "auto-enrolment", "workplace pension"], category: "Payroll", confidence: 90, reason: "Pension contribution" },
   { keywords: ["rent", "lease", "lease payment", "property rent"], category: "Office Costs", confidence: 85, reason: "Rent/lease payment" },
   { keywords: ["tax", "corporation tax", "income tax", "self assessment"], category: "Tax", confidence: 90, reason: "Tax payment" },
@@ -463,8 +463,8 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["software", "saas", "app subscription", "license"], category: "Software", confidence: 80, reason: "Software/SaaS payment" },
   { keywords: ["cloud hosting", "server hosting", "hosting"], category: "Cloud Infrastructure", confidence: 80, reason: "Hosting/cloud infrastructure" },
   { keywords: ["advertising", "ads", "ad spend", "campaign", "ppc"], category: "Advertising", confidence: 85, reason: "Advertising spend" },
-  { keywords: ["marketing", "seo", "content marketing"], category: "Marketing", confidence: 70, reason: "Marketing spend" },
-  { keywords: ["contractor", "freelancer", " freelancer payment"], category: "Contractors", confidence: 80, reason: "Contractor/freelancer payment" },
+  { keywords: ["marketing", "seo", "content marketing", "video shoot payment", "challenge 1st price", "challenge 3rd price"], category: "Marketing", confidence: 70, reason: "Marketing spend" },
+  { keywords: ["contractor", "freelancer", " freelancer payment", "freelance fee"], category: "Contractors", confidence: 80, reason: "Contractor/freelancer payment" },
   { keywords: ["fiverr", "upwork", "freelance marketplace"], category: "Contractors", confidence: 82, reason: "Freelance/contractor marketplace spend" },
   { keywords: ["supplier", "vendor payment", "supplier payment", "invoice payment"], category: "COGS", confidence: 75, reason: "Supplier/vendor payment" },
   { keywords: ["inventory", "stock purchase", "inventory purchase", "raw materials"], category: "COGS", confidence: 80, reason: "Inventory/stock purchase", businessModels: ["ecommerce", "physical_products"] },
@@ -473,18 +473,18 @@ const KEYWORD_PATTERNS: KeywordPattern[] = [
   { keywords: ["interest charge", "card interest", "loan interest"], category: "Interest Charges", confidence: 85, reason: "Interest charge" },
   { keywords: ["credit card fee", "card fee", "annual fee"], category: "Credit Card Fees", confidence: 85, reason: "Credit card fee" },
   { keywords: ["transfer to", "transfer from", "internal transfer"], category: "Transfers", confidence: 70, reason: "Internal transfer between accounts" },
-  { keywords: ["owner drawing", "director loan", "director withdrawal"], category: "Owner Drawings", confidence: 75, reason: "Owner/director drawing" },
+  { keywords: ["owner drawing", "director loan", "director withdrawal", "family support", "gift to family"], category: "Owner Drawings", confidence: 75, reason: "Owner/director drawing or family support payment" },
   { keywords: ["personal", "personal spending", "personal use"], category: "Personal Spending", confidence: 65, reason: "Personal spending" },
   { keywords: ["gym", "fitness", "snapfitness", "snap fitness"], category: "Personal Spending", confidence: 65, reason: "Fitness/gym spend is usually personal unless confirmed as business-related" },
   { keywords: ["dental", "dentist"], category: "Personal Spending", confidence: 65, reason: "Dental/health spend is usually personal unless confirmed as business-related" },
   { keywords: ["cinema", "vue entertainment", "national trust", "historic royal", "royal pavilion", "gravity max"], category: "Personal Spending", confidence: 60, reason: "Leisure/tourism spend is usually personal unless confirmed as business-related" },
 
   // Transfer signals
-  { keywords: ["credit card repayment", "card repayment", "credit card payment"], category: "Credit Card Payment", confidence: 85, reason: "Credit card repayment" },
+  { keywords: ["credit card repayment", "card repayment", "credit card payment", "moneyway", "close brothers"], category: "Credit Card Payment", confidence: 85, reason: "Credit card or loan repayment" },
   { keywords: ["top up", "top-up", "account top up"], category: "Ambiguous", confidence: 45, reason: "Top-up without processor/capital context is ambiguous" },
 
   // Refunds
-  { keywords: ["refund", "refunded", "return"], category: "Refunds", confidence: 70, reason: "Refund/return" },
+  { keywords: ["refund", "refunded", "return", "money back", "reimbursement", "over payment"], category: "Refunds", confidence: 70, reason: "Refund/return" },
 
   // HighLevel specific
   { keywords: ["highlevel", "gohighlevel", "high level", "agency sub"], category: "Software", confidence: 85, reason: "HighLevel/GoHighLevel is marketing automation SaaS" },
@@ -825,6 +825,8 @@ const CREDIT_CARD_PROVIDER_TERMS = [
   "tide credit",
   "revolut card",
   "credit card",
+  "moneyway",
+  "close brothers",
 ];
 
 const PAYMENT_WRAPPER_PATTERNS: Array<{
@@ -1131,12 +1133,12 @@ export class UniversalCategorisationEngine {
       });
     }
 
-    if ((tx.isTransfer || type === "TRANSFER") && !signals.isPaymentProcessorPayout) {
+    if ((tx.isTransfer || signals.isInternalMovement) && !signals.isPaymentProcessorPayout) {
       evidence.push({
         category: "Transfers",
         confidence: 85,
-        source: "transaction_type",
-        reason: "Transfer between accounts",
+        source: "transfer_detection",
+        reason: "Internal movement evidence indicates a transfer between accounts",
       });
     }
 

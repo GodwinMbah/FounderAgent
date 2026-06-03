@@ -19,6 +19,7 @@ import {
   type UploadHistoryItem,
 } from "@/app/(dashboard)/upload-centre/upload-history-actions";
 import type { Transaction } from "@/lib/types";
+import type { ImportRowOutcome } from "@/lib/upload/reconciliation";
 
 type UploadFilter = "all" | "completed" | "failed" | "processing";
 type DetailFilters = {
@@ -41,6 +42,7 @@ export default function UploadHistoryList() {
   const [loading, setLoading] = useState(true);
   const [selectedUpload, setSelectedUpload] = useState<UploadHistoryItem | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [rowOutcomes, setRowOutcomes] = useState<ImportRowOutcome[]>([]);
   const [txLoading, setTxLoading] = useState(false);
   const [txTotal, setTxTotal] = useState(0);
   const [txHasMore, setTxHasMore] = useState(false);
@@ -71,6 +73,7 @@ export default function UploadHistoryList() {
   async function handleViewDetails(upload: UploadHistoryItem) {
     setSelectedUpload(upload);
     setTransactions([]);
+    setRowOutcomes([]);
     setTxTotal(0);
     setTxHasMore(false);
     setTxError(null);
@@ -92,6 +95,7 @@ export default function UploadHistoryList() {
     });
     if (result.success && result.transactions) {
       setTransactions((prev) => (replace ? result.transactions ?? [] : [...prev, ...(result.transactions ?? [])]));
+      if (result.rowOutcomes) setRowOutcomes(result.rowOutcomes);
       setTxTotal(result.total ?? result.transactions.length);
       setTxHasMore(result.hasMore ?? false);
       setTxError(null);
@@ -262,6 +266,7 @@ export default function UploadHistoryList() {
         <UploadDetailDrawer
           upload={selectedUpload}
           transactions={transactions}
+          rowOutcomes={rowOutcomes}
           total={txTotal}
           hasMore={txHasMore}
           error={txError}
@@ -279,6 +284,7 @@ export default function UploadHistoryList() {
 function UploadDetailDrawer({
   upload,
   transactions,
+  rowOutcomes,
   total,
   hasMore,
   error,
@@ -290,6 +296,7 @@ function UploadDetailDrawer({
 }: {
   upload: UploadHistoryItem;
   transactions: Transaction[];
+  rowOutcomes: ImportRowOutcome[];
   total: number;
   hasMore: boolean;
   error: string | null;
@@ -301,8 +308,26 @@ function UploadDetailDrawer({
 }) {
   const { currency } = useCompanyCurrency();
   const rec = upload.reconciliation;
-  const categories = Array.from(new Set(transactions.map((tx) => tx.category).filter(Boolean))) as string[];
-  const currencies = Array.from(new Set(transactions.map((tx) => tx.currency).filter(Boolean))) as string[];
+  const outcomeFilterKey = `${upload.id}:${filters.status}:${filters.category}:${filters.currency}:${filters.duplicateStatus}`;
+  const [outcomePage, setOutcomePage] = useState({ key: outcomeFilterKey, count: PAGE_SIZE });
+  const categories = Array.from(new Set([
+    ...transactions.map((tx) => tx.category).filter(Boolean),
+    ...rowOutcomes.map((row) => row.category).filter(Boolean),
+  ])) as string[];
+  const currencies = Array.from(new Set([
+    ...transactions.map((tx) => tx.currency).filter(Boolean),
+    ...rowOutcomes.map((row) => row.currency).filter(Boolean),
+  ])) as string[];
+  const filteredOutcomes = rowOutcomes.filter((row) => {
+    if (filters.status !== "all" && row.status !== filters.status && row.reviewStatus !== filters.status) return false;
+    if (filters.category !== "all" && row.category !== filters.category) return false;
+    if (filters.currency !== "all" && row.currency !== filters.currency) return false;
+    if (filters.duplicateStatus === "duplicates" && row.duplicateStatus !== "duplicate") return false;
+    if (filters.duplicateStatus === "not_duplicates" && row.duplicateStatus === "duplicate") return false;
+    return true;
+  });
+  const visibleOutcomeCount = outcomePage.key === outcomeFilterKey ? outcomePage.count : PAGE_SIZE;
+  const visibleOutcomes = filteredOutcomes.slice(0, visibleOutcomeCount);
 
   return (
     <>
@@ -340,8 +365,19 @@ function UploadDetailDrawer({
                 <DetailStat label="Excluded KPIs" value={String(rec.rowsExcludedFromKpis)} />
                 <DetailStat label="Failed" value={String(rec.rowsFailed)} />
                 <DetailStat label="Needs Review" value={String(rec.rowsNeedingReview)} />
+                <DetailStat label="Uncategorised" value={String(rec.rowsUncategorised)} />
+                <DetailStat label="Ambiguous" value={String(rec.rowsAmbiguous)} />
                 <DetailStat label="Categorised" value={String(rec.rowsCategorised)} />
+                <DetailStat label="High Confidence" value={String(rec.rowsHighConfidence)} />
+                <DetailStat label="Revenue Rows" value={String(rec.rowsIncludedInRevenue)} />
+                <DetailStat label="Expense Rows" value={String(rec.rowsIncludedInExpenses)} />
+                <DetailStat label="Cash Flow Rows" value={String(rec.rowsIncludedInCashFlow)} />
+                <DetailStat label="User Rule" value={String(rec.rowsCategorisedByUserRule)} />
+                <DetailStat label="System Intel" value={String(rec.rowsCategorisedBySystemIntelligence)} />
                 <DetailStat label="Linked Subs" value={String(rec.rowsLinkedToSubscriptions)} />
+                <DetailStat label="Fee Rows" value={String(rec.rowsWithFees)} />
+                <DetailStat label="Refunds" value={String(rec.rowsWithRefunds)} />
+                <DetailStat label="Card Repayments" value={String(rec.rowsWithCreditCardRepaymentTreatment)} />
                 <DetailStat label="Balanced" value={rec.reconciliationBalanced ? "Yes" : "No"} />
               </div>
               {rec.explanation && (
@@ -367,8 +403,11 @@ function UploadDetailDrawer({
           {/* Transactions */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-[var(--foreground)] uppercase tracking-wider">Transactions</h3>
-              <span className="text-xs text-[var(--muted-foreground)]">{transactions.length} of {total} rows loaded</span>
+              <h3 className="text-xs font-semibold text-[var(--foreground)] uppercase tracking-wider">CSV Row Outcomes</h3>
+              <span className="text-xs text-[var(--muted-foreground)]">
+                Showing {visibleOutcomes.length} of {filteredOutcomes.length} matching rows
+                {rowOutcomes.length !== filteredOutcomes.length ? ` (${rowOutcomes.length} total)` : ""}
+              </span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <select
@@ -382,6 +421,8 @@ function UploadDetailDrawer({
                 <option value="ai_suggested">AI suggested</option>
                 <option value="possible_duplicate">Possible duplicate</option>
                 <option value="transfer">Transfer</option>
+                <option value="duplicate_skipped">Duplicate skipped</option>
+                <option value="failed">Failed</option>
               </select>
               <select
                 value={filters.duplicateStatus}
@@ -413,6 +454,71 @@ function UploadDetailDrawer({
                 ))}
               </select>
             </div>
+
+            {visibleOutcomes.length > 0 ? (
+              <div className="space-y-1.5">
+                {visibleOutcomes.map((row) => (
+                  <div
+                    key={`${row.rowNumber}-${row.rawRowHash ?? row.externalTransactionId ?? row.status}`}
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-[var(--foreground)] truncate">
+                          Row {row.rowNumber} · {row.merchant || row.description || row.status}
+                        </p>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">
+                          {row.transactionDate ? `${formatDate(row.transactionDate)} · ` : ""}
+                          {row.category || "No category"}{row.subcategory ? ` / ${row.subcategory}` : ""} · {row.status}
+                          {row.kpiTreatment === "excluded" ? ` · KPI excluded${row.kpiExclusionReason ? `: ${row.kpiExclusionReason}` : ""}` : " · KPI included"}
+                        </p>
+                        <p className="text-[10px] text-[var(--muted-foreground)] truncate">
+                          {row.transactionId ? `DB ${row.transactionId}` : "No DB transaction"}
+                          {row.externalTransactionId ? ` · External ${row.externalTransactionId}` : ""}
+                          {row.rawRowHash ? ` · Hash ${row.rawRowHash}` : ""}
+                        </p>
+                        {(row.reason || row.failureReason || row.categoryReason) && (
+                          <p className="mt-1 text-[10px] text-[var(--muted-foreground)] line-clamp-2">
+                            {row.reason || row.failureReason || row.categoryReason}
+                          </p>
+                        )}
+                      </div>
+                      {row.amount !== undefined && (
+                        <span className={`text-xs font-semibold shrink-0 ${row.direction === "income" ? "text-emerald-400" : "text-rose-400"}`}>
+                          {row.direction === "income" ? "+" : "-"}
+                          {formatCurrency(row.amount, 2, (row.currency || currency) as CurrencyCode)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {visibleOutcomeCount < filteredOutcomes.length && (
+                  <button
+                    onClick={() => setOutcomePage({ key: outcomeFilterKey, count: visibleOutcomeCount + PAGE_SIZE })}
+                    className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] hover:border-[var(--accent)]/40 transition-colors"
+                  >
+                    Load more row outcomes
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--muted-foreground)]">No row outcomes match these filters.</p>
+            )}
+          </div>
+
+          {/* Transactions */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-[var(--foreground)] uppercase tracking-wider">Database Transactions</h3>
+              <span className="text-xs text-[var(--muted-foreground)]">{transactions.length} of {total} DB rows loaded</span>
+            </div>
+
+            <a
+              href={`/transactions?preset=allTime&uploadId=${upload.id}`}
+              className="inline-flex rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] hover:border-[var(--accent)]/40 transition-colors"
+            >
+              View imported transactions
+            </a>
 
             {loading ? (
               <div className="flex items-center justify-center h-20">

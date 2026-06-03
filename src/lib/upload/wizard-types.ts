@@ -144,6 +144,7 @@ export interface ProcessingProgress {
 
 export interface ImportSummary {
   success: boolean;
+  uploadId?: string;
   fileName: string;
   sourceType: SourceType;
   rowsInFile: number;
@@ -153,11 +154,22 @@ export interface ImportSummary {
   rowsSkipped: number;
   rowsFailed: number;
   rowsNeedReview: number;
+  rowsUncategorised: number;
+  rowsAmbiguous: number;
   rowsCategorised: number;
+  rowsHighConfidence: number;
+  rowsCategorisedByUserRule: number;
+  rowsCategorisedBySystemIntelligence: number;
+  rowsIncludedInRevenue: number;
+  rowsIncludedInExpenses: number;
+  rowsIncludedInCashFlow: number;
   rowsTransfer: number;
   rowsDuplicate: number;
   rowsKpiExcluded: number;
   rowsLinkedToSubscriptions: number;
+  rowsWithFees: number;
+  rowsWithRefunds: number;
+  rowsWithCreditCardRepaymentTreatment: number;
   reconciliationBalanced: boolean;
   reconciliationExplanation?: string;
   incomeTotal: number;

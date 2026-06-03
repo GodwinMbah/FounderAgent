@@ -397,6 +397,7 @@ export function parseUpload(csvText: string, options: ParseOptions): CanonicalPa
     if (descIdx >= 0) {
       description = getValue(row, descIdx);
     }
+    const originalDescription = description;
 
     let merchantName = "";
     let isPersonalName = false;
@@ -589,7 +590,8 @@ export function parseUpload(csvText: string, options: ParseOptions): CanonicalPa
       const dir = inferDirectionFromType(transactionType, adapter);
       if (dir?.direction === "transfer") isTransfer = true;
     }
-    if (!isTransfer && description && !typeUpper.includes("TOPUP") && isTransferDescription(description, adapter)) {
+    const transferSignalText = `${description} ${originalDescription}`.trim();
+    if (!isTransfer && transferSignalText && !typeUpper.includes("TOPUP") && isTransferDescription(transferSignalText, adapter)) {
       isTransfer = true;
     }
 
