@@ -59,13 +59,16 @@ export const revolutAdapter: ProviderAdapter = {
   hasSplitAmountColumns: false,
   knownTransactionTypes: {
     CARD_PAYMENT: { direction: "expense", category: "Card Payment" },
-    TRANSFER: { direction: "transfer" },
+    // Revolut uses TRANSFER for both internal movements and ordinary bank
+    // payments. Treat the raw type as neutral; downstream rules require
+    // stronger evidence before excluding the row from KPIs.
+    TRANSFER: { direction: "neutral" },
     TOPUP: { direction: "income" },
     FEE: { direction: "fee", category: "Bank Fees" },
     REFUND: { direction: "income", category: "Refunds" },
     EXCHANGE: { direction: "neutral" },
   },
-  transferPatterns: ["TRANSFER", "Exchange", "To ", "From "],
+  transferPatterns: ["TRANSFER", "Exchange", "From British Pound", "To British Pound", "Business Savings"],
   dateFormatHints: ["YYYY-MM-DDTHH:mm:ssZ"],
   detectionWeight: 1.1,
 };

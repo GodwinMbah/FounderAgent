@@ -13,7 +13,7 @@ export default async function ExpensesPage({ searchParams }: Props) {
   const { preset, from, to } = await getGlobalDateRange(resolvedSearchParams);
 
   const [transactions, monthlyMetrics] = await Promise.all([
-    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
+    getTransactions(companyId, { startDate: from, endDate: to }),
     getMonthlyMetrics(companyId, from, to),
   ]);
 

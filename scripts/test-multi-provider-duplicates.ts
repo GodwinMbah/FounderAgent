@@ -1,5 +1,264 @@
-/**\n * Comprehensive Multi-Provider Duplicate Detection Test\n * Tests all 8 provider CSV formats end-to-end through the actual pipeline.\n */\n\nimport fs from "fs";\nimport path from "path";\nimport { createClient } from "@supabase/supabase-js";\nimport crypto from "crypto";\n
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
+/**
+ * Comprehensive Multi-Provider Duplicate Detection Test
+ * Tests all 8 provider CSV formats end-to-end through the actual pipeline.
+ */
+
+import fs from "fs";
+import path from "path";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import { getRequiredSupabaseScriptConfig } from "./supabase-env";
+
+const { url: SUPABASE_URL, secretKey } = getRequiredSupabaseScriptConfig();
+const COMPANY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const BUCKET = "financial_uploads";
+
+const supabase = createClient(SUPABASE_URL, secretKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+// Must set env vars BEFORE importing pipeline module
+process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+process.env.SUPABASE_SECRET_KEY = secretKey;
+process.env.SUPABASE_SERVICE_ROLE_KEY = secretKey;
+
+interface ProviderTest {
+  name: string;
+  file: string;
+  source: string;
 }
-\n\nconst SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;\nconst SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!;\nconst COMPANY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";\nconst BUCKET = "financial_uploads";\n\nconst supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {\n  auth: { autoRefreshToken: false, persistSession: false },\n});\n\n// Must set env vars BEFORE importing pipeline module\nprocess.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;\nprocess.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE_KEY;\n\ninterface ProviderTest {\n  name: string;\n  file: string;\n  source: string;\n}\n\nconst TEST_USER_ID = "da39cf9b-7325-4a80-a2b3-aafee51480c4";\n\nconst PROVIDERS: ProviderTest[] = [\n  { name: "Tide", file: "tide_sample.csv", source: "bank_statement_csv" },\n  { name: "Revolut", file: "revolut_business_sample.csv", source: "bank_statement_csv" },\n  { name: "Monzo", file: "monzo_sample.csv", source: "bank_statement_csv" },\n  { name: "Starling", file: "starling_sample.csv", source: "bank_statement_csv" },\n  { name: "Wise", file: "wise_sample.csv", source: "bank_statement_csv" },\n  { name: "Stripe", file: "stripe_payouts_sample.csv", source: "bank_statement_csv" },\n  { name: "PayPal", file: "paypal_activity_sample.csv", source: "bank_statement_csv" },\n  { name: "Generic CSV", file: "generic_money_in_out.csv", source: "bank_statement_csv" },\n];\n\nasync function getTxCount(): Promise<number> {\n  const { count, error } = await supabase\n    .from("transactions")\n    .select("*", { count: "exact", head: true })\n    .eq("company_id", COMPANY_ID);\n  if (error) {\n    console.error("Error getting tx count:", error);\n    return 0;\n  }\n  return count ?? 0;\n}\n\nasync function deleteCompanyTransactions(): Promise<void> {\n  const { error } = await supabase\n    .from("transactions")\n    .delete()\n    .eq("company_id", COMPANY_ID);\n  if (error) {\n    console.error("Error deleting transactions:", error);\n  }\n}\n\nasync function deleteCompanyUploads(): Promise<void> {\n  const { data: uploads, error } = await supabase\n    .from("uploads")\n    .select("id, file_path")\n    .eq("company_id", COMPANY_ID);\n  if (error) {\n    console.error("Error fetching uploads:", error);\n    return;\n  }\n  for (const u of uploads || []) {\n    if (u.file_path) {\n      await supabase.storage.from(BUCKET).remove([u.file_path]);\n    }\n    await supabase.from("uploads").delete().eq("id", u.id);\n  }\n}\n\nasync function uploadCsv(fileName: string, source: string): Promise<string> {\n  const csvPath = path.join(process.cwd(), "test_data/csv", fileName);\n  const fileBuffer = fs.readFileSync(csvPath);\n  const uploadId = crypto.randomUUID();\n  const storagePath = `${COMPANY_ID}/${uploadId}_${fileName}`;\n\n  const { error: storageError } = await supabase.storage\n    .from(BUCKET)\n    .upload(storagePath, fileBuffer, {\n      contentType: "text/csv",\n      upsert: false,\n    });\n\n  if (storageError) {\n    throw new Error(`Storage upload failed: ${storageError.message}`);\n  }\n\n  const { error: dbError } = await supabase.from("uploads").insert({\n    id: uploadId,\n    company_id: COMPANY_ID,\n    user_id: TEST_USER_ID,\n    file_name: fileName,\n    file_path: storagePath,\n    file_size: fileBuffer.length,\n    mime_type: "text/csv",\n    source,\n    status: "pending",\n    metadata: {},\n  });\n\n  if (dbError) {\n    throw new Error(`Upload record insert failed: ${dbError.message}`);\n  }\n\n  return uploadId;\n}\n\nasync function runPipeline(uploadId: string): Promise<{ transactionsInserted: number; success: boolean; error?: string }> {\n  const { runUploadPipeline } = await import("../src/lib/upload/pipeline");\n  const result = await runUploadPipeline(uploadId, COMPANY_ID);\n  return {\n    transactionsInserted: result.transactionsInserted,\n    success: result.success,\n    error: result.error,\n  };\n}\n\nasync function testProvider(provider: ProviderTest): Promise<{\n  provider: string;\n  file: string;\n  firstInserted: number;\n  duplicateInserted: number;\n  pass: boolean;\n  firstError?: string;\n  dupError?: string;\n}> {\n  console.log(`\n🧪 Testing ${provider.name}...`);\n\n  // Clean slate for this provider\n  await deleteCompanyTransactions();\n  await deleteCompanyUploads();\n\n  const beforeCount = await getTxCount();\n  console.log(`  Transactions before: ${beforeCount}`);\n\n  // First upload\n  const uploadId1 = await uploadCsv(provider.file, provider.source);\n  console.log(`  First upload ID: ${uploadId1}`);\n  const result1 = await runPipeline(uploadId1);\n  console.log(`  First pipeline result: inserted=${result1.transactionsInserted}, success=${result1.success}${result1.error ? `, error=${result1.error}` : ""}`);\n\n  const afterFirstCount = await getTxCount();\n  const firstInserted = afterFirstCount - beforeCount;\n  console.log(`  Transactions after first upload: ${afterFirstCount} (inserted: ${firstInserted})`);\n\n  if (firstInserted === 0) {\n    console.log(`  ⚠️ First upload inserted 0 transactions - duplicate test is invalid`);\n    return {\n      provider: provider.name,\n      file: provider.file,\n      firstInserted: 0,\n      duplicateInserted: 0,\n      pass: false,\n      firstError: result1.error || "First upload inserted 0 transactions",\n    };\n  }\n\n  // Duplicate upload\n  const uploadId2 = await uploadCsv(provider.file, provider.source);\n  console.log(`  Duplicate upload ID: ${uploadId2}`);\n  const result2 = await runPipeline(uploadId2);\n  console.log(`  Duplicate pipeline result: inserted=${result2.transactionsInserted}, success=${result2.success}${result2.error ? `, error=${result2.error}` : ""}`);\n\n  const afterDupCount = await getTxCount();\n  const duplicateInserted = afterDupCount - afterFirstCount;\n  console.log(`  Transactions after duplicate upload: ${afterDupCount} (inserted: ${duplicateInserted})`);\n\n  const pass = duplicateInserted === 0;\n\n  return {\n    provider: provider.name,\n    file: provider.file,\n    firstInserted,\n    duplicateInserted,\n    pass,\n    firstError: result1.error,\n    dupError: result2.error,\n  };\n}\n\nasync function main() {\n  console.log("═══════════════════════════════════════════════════════════════");\n  console.log("  Multi-Provider Duplicate Detection Test");\n  console.log("═══════════════════════════════════════════════════════════════");\n  console.log(`Company ID: ${COMPANY_ID}`);\n  console.log(`Supabase URL: ${SUPABASE_URL}`);\n  console.log("");\n\n  // Clean up any existing test data for this company\n  console.log("🧹 Cleaning up existing test data...");\n  await deleteCompanyTransactions();\n  await deleteCompanyUploads();\n\n  const results = [];\n  for (const provider of PROVIDERS) {\n    try {\n      const result = await testProvider(provider);\n      results.push(result);\n    } catch (err) {\n      const message = err instanceof Error ? err.message : String(err);\n      console.error(`  ❌ CRASH: ${message}`);\n      results.push({\n        provider: provider.name,\n        file: provider.file,\n        firstInserted: 0,\n        duplicateInserted: 0,\n        pass: false,\n        firstError: message,\n      });\n    }\n  }\n\n  // Final cleanup\n  await deleteCompanyTransactions();\n  await deleteCompanyUploads();\n\n  // Print results table\n  console.log("\n═══════════════════════════════════════════════════════════════");\n  console.log("  RESULTS");\n  console.log("═══════════════════════════════════════════════════════════════");\n  console.log("| Provider      | File                           | First | Dup   | Status |");\n  console.log("|---------------|--------------------------------|-------|-------|--------|");\n  let passCount = 0;\n  let failCount = 0;\n  for (const r of results) {\n    const status = r.pass ? "✅ PASS" : "❌ FAIL";\n    const providerPad = r.provider.padEnd(13);\n    const filePad = r.file.padEnd(30);\n    const firstPad = String(r.firstInserted).padEnd(5);\n    const dupPad = String(r.duplicateInserted).padEnd(5);\n    console.log(`| ${providerPad} | ${filePad} | ${firstPad} | ${dupPad} | ${status} |`);\n    if (r.pass) passCount++;\n    else failCount++;\n  }\n  console.log("|---------------|--------------------------------|-------|-------|--------|");\n  console.log(`\nTotal: ${passCount} passed, ${failCount} failed out of ${results.length} providers`);\n\n  if (failCount > 0) {\n    console.log("\nFailed providers details:");\n    for (const r of results.filter((x) => !x.pass)) {\n      console.log(`  - ${r.provider}: first=${r.firstInserted}, dup=${r.duplicateInserted}${r.firstError ? `, firstError=${r.firstError}` : ""}${r.dupError ? `, dupError=${r.dupError}` : ""}`);\n    }\n    process.exit(1);\n  }\n\n  console.log("\n🎉 All providers passed duplicate detection!");\n}\n\nmain().catch((err) => {\n  console.error("Fatal error:", err);\n  process.exit(1);\n});\n
+
+const TEST_USER_ID = "da39cf9b-7325-4a80-a2b3-aafee51480c4";
+
+const PROVIDERS: ProviderTest[] = [
+  { name: "Tide", file: "tide_sample.csv", source: "bank_statement_csv" },
+  { name: "Revolut", file: "revolut_business_sample.csv", source: "bank_statement_csv" },
+  { name: "Monzo", file: "monzo_sample.csv", source: "bank_statement_csv" },
+  { name: "Starling", file: "starling_sample.csv", source: "bank_statement_csv" },
+  { name: "Wise", file: "wise_sample.csv", source: "bank_statement_csv" },
+  { name: "Stripe", file: "stripe_payouts_sample.csv", source: "bank_statement_csv" },
+  { name: "PayPal", file: "paypal_activity_sample.csv", source: "bank_statement_csv" },
+  { name: "Generic CSV", file: "generic_money_in_out.csv", source: "bank_statement_csv" },
+];
+
+async function getTxCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from("transactions")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", COMPANY_ID);
+  if (error) {
+    console.error("Error getting tx count:", error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+async function deleteCompanyTransactions(): Promise<void> {
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("company_id", COMPANY_ID);
+  if (error) {
+    console.error("Error deleting transactions:", error);
+  }
+}
+
+async function deleteCompanyUploads(): Promise<void> {
+  const { data: uploads, error } = await supabase
+    .from("uploads")
+    .select("id, file_path")
+    .eq("company_id", COMPANY_ID);
+  if (error) {
+    console.error("Error fetching uploads:", error);
+    return;
+  }
+  for (const u of uploads || []) {
+    if (u.file_path) {
+      await supabase.storage.from(BUCKET).remove([u.file_path]);
+    }
+    await supabase.from("uploads").delete().eq("id", u.id);
+  }
+}
+
+async function uploadCsv(fileName: string, source: string): Promise<string> {
+  const csvPath = path.join(process.cwd(), "test_data/csv", fileName);
+  const fileBuffer = fs.readFileSync(csvPath);
+  const uploadId = crypto.randomUUID();
+  const storagePath = `${COMPANY_ID}/${uploadId}_${fileName}`;
+
+  const { error: storageError } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, fileBuffer, {
+      contentType: "text/csv",
+      upsert: false,
+    });
+
+  if (storageError) {
+    throw new Error(`Storage upload failed: ${storageError.message}`);
+  }
+
+  const { error: dbError } = await supabase.from("uploads").insert({
+    id: uploadId,
+    company_id: COMPANY_ID,
+    user_id: TEST_USER_ID,
+    file_name: fileName,
+    file_path: storagePath,
+    file_size: fileBuffer.length,
+    mime_type: "text/csv",
+    source,
+    status: "pending",
+    metadata: {},
+  });
+
+  if (dbError) {
+    throw new Error(`Upload record insert failed: ${dbError.message}`);
+  }
+
+  return uploadId;
+}
+
+async function runPipeline(uploadId: string): Promise<{ transactionsInserted: number; success: boolean; error?: string }> {
+  const { runUploadPipeline } = await import("../src/lib/upload/pipeline");
+  const result = await runUploadPipeline(uploadId, COMPANY_ID);
+  return {
+    transactionsInserted: result.transactionsInserted,
+    success: result.success,
+    error: result.error,
+  };
+}
+
+async function testProvider(provider: ProviderTest): Promise<{
+  provider: string;
+  file: string;
+  firstInserted: number;
+  duplicateInserted: number;
+  pass: boolean;
+  firstError?: string;
+  dupError?: string;
+}> {
+  console.log(`\nTesting ${provider.name}...`);
+
+  // Clean slate for this provider
+  await deleteCompanyTransactions();
+  await deleteCompanyUploads();
+
+  const beforeCount = await getTxCount();
+  console.log(`  Transactions before: ${beforeCount}`);
+
+  // First upload
+  const uploadId1 = await uploadCsv(provider.file, provider.source);
+  console.log(`  First upload ID: ${uploadId1}`);
+  const result1 = await runPipeline(uploadId1);
+  console.log(`  First pipeline result: inserted=${result1.transactionsInserted}, success=${result1.success}${result1.error ? `, error=${result1.error}` : ""}`);
+
+  const afterFirstCount = await getTxCount();
+  const firstInserted = afterFirstCount - beforeCount;
+  console.log(`  Transactions after first upload: ${afterFirstCount} (inserted: ${firstInserted})`);
+
+  if (firstInserted === 0) {
+    console.log(`  ⚠️ First upload inserted 0 transactions - duplicate test is invalid`);
+    return {
+      provider: provider.name,
+      file: provider.file,
+      firstInserted: 0,
+      duplicateInserted: 0,
+      pass: false,
+      firstError: result1.error || "First upload inserted 0 transactions",
+    };
+  }
+
+  // Duplicate upload
+  const uploadId2 = await uploadCsv(provider.file, provider.source);
+  console.log(`  Duplicate upload ID: ${uploadId2}`);
+  const result2 = await runPipeline(uploadId2);
+  console.log(`  Duplicate pipeline result: inserted=${result2.transactionsInserted}, success=${result2.success}${result2.error ? `, error=${result2.error}` : ""}`);
+
+  const afterDupCount = await getTxCount();
+  const duplicateInserted = afterDupCount - afterFirstCount;
+  console.log(`  Transactions after duplicate upload: ${afterDupCount} (inserted: ${duplicateInserted})`);
+
+  const pass = duplicateInserted === 0;
+
+  return {
+    provider: provider.name,
+    file: provider.file,
+    firstInserted,
+    duplicateInserted,
+    pass,
+    firstError: result1.error,
+    dupError: result2.error,
+  };
+}
+
+async function main() {
+  console.log("═══════════════════════════════════════════════════════════════");
+  console.log("  Multi-Provider Duplicate Detection Test");
+  console.log("═══════════════════════════════════════════════════════════════");
+  console.log(`Company ID: ${COMPANY_ID}`);
+  console.log(`Supabase URL: ${SUPABASE_URL}`);
+  console.log("");
+
+  // Clean up any existing test data for this company
+  console.log("🧹 Cleaning up existing test data...");
+  await deleteCompanyTransactions();
+  await deleteCompanyUploads();
+
+  const results = [];
+  for (const provider of PROVIDERS) {
+    try {
+      const result = await testProvider(provider);
+      results.push(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`  ❌ CRASH: ${message}`);
+      results.push({
+        provider: provider.name,
+        file: provider.file,
+        firstInserted: 0,
+        duplicateInserted: 0,
+        pass: false,
+        firstError: message,
+      });
+    }
+  }
+
+  // Final cleanup
+  await deleteCompanyTransactions();
+  await deleteCompanyUploads();
+
+  // Print results table
+  console.log("\n═══════════════════════════════════════════════════════════════");
+  console.log("  RESULTS");
+  console.log("═══════════════════════════════════════════════════════════════");
+  console.log("| Provider      | File                           | First | Dup   | Status |");
+  console.log("|---------------|--------------------------------|-------|-------|--------|");
+  let passCount = 0;
+  let failCount = 0;
+  for (const r of results) {
+    const status = r.pass ? "✅ PASS" : "❌ FAIL";
+    const providerPad = r.provider.padEnd(13);
+    const filePad = r.file.padEnd(30);
+    const firstPad = String(r.firstInserted).padEnd(5);
+    const dupPad = String(r.duplicateInserted).padEnd(5);
+    console.log(`| ${providerPad} | ${filePad} | ${firstPad} | ${dupPad} | ${status} |`);
+    if (r.pass) passCount++;
+    else failCount++;
+  }
+  console.log("|---------------|--------------------------------|-------|-------|--------|");
+  console.log(`\nTotal: ${passCount} passed, ${failCount} failed out of ${results.length} providers`);
+
+  if (failCount > 0) {
+    console.log("\nFailed providers details:");
+    for (const r of results.filter((x) => !x.pass)) {
+      console.log(`  - ${r.provider}: first=${r.firstInserted}, dup=${r.duplicateInserted}${r.firstError ? `, firstError=${r.firstError}` : ""}${r.dupError ? `, dupError=${r.dupError}` : ""}`);
+    }
+    process.exit(1);
+  }
+
+  console.log("\nAll providers passed duplicate detection!");
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});

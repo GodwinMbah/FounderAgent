@@ -35,7 +35,7 @@ const PROVIDER_REGISTRY: Record<string, ProviderInfo> = {
     displayName: "Klarna",
     fallbackInitials: "KL",
     fallbackColor: "bg-pink-500",
-    categoryHint: "Payment Processor Fees",
+    categoryHint: "Ambiguous",
   },
 
   // Software / SaaS

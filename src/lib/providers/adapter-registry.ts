@@ -64,6 +64,18 @@ function scoreProviderAgainstHeaders(
     }
   }
 
+  if (det.preamblePatterns && det.preamblePatterns.length > 0) {
+    const distinctiveMatches = det.preamblePatterns.filter((pattern) =>
+      headers.some((header) => scoreHeaderMatch(header, [pattern]) >= 80)
+    );
+    if (distinctiveMatches.length > 0) {
+      score += distinctiveMatches.length * 20;
+      matchedHeaders.push(...distinctiveMatches);
+    } else {
+      score = score * 0.1;
+    }
+  }
+
   const minReq = det.minRequiredMatches ?? 2;
   if (requiredMatches < minReq) {
     score = score * 0.3;

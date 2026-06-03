@@ -1,5 +1,57 @@
-import fs from "fs";\nimport path from "path";\nimport { createClient } from "@supabase/supabase-js";\nimport { parseUpload } from "../src/lib/parser/unified-parser";\nimport { generateTransactionHash } from "../src/lib/intelligence/duplicate-detector-v2";\n
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
+import fs from "fs";
+import path from "path";
+import { createClient } from "@supabase/supabase-js";
+import { parseUpload } from "../src/lib/parser/unified-parser";
+import { generateTransactionHash } from "../src/lib/intelligence/duplicate-detector-v2";
+import { getRequiredSupabaseScriptConfig } from "./supabase-env";
+
+const { url: SUPABASE_URL, secretKey } = getRequiredSupabaseScriptConfig();
+const COMPANY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+const supabase = createClient(SUPABASE_URL, secretKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+async function main() {
+  // Get existing transactions for this company
+  const { data: existingTxs } = await supabase
+    .from("transactions")
+    .select("date, amount, type, merchant, metadata")
+    .eq("company_id", COMPANY_ID)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  console.log("Existing transactions:", existingTxs?.length ?? 0);
+  for (const t of existingTxs || []) {
+    const meta = (t.metadata as Record<string, unknown> | null) || {};
+    const absAmount = Number(t.amount);
+    const signedAmount = t.type === "expense" ? -absAmount : absAmount;
+    const hash = generateTransactionHash({
+      transactionDate: t.date as string,
+      amount: signedAmount,
+      currency: (meta.currency as string) || "GBP",
+      merchantName: (t.merchant as string) || "",
+      accountName: (meta.account_name as string) || undefined,
+      sourceProvider: (meta.source_provider as string) || "unknown",
+    });
+    console.log(`  DB: ${t.merchant} | ${t.date} | ${signedAmount} | src=${meta.source_provider} | hash=${hash}`);
+  }
+
+  // Parse generic CSV
+  const csvPath = path.join(process.cwd(), "test_data/csv/generic_money_in_out.csv");
+  const csvText = fs.readFileSync(csvPath, "utf-8");
+  const parseResult = parseUpload(csvText, {
+    companyId: COMPANY_ID,
+    companyCurrency: "GBP",
+    companyCountry: "GB",
+    uploadId: "test",
+  });
+
+  console.log("\nParsed transactions:");
+  for (const tx of parseResult.transactions) {
+    const hash = generateTransactionHash(tx);
+    console.log(`  NEW: ${tx.merchantName} | ${tx.transactionDate} | ${tx.amount} | src=${tx.sourceProvider} | hash=${hash}`);
+  }
 }
-\n\nconst SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;\nconst SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;\nconst COMPANY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";\n\nconst supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {\n  auth: { autoRefreshToken: false, persistSession: false },\n});\n\nasync function main() {\n  // Get existing transactions for this company\n  const { data: existingTxs } = await supabase\n    .from("transactions")\n    .select("date, amount, type, merchant, metadata")\n    .eq("company_id", COMPANY_ID)\n    .order("created_at", { ascending: false })\n    .limit(10);\n\n  console.log("Existing transactions:", existingTxs?.length ?? 0);\n  for (const t of existingTxs || []) {\n    const meta = (t.metadata as Record<string, unknown> | null) || {};\n    const absAmount = Number(t.amount);\n    const signedAmount = t.type === "expense" ? -absAmount : absAmount;\n    const hash = generateTransactionHash({\n      transactionDate: t.date as string,\n      amount: signedAmount,\n      currency: (meta.currency as string) || "GBP",\n      merchantName: (t.merchant as string) || "",\n      accountName: (meta.account_name as string) || undefined,\n      sourceProvider: (meta.source_provider as string) || "unknown",\n    });\n    console.log(`  DB: ${t.merchant} | ${t.date} | ${signedAmount} | src=${meta.source_provider} | hash=${hash}`);\n  }\n\n  // Parse generic CSV\n  const csvPath = path.join(process.cwd(), "test_data/csv/generic_money_in_out.csv");\n  const csvText = fs.readFileSync(csvPath, "utf-8");\n  const parseResult = parseUpload(csvText, {\n    companyId: COMPANY_ID,\n    companyCurrency: "GBP",\n    companyCountry: "GB",\n    uploadId: "test",\n  });\n\n  console.log("\nParsed transactions:");\n  for (const tx of parseResult.transactions) {\n    const hash = generateTransactionHash(tx);\n    console.log(`  NEW: ${tx.merchantName} | ${tx.transactionDate} | ${tx.amount} | src=${tx.sourceProvider} | hash=${hash}`);\n  }\n}\n\nmain().catch(console.error);\n
+
+main().catch(console.error);

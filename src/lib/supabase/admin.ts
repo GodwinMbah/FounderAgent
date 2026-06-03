@@ -1,17 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env";
 
 /**
- * Admin client with service role key.
+ * Admin client with the current Supabase secret key.
  * SERVER-ONLY. Never import into client components.
  */
 export function createAdminClient() {
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  const url = getSupabaseUrl();
+  const secretKey = getSupabaseSecretKey();
+
+  if (!url || !secretKey) {
     return null;
   }
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+
+  return createClient(url, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

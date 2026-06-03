@@ -37,6 +37,10 @@ export const genericBankAdapter: ProviderAdapter = {
       required: true,
     },
     {
+      field: "postedDate",
+      aliases: ["Posted Date", "Posting Date", "Value Date", "Settlement Date"],
+    },
+    {
       field: "description",
       aliases: [
         "Description",
@@ -73,6 +77,10 @@ export const genericBankAdapter: ProviderAdapter = {
       aliases: ["Reference", "Ref", "Transaction Reference"],
     },
     {
+      field: "externalTransactionId",
+      aliases: ["ID", "Transaction ID", "Txn ID", "Reference ID", "Payment ID", "Trans ID"],
+    },
+    {
       field: "transactionType",
       aliases: ["Type", "Transaction Type"],
     },
@@ -94,6 +102,7 @@ export const genericBankAdapter: ProviderAdapter = {
     },
   ],
   signConvention: "unknown",
-  feeHandling: "included_in_amount",
+  feeHandling: "separate_column",
+  hasSplitAmountColumns: true,
   detectionWeight: 0.5,
 };

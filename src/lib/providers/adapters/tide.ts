@@ -7,7 +7,7 @@ export const tideAdapter: ProviderAdapter = {
   detection: {
     requiredHeaders: ["Date", "Description", "Money In", "Money Out"],
     optionalHeaders: ["Category", "Balance", "Reference"],
-    minRequiredMatches: 2,
+    minRequiredMatches: 4,
     minScore: 30,
   },
   headerAliases: [

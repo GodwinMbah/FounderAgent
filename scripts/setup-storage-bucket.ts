@@ -3,31 +3,14 @@
  * Create Supabase Storage buckets required by FounderAgent.
  * Run: npx tsx scripts/setup-storage-bucket.ts
  *
- * Requires SUPABASE_SERVICE_ROLE_KEY in .env.local
+ * Requires SUPABASE_SECRET_KEY in .env.local
  */
 
-import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { getRequiredSupabaseScriptConfig } from "./supabase-env";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__dirname, "..", ".env.local") });
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!SUPABASE_URL || SUPABASE_URL.includes("your-project")) {
-  console.error("❌ NEXT_PUBLIC_SUPABASE_URL is not configured in .env.local");
-  process.exit(1);
-}
-
-if (!SERVICE_ROLE_KEY || SERVICE_ROLE_KEY.includes("your-service-role-key")) {
-  console.error("❌ SUPABASE_SERVICE_ROLE_KEY is not configured in .env.local");
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+const { url: SUPABASE_URL, secretKey } = getRequiredSupabaseScriptConfig();
+const supabase = createClient(SUPABASE_URL, secretKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 

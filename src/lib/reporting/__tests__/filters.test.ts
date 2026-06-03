@@ -10,6 +10,11 @@ describe("isTransfer", () => {
     expect(isTransfer({ type: "expense", tags: ["transfer"] })).toBe(true);
   });
 
+  it("detects transfer from promoted snake_case DB columns", () => {
+    expect(isTransfer({ type: "income", row_status: "transfer" })).toBe(true);
+    expect(isTransfer({ type: "expense", kpi_exclusion_reason: "transfer" })).toBe(true);
+  });
+
   it("returns false for non-transfer", () => {
     expect(isTransfer({ type: "expense", category: "Software" })).toBe(false);
   });
@@ -32,6 +37,10 @@ describe("isIncome", () => {
     expect(isIncome({ type: "income", tags: ["transfer"] })).toBe(false);
   });
 
+  it("excludes income rows marked KPI excluded in promoted DB columns", () => {
+    expect(isIncome({ type: "income", category: "Revenue", kpi_excluded: true })).toBe(false);
+  });
+
   it("returns false for expense type", () => {
     expect(isIncome({ type: "expense" })).toBe(false);
   });
@@ -48,6 +57,10 @@ describe("isExpense", () => {
 
   it("excludes transfers with expense type and transfer tag", () => {
     expect(isExpense({ type: "expense", tags: ["transfer"] })).toBe(false);
+  });
+
+  it("excludes expense rows marked KPI excluded in promoted DB columns", () => {
+    expect(isExpense({ type: "expense", category: "Ambiguous", kpi_excluded: true })).toBe(false);
   });
 
   it("returns false for income type", () => {

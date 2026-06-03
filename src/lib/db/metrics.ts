@@ -79,7 +79,7 @@ export async function getMonthlyMetrics(
 
   const { data: rawData, error } = await supabase
     .from("transactions")
-    .select("date, amount, type, category, tags")
+    .select("date, amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", effectiveCompanyId)
     .gte("date", from)
     .lte("date", to)
@@ -132,7 +132,7 @@ export async function getMetricsForRange(
 
   const { data: txs, error } = await admin
     .from("transactions")
-    .select("amount, type, category, tags")
+    .select("amount, type, category, tags, row_status, kpi_excluded, kpi_exclusion_reason, metadata")
     .eq("company_id", companyId)
     .gte("date", fromDate)
     .lte("date", toDate);
@@ -140,11 +140,11 @@ export async function getMetricsForRange(
   if (error) throw error;
 
   const revenue = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const expenses = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isExpense(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const netProfit = revenue - expenses;

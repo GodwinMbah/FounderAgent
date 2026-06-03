@@ -53,7 +53,7 @@ export async function signUpAndRedirect(formData: FormData) {
       // Create company
       const { data: company, error: companyError } = await admin
         .from("companies")
-        .insert({ name: companyName, currency: "USD" })
+        .insert({ name: companyName, currency: "GBP" })
         .select("id")
         .single();
 

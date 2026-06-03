@@ -25,6 +25,12 @@ function getUrlRange(initial?: { preset?: string; from?: string; to?: string }):
   return { preset, from: r.from, to: r.to };
 }
 
+function getInitialRange(initial?: { preset?: string; from?: string; to?: string }): { preset: DateRangePreset; from: string; to: string } {
+  const preset = (initial?.preset as DateRangePreset) || "last30";
+  const r = getDateRange(preset, initial?.from, initial?.to);
+  return { preset, from: r.from, to: r.to };
+}
+
 export function TopBar({
   onMenuClick,
   initialPreset,
@@ -46,10 +52,10 @@ export function TopBar({
   const dateRef = useRef<HTMLDivElement>(null);
 
   const [range, setRange] = useState(() => {
-    const r = getUrlRange({ preset: initialPreset, from: initialFrom, to: initialTo });
+    const r = getInitialRange({ preset: initialPreset, from: initialFrom, to: initialTo });
     return { from: r.from, to: r.to };
   });
-  const [preset, setPreset] = useState<DateRangePreset>(() => getUrlRange({ preset: initialPreset, from: initialFrom, to: initialTo }).preset);
+  const [preset, setPreset] = useState<DateRangePreset>(() => getInitialRange({ preset: initialPreset, from: initialFrom, to: initialTo }).preset);
   const pendingPresetRef = useRef<DateRangePreset>(preset);
 
   const initials = user?.email?.split("@")[0]?.slice(0, 2).toUpperCase() ?? null;
@@ -57,14 +63,20 @@ export function TopBar({
 
   // Sync with URL changes (back/forward navigation)
   useEffect(() => {
-    function handlePopState() {
+    function syncFromUrl() {
       const r = getUrlRange({ preset: initialPreset, from: initialFrom, to: initialTo });
       setPreset(r.preset);
       setRange({ from: r.from, to: r.to });
+      pendingPresetRef.current = r.preset;
     }
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+
+    const syncTimer = window.setTimeout(syncFromUrl, 0);
+    window.addEventListener("popstate", syncFromUrl);
+    return () => {
+      window.clearTimeout(syncTimer);
+      window.removeEventListener("popstate", syncFromUrl);
+    };
+  }, [initialFrom, initialPreset, initialTo]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

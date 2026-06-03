@@ -7,7 +7,7 @@ export const hsbcAdapter: ProviderAdapter = {
   detection: {
     requiredHeaders: ["Date", "Description", "Paid out", "Paid in"],
     optionalHeaders: ["Type", "Balance"],
-    minRequiredMatches: 2,
+    minRequiredMatches: 4,
     minScore: 30,
   },
   headerAliases: [

@@ -7,7 +7,7 @@ import { useCompanyCurrency } from "@/lib/hooks/useCompanyCurrency";
 import type { DashboardMetrics, MonthlyMetric, Transaction } from "@/lib/types";
 import type { KPICardConfig } from "@/lib/business-intelligence/types";
 import { formatKPIValue, getKPIChange } from "@/lib/business-intelligence/kpi-eligibility";
-import { isIncome, isExpense } from "@/lib/reporting/filters";
+import { isIncome, isExpense, isKpiExcluded, isTransfer } from "@/lib/reporting/filters";
 import {
   AreaChart,
   Area,
@@ -138,6 +138,14 @@ function OverviewTab({
   transactions: Transaction[];
   dateRangeLabel: string;
 }) {
+  const { currency } = useCompanyCurrency();
+  const includedTransactions = getIncludedTransactionsForKPI(drilldown.kpiId, transactions);
+  const excludedTransactions = transactions.filter((t) => isTransfer(t) || isKpiExcluded(t));
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
+  const includedCategories = summariseCategories(includedTransactions);
+  const excludedCategories = summariseCategories(excludedTransactions);
+  const exclusionReasons = summariseExclusionReasons(excludedTransactions);
+
   return (
     <div className="space-y-6">
       {/* Formula */}
@@ -151,6 +159,20 @@ function OverviewTab({
       {/* Data Source */}
       <Section icon={<Database className="h-3.5 w-3.5" />} title="Data Source">
         <p className="text-xs text-[var(--muted-foreground)]">{drilldown.dataSource}</p>
+      </Section>
+
+      <Section icon={<Database className="h-3.5 w-3.5" />} title="Source Trace">
+        <div className="space-y-2 text-xs">
+          <TraceRow label="KPI" value={drilldown.title} />
+          <TraceRow label="Date range" value={dateRangeLabel} />
+          <TraceRow label="Currency" value={currency} />
+          <TraceRow label="Source transactions" value={String(includedTransactions.length)} />
+          <TraceRow label="Source uploads" value={String(sourceUploadCount)} />
+          <TraceRow label="Included categories" value={includedCategories || "None"} />
+          <TraceRow label="Excluded categories" value={excludedCategories || "None"} />
+          <TraceRow label="Excluded rows" value={String(excludedTransactions.length)} />
+          <TraceRow label="Exclusion reasons" value={exclusionReasons || "None"} />
+        </div>
       </Section>
 
       {/* Breakdown */}
@@ -287,7 +309,20 @@ function TrendTab({ monthlyMetrics, kpi }: { monthlyMetrics: MonthlyMetric[]; kp
   );
 }
 
-function TransactionsTab({ transactions, kpi }: { transactions?: Array<{ date: string; merchant: string; description: string; amount: number; type: string; category: string }>; kpi: KPICardConfig }) {
+type DrilldownTransaction = {
+  date: string;
+  merchant: string;
+  description: string;
+  amount: number;
+  type: string;
+  category: string;
+  rowStatus?: string;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  metadata?: Record<string, unknown>;
+};
+
+function TransactionsTab({ transactions, kpi }: { transactions?: DrilldownTransaction[]; kpi: KPICardConfig }) {
   const { currency } = useCompanyCurrency();
   if (!transactions || transactions.length === 0) {
     return (
@@ -308,9 +343,9 @@ function TransactionsTab({ transactions, kpi }: { transactions?: Array<{ date: s
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-[var(--muted-foreground)]">
-        Top {Math.min(filtered.length, 10)} transactions
+        {filtered.length} source transaction{filtered.length !== 1 ? "s" : ""}
       </p>
-      {filtered.slice(0, 10).map((t, i) => (
+      {filtered.map((t, i) => (
         <div
           key={i}
           className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2.5"
@@ -340,6 +375,67 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
   );
 }
 
+function TraceRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-[var(--muted-foreground)]">{label}</span>
+      <span className="max-w-[60%] text-right font-medium text-[var(--foreground)]">{value}</span>
+    </div>
+  );
+}
+
+function getIncludedTransactionsForKPI(kpiId: string, transactions: Transaction[]): Transaction[] {
+  switch (kpiId) {
+    case "monthly_revenue":
+    case "arr":
+      return transactions.filter((t) => isIncome(t));
+    case "monthly_expenses":
+    case "monthly_sub_spend":
+      return transactions.filter((t) => isExpense(t));
+    case "net_profit":
+    case "monthly_burn":
+    case "runway":
+    case "gross_margin":
+    case "burn_multiple":
+    case "rule_of_40":
+    case "health_score":
+      return transactions.filter((t) => isIncome(t) || isExpense(t));
+    case "cash_balance":
+      return transactions.filter((t) => t.runningBalance !== undefined || t.metadata?.running_balance !== undefined);
+    default:
+      return transactions.filter((t) => isIncome(t) || isExpense(t));
+  }
+}
+
+function summariseCategories(transactions: Transaction[]): string {
+  const counts = new Map<string, number>();
+  for (const tx of transactions) {
+    const category = tx.category || "Uncategorised Review";
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([category, count]) => `${category} (${count})`)
+    .join(", ");
+}
+
+function summariseExclusionReasons(transactions: Transaction[]): string {
+  const counts = new Map<string, number>();
+  for (const tx of transactions) {
+    const reason =
+      tx.kpiExclusionReason ||
+      (tx.metadata?.kpi_exclusion_reason as string | undefined) ||
+      (isTransfer(tx) ? "transfer" : "kpi_excluded");
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([reason, count]) => `${reason} (${count})`)
+    .join(", ");
+}
+
 // ─── Drilldown Data Builder ───────────────────────────────────────────
 
 interface DrilldownResult {
@@ -352,7 +448,7 @@ interface DrilldownResult {
   breakdown: Array<{ label: string; value: string; note?: string }>;
   previousPeriod?: { value: string; changeText: string; changeType: "positive" | "negative" | "neutral" };
   trendData: Array<{ label: string; value: number }>;
-  transactions: Array<{ date: string; merchant: string; description: string; amount: number; type: string; category: string }>;
+  transactions: DrilldownTransaction[];
   qualityNotes: string[];
   suggestions: string[];
 }
@@ -367,12 +463,16 @@ function buildDrilldown(
 ): DrilldownResult {
   const sorted = [...monthlyMetrics].sort((a, b) => a.month.localeCompare(b.month));
   const previous = sorted[sorted.length - 2];
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
+  const latestBalanceTransaction = [...transactions]
+    .filter((t) => t.runningBalance !== undefined || t.metadata?.running_balance !== undefined)
+    .sort((a, b) => +new Date(b.date) - +new Date(a.date))[0];
 
   const base = {
     kpiId: kpi.id,
     title: kpi.label,
     currentValue: formatKPIValue(kpi, metrics, currency),
-    dataSource: `From transactions filtered by ${dateRangeLabel}. Calculated from company-scoped data.`,
+    dataSource: `From ${transactions.length} transaction${transactions.length !== 1 ? "s" : ""} across ${sourceUploadCount} upload${sourceUploadCount !== 1 ? "s" : ""}, filtered by ${dateRangeLabel}. Calculated from company-scoped data.`,
     trendData: sorted.map((m) => ({ label: m.month.slice(5), value: 0 })),
     qualityNotes: [] as string[],
     suggestions: [] as string[],
@@ -383,6 +483,10 @@ function buildDrilldown(
       amount: t.amount,
       type: t.type,
       category: t.category || "Uncategorised Review",
+      rowStatus: t.rowStatus,
+      kpiExcluded: t.kpiExcluded,
+      kpiExclusionReason: t.kpiExclusionReason,
+      metadata: t.metadata,
     })),
   };
 
@@ -393,7 +497,18 @@ function buildDrilldown(
         formula: "cashBalance",
         formulaExplanation: "Current cash balance as reported from the latest bank statement upload or accounting integration.",
         breakdown: [
-          { label: "Current balance", value: formatCurrency(metrics.cashBalance, 0, currency) }
+          { label: "Current balance", value: formatCurrency(metrics.cashBalance, 0, currency) },
+          ...(latestBalanceTransaction
+            ? [{
+                label: "Latest balance row",
+                value: formatCurrency(
+                  Number(latestBalanceTransaction.runningBalance ?? latestBalanceTransaction.metadata?.running_balance ?? 0),
+                  0,
+                  currency
+                ),
+                note: `Row ${latestBalanceTransaction.sourceRowNumber ?? "?"} · ${formatDate(latestBalanceTransaction.date)}`,
+              }]
+            : []),
         ],
         previousPeriod: previous
           ? {
@@ -415,7 +530,7 @@ function buildDrilldown(
         formulaExplanation: "Total of all income transactions in the selected date range, divided by the number of months.",
         breakdown: [
           { label: "Total income", value: formatCurrency(metrics.monthlyRevenue, 0, currency) },
-          { label: "Revenue transactions", value: String(transactions.filter((t) => t.type === "income").length) },
+          { label: "Revenue transactions", value: String(transactions.filter((t) => isIncome(t)).length) },
         ],
         previousPeriod: previous
           ? {

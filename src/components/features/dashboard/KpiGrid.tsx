@@ -28,7 +28,7 @@ const iconMap = {
   heart: Heart,
 };
 
-function formatValue(item: KpiItem, currency: string = "USD"): string {
+function formatValue(item: KpiItem, currency: string = "GBP"): string {
   switch (item.format) {
     case "currency":
       return formatCurrency(item.value, 0, currency);

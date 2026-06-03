@@ -25,6 +25,7 @@ import {
   Tag,
   ArrowLeftRight,
   HelpCircle,
+  CreditCard,
 } from "lucide-react";
 import {
   validateAndPreview,
@@ -47,6 +48,7 @@ import type {
   MappingOverrides,
   ImportSummary,
 } from "@/lib/upload/wizard-types";
+import { getImportReconciliation } from "@/lib/upload/reconciliation";
 
 const SOURCE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "auto_detect", label: "Auto Detect" },
@@ -76,6 +78,52 @@ const DETECTED_PROVIDER_LABELS: Record<string, string> = {
   generic_bank: "Generic Bank",
   manual_csv: "Manual CSV",
 };
+
+function buildSummaryFromStatus(status: Awaited<ReturnType<typeof getUploadStatus>>): ImportSummary {
+  const rec = getImportReconciliation(status.metadata);
+  const metadata = status.metadata ?? {};
+  const rowsImported = rec?.rowsInserted ?? status.transactionCount ?? 0;
+  return {
+    success: status.status === "completed",
+    uploadId: status.uploadId,
+    fileName: status.fileName ?? "",
+    sourceType: (status.source as SourceType | undefined) ?? "bank_statement_csv",
+    rowsInFile: rec?.rowsInFile ?? rowsImported,
+    rowsParsed: rec?.rowsParsed ?? rowsImported,
+    rowsValid: rec?.rowsValid ?? rowsImported,
+    rowsImported,
+    rowsSkipped: rec?.rowsSkippedDuplicate ?? 0,
+    rowsFailed: rec?.rowsFailed ?? 0,
+    rowsNeedReview: rec?.rowsNeedingReview ?? 0,
+    rowsUncategorised: rec?.rowsUncategorised ?? 0,
+    rowsAmbiguous: rec?.rowsAmbiguous ?? 0,
+    rowsCategorised: rec?.rowsCategorised ?? 0,
+    rowsHighConfidence: rec?.rowsHighConfidence ?? 0,
+    rowsCategorisedByUserRule: rec?.rowsCategorisedByUserRule ?? 0,
+    rowsCategorisedBySystemIntelligence: rec?.rowsCategorisedBySystemIntelligence ?? 0,
+    rowsIncludedInRevenue: rec?.rowsIncludedInRevenue ?? 0,
+    rowsIncludedInExpenses: rec?.rowsIncludedInExpenses ?? 0,
+    rowsIncludedInCashFlow: rec?.rowsIncludedInCashFlow ?? 0,
+    rowsTransfer: rec?.rowsMarkedTransfer ?? 0,
+    rowsDuplicate: rec?.rowsSkippedDuplicate ?? 0,
+    rowsKpiExcluded: rec?.rowsExcludedFromKpis ?? 0,
+    rowsLinkedToSubscriptions: rec?.rowsLinkedToSubscriptions ?? 0,
+    rowsWithFees: rec?.rowsWithFees ?? 0,
+    rowsWithRefunds: rec?.rowsWithRefunds ?? 0,
+    rowsWithCreditCardRepaymentTreatment: rec?.rowsWithCreditCardRepaymentTreatment ?? 0,
+    reconciliationBalanced: rec?.reconciliationBalanced ?? status.status === "completed",
+    reconciliationExplanation: rec?.explanation,
+    incomeTotal: 0,
+    expenseTotal: 0,
+    sourceCurrency: (metadata.detected_currency as string | undefined) ?? "",
+    baseCurrency: (metadata.base_currency as string | undefined) ?? (metadata.detected_currency as string | undefined) ?? "",
+    subscriptionsDetected: (metadata.subscriptions_detected as number | undefined) ?? 0,
+    unknownTransactions: rec?.rowsUncategorised ?? rec?.rowsNeedingReview ?? 0,
+    alertsCreated: (metadata.alerts_created as number | undefined) ?? 0,
+    recommendationsCreated: (metadata.recommendations_created as number | undefined) ?? 0,
+    error: status.errorMessage,
+  };
+}
 
 const DATE_FORMAT_OPTIONS = [
   { value: "", label: "Auto-detected" },
@@ -171,34 +219,19 @@ export default function UploadWizard() {
 
       if (status.status === "completed") {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        // We don't have the summary here, user will see generic completion
-        setSummary({
-          success: true,
-          fileName: "",
-          sourceType: "bank_statement_csv",
-          rowsInFile: status.transactionCount ?? 0,
-          rowsParsed: status.transactionCount ?? 0,
-          rowsImported: status.transactionCount ?? 0,
-          rowsSkipped: 0,
-          rowsFailed: 0,
-          rowsNeedReview: 0,
-          rowsCategorised: 0,
-          rowsTransfer: 0,
-          rowsDuplicate: 0,
-          incomeTotal: 0,
-          expenseTotal: 0,
-          sourceCurrency: "",
-          baseCurrency: "",
-          subscriptionsDetected: 0,
-          unknownTransactions: 0,
-          alertsCreated: 0,
-          recommendationsCreated: 0,
-        });
+        setSummary(buildSummaryFromStatus(status));
         setStep("summary");
         // Clean URL
         window.history.replaceState({}, "", window.location.pathname);
       } else if (status.status === "failed") {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        const failedSummary = buildSummaryFromStatus(status);
+        if (failedSummary.rowsInFile > 0 || failedSummary.reconciliationExplanation) {
+          setSummary(failedSummary);
+          setStep("summary");
+          window.history.replaceState({}, "", window.location.pathname);
+          return;
+        }
         setError({
           category: "system",
           title: "Import failed",
@@ -484,6 +517,10 @@ export default function UploadWizard() {
         // Set URL for resumption
         window.history.replaceState({}, "", `?upload=${result.uploadId}`);
         startPolling(result.uploadId);
+      } else if (result.summary) {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setSummary(result.summary);
+        setStep("summary");
       } else {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setError({
@@ -1999,30 +2036,34 @@ function ProcessingStep({
 
 function SummaryStep({
   summary,
+  currencySymbol,
   onUploadAnother,
 }: {
   summary: ImportSummary;
   currencySymbol: string;
   onUploadAnother: () => void;
 }) {
+  const completed = summary.success && summary.reconciliationBalanced;
+  const netMovement = summary.incomeTotal - summary.expenseTotal;
+
   return (
     <div className="space-y-5">
       <div
         className="rounded-xl border p-6 text-center"
         style={{
-          borderColor: summary.success ? "rgba(20,184,166,0.3)" : "rgba(244,63,94,0.3)",
-          background: summary.success ? "rgba(20,184,166,0.06)" : "rgba(244,63,94,0.06)",
+          borderColor: completed ? "rgba(20,184,166,0.3)" : "rgba(244,63,94,0.3)",
+          background: completed ? "rgba(20,184,166,0.06)" : "rgba(244,63,94,0.06)",
         }}
       >
         <div className="flex flex-col items-center gap-3">
-          {summary.success ? (
+          {completed ? (
             <CheckCircle2 className="h-10 w-10 text-emerald-400" />
           ) : (
             <AlertCircle className="h-10 w-10 text-rose-400" />
           )}
           <div>
             <h3 className="text-lg font-semibold text-[var(--foreground)]">
-              {summary.success ? "Import Complete" : "Import Failed"}
+              {completed ? "Import Complete" : "Import Needs Attention"}
             </h3>
             <p className="text-sm text-[var(--muted-foreground)]">
               {summary.fileName} · {summary.sourceType.replace(/_/g, " ")}
@@ -2032,12 +2073,25 @@ function SummaryStep({
       </div>
 
       {/* Full Reconciliation Table */}
-      {summary.success && (
+      {(summary.rowsInFile > 0 || summary.reconciliationExplanation) && (
         <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: "rgba(148,163,184,0.16)", background: "#111827" }}>
-          <h4 className="text-sm font-semibold text-[var(--foreground)]">Import Reconciliation</h4>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-semibold text-[var(--foreground)]">Import Reconciliation</h4>
+              {summary.reconciliationExplanation && (
+                <p className={`mt-1 text-xs ${summary.reconciliationBalanced ? "text-emerald-300" : "text-rose-300"}`}>
+                  {summary.reconciliationExplanation}
+                </p>
+              )}
+            </div>
+            <StatusBadge variant={summary.reconciliationBalanced ? "success" : "danger"}>
+              {summary.reconciliationBalanced ? "Balanced" : "Mismatch"}
+            </StatusBadge>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <StatCard label="Rows in File" value={String(summary.rowsInFile)} icon={<Database className="h-4 w-4" />} />
             <StatCard label="Rows Parsed" value={String(summary.rowsParsed)} icon={<Brain className="h-4 w-4" />} />
+            <StatCard label="Rows Valid" value={String(summary.rowsValid)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Rows Imported" value={String(summary.rowsImported)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Duplicates Skipped" value={String(summary.rowsDuplicate)} icon={<RefreshCw className="h-4 w-4" />} color="text-amber-400" />
             <StatCard label="Failed" value={String(summary.rowsFailed)} icon={<AlertCircle className="h-4 w-4" />} color="text-rose-400" />
@@ -2045,8 +2099,22 @@ function SummaryStep({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.12)" }}>
             <StatCard label="Categorised" value={String(summary.rowsCategorised)} icon={<Tag className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="High Confidence" value={String(summary.rowsHighConfidence)} icon={<CheckCircle2 className="h-4 w-4" />} color="text-emerald-400" />
             <StatCard label="Transfers" value={String(summary.rowsTransfer)} icon={<ArrowLeftRight className="h-4 w-4" />} color="text-violet-400" />
-            <StatCard label="Uncategorised" value={String(summary.unknownTransactions)} icon={<HelpCircle className="h-4 w-4" />} color="text-slate-400" />
+            <StatCard label="Excluded from KPIs" value={String(summary.rowsKpiExcluded)} icon={<Database className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Linked to Subs" value={String(summary.rowsLinkedToSubscriptions)} icon={<RefreshCw className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="Uncategorised" value={String(summary.rowsUncategorised)} icon={<HelpCircle className="h-4 w-4" />} color="text-slate-400" />
+            <StatCard label="Ambiguous" value={String(summary.rowsAmbiguous)} icon={<AlertTriangle className="h-4 w-4" />} color="text-amber-400" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t" style={{ borderColor: "rgba(148,163,184,0.12)" }}>
+            <StatCard label="Revenue Rows" value={String(summary.rowsIncludedInRevenue)} icon={<TrendingUp className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Expense Rows" value={String(summary.rowsIncludedInExpenses)} icon={<TrendingDown className="h-4 w-4" />} color="text-rose-400" />
+            <StatCard label="Cash Flow Rows" value={String(summary.rowsIncludedInCashFlow)} icon={<Database className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="User Rule" value={String(summary.rowsCategorisedByUserRule)} icon={<Tag className="h-4 w-4" />} color="text-sky-400" />
+            <StatCard label="System Intel" value={String(summary.rowsCategorisedBySystemIntelligence)} icon={<Brain className="h-4 w-4" />} color="text-violet-400" />
+            <StatCard label="Fee Rows" value={String(summary.rowsWithFees)} icon={<Database className="h-4 w-4" />} color="text-amber-400" />
+            <StatCard label="Refund Rows" value={String(summary.rowsWithRefunds)} icon={<RefreshCw className="h-4 w-4" />} color="text-emerald-400" />
+            <StatCard label="Card Repayments" value={String(summary.rowsWithCreditCardRepaymentTreatment)} icon={<CreditCard className="h-4 w-4" />} color="text-violet-400" />
           </div>
           {(summary.sourceCurrency || summary.baseCurrency) && (
             <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] pt-2">
@@ -2065,7 +2133,7 @@ function SummaryStep({
           <StatCard label="Subscriptions" value={String(summary.subscriptionsDetected)} icon={<RefreshCw className="h-4 w-4" />} />
           <StatCard label="Alerts" value={String(summary.alertsCreated)} icon={<AlertCircle className="h-4 w-4" />} />
           <StatCard label="Recommendations" value={String(summary.recommendationsCreated)} icon={<Sparkles className="h-4 w-4" />} />
-          <StatCard label="Net Movement" value={`${summary.incomeTotal >= summary.expenseTotal ? "+" : ""}${(summary.incomeTotal - summary.expenseTotal).toFixed(0)}`} icon={<TrendingUp className="h-4 w-4" />} />
+          <StatCard label="Net Movement" value={`${netMovement >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(netMovement).toFixed(0)}`} icon={<TrendingUp className="h-4 w-4" />} />
         </div>
       )}
 
@@ -2084,7 +2152,7 @@ function SummaryStep({
       )}
 
       <div className="flex items-center justify-center gap-3">
-        <a href="/transactions" className="btn-secondary text-sm">
+        <a href={summary.uploadId ? `/transactions?preset=allTime&uploadId=${summary.uploadId}` : "/transactions"} className="btn-secondary text-sm">
           <Eye className="h-4 w-4" />
           View Transactions
         </a>

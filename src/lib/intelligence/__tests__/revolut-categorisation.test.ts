@@ -159,7 +159,7 @@ describe("Revolut CSV categorisation", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Marketing Commission → Professional Services", () => {
+  it("Marketing Commission → Sales Commission", () => {
     const result = categoriseTransaction(
       makeTx({
         description: "Marketing Commission",
@@ -167,11 +167,28 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Professional Services");
+    expect(result.category).toBe("Sales Commission");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Sales Rep Commission → Professional Services", () => {
+  it("Revolut TRANSFER Marketing Commission → Sales Commission, not transfer", () => {
+    const result = categoriseTransaction(
+      makeTx({
+        merchant: "Catherine Bull",
+        description: "Marketing Commission Payout",
+        reference: "Marketing Commission Payout",
+        amount: -35,
+        transactionType: "TRANSFER",
+        provider: "revolut_business_csv",
+      }),
+      ctx
+    );
+    expect(result.category).toBe("Sales Commission");
+    expect(result.isTransfer).toBe(false);
+    expect(result.kpiTreatment).toBe("included");
+  });
+
+  it("Sales Rep Commission → Sales Commission", () => {
     const result = categoriseTransaction(
       makeTx({
         description: "Sales Rep Commission",
@@ -179,7 +196,7 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Professional Services");
+    expect(result.category).toBe("Sales Commission");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
@@ -208,7 +225,7 @@ describe("Revolut CSV categorisation", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 
-  it("Klarna*amazon → Shopping", () => {
+  it("Klarna*amazon → Amazon office cost with Klarna as payment context", () => {
     const result = categoriseTransaction(
       makeTx({
         merchant: "Klarna*amazon",
@@ -217,7 +234,9 @@ describe("Revolut CSV categorisation", () => {
       }),
       ctx
     );
-    expect(result.category).toBe("Shopping");
+    expect(result.category).toBe("Office Costs");
+    expect(result.normalisedMerchant).toBe("Amazon");
+    expect(result.reason).not.toContain("Payment Processor Fees");
     expect(result.confidence).toBeGreaterThanOrEqual(70);
   });
 });

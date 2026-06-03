@@ -84,7 +84,7 @@ describe("getKPIDrilldownData", () => {
       );
       assertCommon(data);
       expect(data!.kpiId).toBe("cash_balance");
-      expect(data!.currentValue).toBe("$100,000");
+      expect(data!.currentValue).toBe("£100,000");
       expect(data!.breakdown[0].label).toBe("Current Cash Balance");
       expect(data!.trendData.length).toBe(2);
       expect(data!.previousPeriod).toBeUndefined();
@@ -113,7 +113,7 @@ describe("getKPIDrilldownData", () => {
       );
       assertCommon(data);
       expect(data!.kpiId).toBe("monthly_revenue");
-      expect(data!.currentValue).toBe("$50,000");
+      expect(data!.currentValue).toBe("£50,000");
       expect(data!.transactions).toHaveLength(2);
       expect(data!.transactions![0].amount).toBe(5000);
       expect(data!.previousPeriod).toBeTruthy();
@@ -145,7 +145,7 @@ describe("getKPIDrilldownData", () => {
       );
       assertCommon(data);
       expect(data!.kpiId).toBe("monthly_expenses");
-      expect(data!.currentValue).toBe("$30,000");
+      expect(data!.currentValue).toBe("£30,000");
       expect(data!.transactions).toHaveLength(2);
       expect(data!.previousPeriod).toBeTruthy();
       expect(data!.previousPeriod!.changeText).toBe("-25.0%");
@@ -160,8 +160,8 @@ describe("getKPIDrilldownData", () => {
       ];
       const data = getKPIDrilldownData("monthly_expenses", makeMetrics(), [], txns, "Last 30 days");
       assertCommon(data);
-      expect(data!.breakdown.some((b) => b.label === "Software" && b.value === "$1,500")).toBe(true);
-      expect(data!.breakdown.some((b) => b.label === "Advertising" && b.value === "$800")).toBe(true);
+      expect(data!.breakdown.some((b) => b.label === "Software" && b.value === "£1,500")).toBe(true);
+      expect(data!.breakdown.some((b) => b.label === "Advertising" && b.value === "£800")).toBe(true);
     });
   });
 
@@ -205,7 +205,7 @@ describe("getKPIDrilldownData", () => {
         "Last 30 days"
       );
       assertCommon(data);
-      expect(data!.currentValue).toBe("$0");
+      expect(data!.currentValue).toBe("£0");
       expect(data!.qualityNotes[0]).toContain("burn is zero");
     });
 
@@ -221,7 +221,7 @@ describe("getKPIDrilldownData", () => {
         "Last 30 days"
       );
       assertCommon(data);
-      expect(data!.currentValue).toBe("$10,000");
+      expect(data!.currentValue).toBe("£10,000");
       expect(data!.previousPeriod).toBeTruthy();
       // Jan burn = 20,000; Feb burn = 10,000; change = -50% which is positive (good)
       expect(data!.previousPeriod!.changeText).toBe("-50.0%");
@@ -274,7 +274,7 @@ describe("getKPIDrilldownData", () => {
       const data = getKPIDrilldownData("monthly_sub_spend", makeMetrics(), [], [], "Last 30 days");
       assertCommon(data);
       expect(data!.kpiId).toBe("monthly_sub_spend");
-      expect(data!.currentValue).toBe("$2,000");
+      expect(data!.currentValue).toBe("£2,000");
       expect(data!.trendData).toEqual([]);
       expect(data!.qualityNotes[0]).toContain("5 active subscription");
     });
@@ -291,7 +291,7 @@ describe("getKPIDrilldownData", () => {
       );
       assertCommon(data);
       expect(data!.kpiId).toBe("arr");
-      expect(data!.currentValue).toBe("$600,000");
+      expect(data!.currentValue).toBe("£600,000");
       expect(data!.breakdown.some((b) => b.label === "ARR (×12)")).toBe(true);
       expect(data!.trendData[0].value).toBe(480000);
       expect(data!.trendData[1].value).toBe(600000);

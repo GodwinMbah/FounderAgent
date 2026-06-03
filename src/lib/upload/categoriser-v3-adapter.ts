@@ -20,6 +20,22 @@ export interface CategorisedV3Row extends NormalisedRow {
   category: string;
   confidenceScore: number;
   categoryReason: string;
+  categoryConfidence: number;
+  groupingConfidence: number;
+  normalisedMerchant?: string;
+  displayMerchant?: string;
+  subcategory?: string;
+  kpiTreatment: "included" | "excluded";
+  businessMeaning?: string;
+  isCreditCardRepayment: boolean;
+  isSubscriptionCandidate: boolean;
+  isRecurringCandidate: boolean;
+  categoryEvidence: Array<{
+    category: string;
+    confidence: number;
+    source: string;
+    reason: string;
+  }>;
 }
 
 function mapBusinessModel(raw: string | undefined): BusinessModel {
@@ -69,6 +85,11 @@ export function categoriseWithV3(
         | string
         | undefined,
       counterpartyName: row.metadata?.counterparty as string | undefined,
+      accountName: row.metadata?.account_name as string | undefined,
+      cardDetails: row.metadata?.card_details as string | undefined,
+      relatedTransactionId: row.metadata?.related_transaction_id as string | undefined,
+      metadata: row.metadata,
+      rawData: row.rawData,
       isTransfer: row.metadata?.is_transfer as boolean | undefined,
       isFee: row.metadata?.is_fee as boolean | undefined,
     };
@@ -82,10 +103,22 @@ export function categoriseWithV3(
 
     return {
       ...row,
+      merchant: result.displayMerchant || row.merchant,
       category: result.category,
+      subcategory: result.subcategory,
       confidenceScore: result.confidence,
       status,
       categoryReason: result.reason,
+      categoryConfidence: result.categoryConfidence,
+      groupingConfidence: result.groupingConfidence,
+      normalisedMerchant: result.normalisedMerchant,
+      displayMerchant: result.displayMerchant,
+      kpiTreatment: result.kpiTreatment,
+      businessMeaning: result.businessMeaning,
+      isCreditCardRepayment: result.isCreditCardRepayment,
+      isSubscriptionCandidate: result.isSubscription,
+      isRecurringCandidate: result.isRecurring,
+      categoryEvidence: result.evidence,
     };
   });
 }
@@ -97,7 +130,7 @@ export function categoriseWithV3AndV1Fallback(
   const v3Categorised = categoriseWithV3(rows, companySettings);
 
   return v3Categorised.map((row) => {
-    if (row.confidenceScore >= 75) return row;
+    if (row.category !== "Uncategorised Review" && row.confidenceScore >= 60) return row;
 
     // Run v1 fallback for low confidence rows
     const v1Result = suggestTransactionCategory({
@@ -110,6 +143,14 @@ export function categoriseWithV3AndV1Fallback(
       type: row.type,
       status: row.status,
     });
+
+    const v1HasUsefulCategory =
+      v1Result.suggestedCategory !== "Uncategorised Review" &&
+      v1Result.confidenceScore > row.confidenceScore;
+
+    if (!v1HasUsefulCategory) {
+      return row;
+    }
 
     return {
       ...row,

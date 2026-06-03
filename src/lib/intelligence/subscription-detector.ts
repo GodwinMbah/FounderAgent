@@ -17,6 +17,29 @@ export interface DetectedSubscription {
   confidence: number;
 }
 
+export type RecurrenceType =
+  | "software_subscription"
+  | "service_subscription"
+  | "membership"
+  | "recurring_contractor"
+  | "recurring_commission"
+  | "recurring_income"
+  | "loan_repayment"
+  | "credit_card_repayment"
+  | "transfer";
+
+export interface DetectedRecurringGroup {
+  vendor: string;
+  recurrenceType: RecurrenceType;
+  category: string;
+  amount: number;
+  billingCycle: string;
+  transactionCount: number;
+  confidence: number;
+  transactionRowNumbers: number[];
+  reason: string;
+}
+
 const SUBSCRIPTION_KEYWORDS = [
   "subscription", "monthly", "annual", "yearly", "recurring",
   "billing", "renewal", "plan", "membership", "saas",
@@ -84,6 +107,97 @@ function amountSimilar(a: number, b: number): boolean {
   const diff = Math.abs(a - b);
   const avg = (a + b) / 2;
   return diff / avg < 0.15; // Within 15%
+}
+
+function billingCycleFromRows(rows: CategorisedRow[]): { cycle: string; confidence: number } {
+  if (rows.length < 2) return { cycle: "unknown", confidence: 0 };
+  const sorted = [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const days = (new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()) / (1000 * 60 * 60 * 24);
+    if (Number.isFinite(days) && days > 0) gaps.push(days);
+  }
+  if (gaps.length === 0) return { cycle: "unknown", confidence: 0 };
+  const avgGap = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+  if (avgGap >= 5 && avgGap <= 9) return { cycle: "weekly", confidence: 80 };
+  if (avgGap >= 25 && avgGap <= 35) return { cycle: "monthly", confidence: 90 };
+  if (avgGap >= 85 && avgGap <= 95) return { cycle: "quarterly", confidence: 85 };
+  if (avgGap >= 350 && avgGap <= 380) return { cycle: "yearly", confidence: 85 };
+  return { cycle: "irregular", confidence: 45 };
+}
+
+function classifyRecurrence(rows: CategorisedRow[]): { recurrenceType: RecurrenceType; reason: string } {
+  const first = rows[0];
+  const text = rows.map((row) => `${row.merchant} ${row.description} ${row.category}`.toLowerCase()).join(" ");
+  const category = first.category;
+
+  if (category === "Credit Card Payment" || rows.some((row) => Boolean((row as { isCreditCardRepayment?: boolean }).isCreditCardRepayment))) {
+    return { recurrenceType: "credit_card_repayment", reason: "Recurring credit-card provider repayment pattern" };
+  }
+  if (category === "Transfers") {
+    return { recurrenceType: "transfer", reason: "Recurring internal/account transfer pattern" };
+  }
+  if (text.includes("loan repayment") || text.includes("loan payment")) {
+    return { recurrenceType: "loan_repayment", reason: "Recurring loan repayment wording" };
+  }
+  if (first.type === "income" && category === "Revenue") {
+    return { recurrenceType: "recurring_income", reason: "Recurring income from the same counterparty" };
+  }
+  if (category === "Contractors") {
+    return { recurrenceType: "recurring_contractor", reason: "Recurring contractor/vendor payment" };
+  }
+  if (category === "Sales Commission") {
+    return { recurrenceType: "recurring_commission", reason: "Recurring commission payment" };
+  }
+  if (text.includes("membership")) {
+    return { recurrenceType: "membership", reason: "Recurring membership wording" };
+  }
+  if (["Subscriptions", "Software", "AI Tools", "Cloud Infrastructure"].includes(category)) {
+    return { recurrenceType: "software_subscription", reason: "Recurring software/cloud/tool payment" };
+  }
+  return { recurrenceType: "service_subscription", reason: "Recurring service payment pattern" };
+}
+
+export function detectRecurringGroups(rows: CategorisedRow[]): DetectedRecurringGroup[] {
+  const vendorGroups = new Map<string, CategorisedRow[]>();
+
+  for (const row of rows) {
+    const vendor = normaliseVendor(row.merchant || row.description || "Unknown");
+    if (!vendor || vendor === "Unknown") continue;
+    const group = vendorGroups.get(vendor) || [];
+    group.push(row);
+    vendorGroups.set(vendor, group);
+  }
+
+  const recurringGroups: DetectedRecurringGroup[] = [];
+
+  for (const [vendor, groupRows] of vendorGroups) {
+    if (groupRows.length < 2) continue;
+
+    const amounts = groupRows.map((row) => row.amount);
+    const avgAmount = amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
+    const allSimilar = amounts.every((amount) => amountSimilar(amount, avgAmount));
+    const cycle = billingCycleFromRows(groupRows);
+    if (!allSimilar && cycle.confidence < 80) continue;
+    if (cycle.cycle === "unknown") continue;
+
+    const classification = classifyRecurrence(groupRows);
+    const confidence = Math.min(95, cycle.confidence + Math.min(15, groupRows.length * 3));
+
+    recurringGroups.push({
+      vendor,
+      recurrenceType: classification.recurrenceType,
+      category: groupRows[0].category,
+      amount: Math.round(avgAmount * 100) / 100,
+      billingCycle: cycle.cycle,
+      transactionCount: groupRows.length,
+      confidence,
+      transactionRowNumbers: groupRows.map((row) => row.rowNumber),
+      reason: classification.reason,
+    });
+  }
+
+  return recurringGroups.sort((a, b) => b.confidence - a.confidence);
 }
 
 export function detectSubscriptions(rows: CategorisedRow[]): DetectedSubscription[] {

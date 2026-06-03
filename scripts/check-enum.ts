@@ -1,5 +1,48 @@
-import { createClient } from '@supabase/supabase-js';\nimport crypto from 'crypto';\n
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
+import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+import { getRequiredSupabaseScriptConfig } from "./supabase-env";
+
+const { url, secretKey } = getRequiredSupabaseScriptConfig();
+const supabase = createClient(url, secretKey);
+
+async function testStatus(status: string) {
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from('transactions').insert({
+    id,
+    company_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    date: '2024-01-01',
+    merchant: 'Test',
+    amount: 100,
+    type: 'expense',
+    status,
+    metadata: {},
+  });
+  if (error) {
+    if (error.message.includes('invalid input value for enum')) {
+      console.log(`INVALID: ${status}`);
+    } else {
+      console.log(`OTHER ERROR for ${status}: ${error.message}`);
+    }
+  } else {
+    console.log(`VALID: ${status}`);
+    await supabase.from('transactions').delete().eq('id', id);
+  }
 }
-\nconst supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);\n\nasync function testStatus(status: string) {\n  const id = crypto.randomUUID();\n  const { error } = await supabase.from('transactions').insert({\n    id,\n    company_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',\n    date: '2024-01-01',\n    merchant: 'Test',\n    amount: 100,\n    type: 'expense',\n    status,\n    metadata: {},\n  });\n  if (error) {\n    if (error.message.includes('invalid input value for enum')) {\n      console.log(`INVALID: ${status}`);\n    } else {\n      console.log(`OTHER ERROR for ${status}: ${error.message}`);\n    }\n  } else {\n    console.log(`VALID: ${status}`);\n    await supabase.from('transactions').delete().eq('id', id);\n  }\n}\n\nasync function main() {\n  const candidates = [\n    'pending', 'completed', 'failed', 'cancelled', 'processing',\n    'new', 'review', 'approved', 'rejected', 'uncategorized',\n    'categorized', 'transfer', 'possible_duplicate', 'duplicate',\n    'income', 'expense', 'active', 'inactive', 'archived',\n    'verified', 'unverified', 'manual', 'auto', 'imported',\n    'confirmed', 'unconfirmed', 'flagged', 'cleared',\n    'reconciled', 'unreconciled', 'posted', 'scheduled',\n    'hold', 'released', 'refunded', 'chargeback',\n  ];\n  \n  for (const status of candidates) {\n    await testStatus(status);\n  }\n}\nmain().catch(console.error);\n
+
+async function main() {
+  const candidates = [
+    'pending', 'completed', 'failed', 'cancelled', 'processing',
+    'new', 'review', 'approved', 'rejected', 'uncategorized',
+    'categorized', 'transfer', 'possible_duplicate', 'duplicate',
+    'income', 'expense', 'active', 'inactive', 'archived',
+    'verified', 'unverified', 'manual', 'auto', 'imported',
+    'confirmed', 'unconfirmed', 'flagged', 'cleared',
+    'reconciled', 'unreconciled', 'posted', 'scheduled',
+    'hold', 'released', 'refunded', 'chargeback',
+  ];
+
+  for (const status of candidates) {
+    await testStatus(status);
+  }
+}
+main().catch(console.error);

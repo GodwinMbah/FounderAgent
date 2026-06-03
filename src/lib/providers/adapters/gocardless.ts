@@ -16,6 +16,7 @@ export const gocardlessAdapter: ProviderAdapter = {
     ],
     minRequiredMatches: 3,
     minScore: 40,
+    preamblePatterns: ["Charge Date", "Mandate ID", "Customer Name", "Payout Date"],
   },
   headerAliases: [
     { field: "transactionDate", aliases: ["Charge Date", "Payout Date"], required: true },

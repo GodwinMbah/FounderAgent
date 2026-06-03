@@ -37,7 +37,7 @@ export default async function DashboardPage({
     getMonthlyMetrics(companyId, from, to),
     getSubscriptions(companyId),
     getAlerts(companyId),
-    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
+    getTransactions(companyId, { startDate: from, endDate: to }),
     getCompanySettings(companyId),
   ]);
 

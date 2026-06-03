@@ -1,5 +1,100 @@
-import fs from "fs";\nimport path from "path";\nimport { createClient } from "@supabase/supabase-js";\nimport { parseUpload } from "../src/lib/parser/unified-parser";\nimport { detectDuplicate, generateTransactionHash } from "../src/lib/intelligence/duplicate-detector-v2";\n
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
+import fs from "fs";
+import path from "path";
+import { createClient } from "@supabase/supabase-js";
+import { parseUpload } from "../src/lib/parser/unified-parser";
+import { detectDuplicate, generateTransactionHash } from "../src/lib/intelligence/duplicate-detector-v2";
+import { getRequiredSupabaseScriptConfig } from "./supabase-env";
+
+const { url: SUPABASE_URL, secretKey } = getRequiredSupabaseScriptConfig();
+const COMPANY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+const supabase = createClient(SUPABASE_URL, secretKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+async function main() {
+  // Clean up
+  await supabase.from("transactions").delete().eq("company_id", COMPANY_ID);
+  await supabase.from("uploads").delete().eq("company_id", COMPANY_ID);
+
+  // Parse generic CSV
+  const csvPath = path.join(process.cwd(), "test_data/csv/generic_money_in_out.csv");
+  const csvText = fs.readFileSync(csvPath, "utf-8");
+  const parseResult = parseUpload(csvText, {
+    companyId: COMPANY_ID,
+    companyCurrency: "GBP",
+    companyCountry: "GB",
+    uploadId: "first-upload",
+  });
+
+  console.log("Parsed transactions:");
+  for (const tx of parseResult.transactions) {
+    console.log(`  ${tx.merchantName} | ${tx.transactionDate} | ${tx.amount} | src=${tx.sourceProvider}`);
+  }
+
+  // Insert them manually
+  for (const tx of parseResult.transactions) {
+    const type = tx.amount >= 0 ? "income" : "expense";
+    await supabase.from("transactions").insert({
+      company_id: COMPANY_ID,
+      date: tx.transactionDate,
+      merchant: tx.merchantName,
+      description: tx.description,
+      amount: Math.abs(tx.amount),
+      type,
+      status: "needs_review",
+      metadata: {
+        source_provider: tx.sourceProvider,
+        currency: tx.currency,
+      },
+    });
+  }
+
+  // Fetch existing transactions
+  const { data: existingTxs } = await supabase
+    .from("transactions")
+    .select("date, amount, type, merchant, metadata")
+    .eq("company_id", COMPANY_ID)
+    .limit(1000);
+
+  console.log("\nExisting transactions in DB:", existingTxs?.length ?? 0);
+  const existingForDedup = (existingTxs || []).map((t) => {
+    const meta = (t.metadata as Record<string, unknown> | null) || {};
+    const absAmount = Number(t.amount);
+    const signedAmount = t.type === "expense" ? -absAmount : absAmount;
+    return {
+      transactionDate: t.date as string,
+      amount: signedAmount,
+      currency: (meta.currency as string) || "GBP",
+      merchantName: (t.merchant as string) || "",
+      reference: (meta.reference as string) || undefined,
+      externalTransactionId: (meta.external_transaction_id as string) || undefined,
+      accountName: (meta.account_name as string) || undefined,
+      sourceProvider: (meta.source_provider as string) || "unknown",
+      sourceFileId: (meta.source_file_id as string) || undefined,
+    };
+  });
+
+  for (const ex of existingForDedup) {
+    const hash = generateTransactionHash(ex);
+    console.log(`  DB: ${ex.merchantName} | ${ex.transactionDate} | ${ex.amount} | src=${ex.sourceProvider} | hash=${hash}`);
+  }
+
+  // Parse again (duplicate)
+  const parseResult2 = parseUpload(csvText, {
+    companyId: COMPANY_ID,
+    companyCurrency: "GBP",
+    companyCountry: "GB",
+    uploadId: "dup-upload",
+  });
+
+  console.log("\nDuplicate detection:");
+  for (const tx of parseResult2.transactions) {
+    const hash = generateTransactionHash(tx);
+    const dupResult = detectDuplicate(tx, existingForDedup);
+    console.log(`  NEW: ${tx.merchantName} | ${tx.transactionDate} | ${tx.amount} | src=${tx.sourceProvider} | hash=${hash}`);
+    console.log(`       isDuplicate=${dupResult.isDuplicate}, reason=${dupResult.reason}`);
+  }
 }
-\n\nconst SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;\nconst SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;\nconst COMPANY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";\n\nconst supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {\n  auth: { autoRefreshToken: false, persistSession: false },\n});\n\nasync function main() {\n  // Clean up\n  await supabase.from("transactions").delete().eq("company_id", COMPANY_ID);\n  await supabase.from("uploads").delete().eq("company_id", COMPANY_ID);\n\n  // Parse generic CSV\n  const csvPath = path.join(process.cwd(), "test_data/csv/generic_money_in_out.csv");\n  const csvText = fs.readFileSync(csvPath, "utf-8");\n  const parseResult = parseUpload(csvText, {\n    companyId: COMPANY_ID,\n    companyCurrency: "GBP",\n    companyCountry: "GB",\n    uploadId: "first-upload",\n  });\n\n  console.log("Parsed transactions:");\n  for (const tx of parseResult.transactions) {\n    console.log(`  ${tx.merchantName} | ${tx.transactionDate} | ${tx.amount} | src=${tx.sourceProvider}`);\n  }\n\n  // Insert them manually\n  for (const tx of parseResult.transactions) {\n    const type = tx.amount >= 0 ? "income" : "expense";\n    await supabase.from("transactions").insert({\n      company_id: COMPANY_ID,\n      date: tx.transactionDate,\n      merchant: tx.merchantName,\n      description: tx.description,\n      amount: Math.abs(tx.amount),\n      type,\n      status: "needs_review",\n      metadata: {\n        source_provider: tx.sourceProvider,\n        currency: tx.currency,\n      },\n    });\n  }\n\n  // Fetch existing transactions\n  const { data: existingTxs } = await supabase\n    .from("transactions")\n    .select("date, amount, type, merchant, metadata")\n    .eq("company_id", COMPANY_ID)\n    .limit(1000);\n\n  console.log("\nExisting transactions in DB:", existingTxs?.length ?? 0);\n  const existingForDedup = (existingTxs || []).map((t) => {\n    const meta = (t.metadata as Record<string, unknown> | null) || {};\n    const absAmount = Number(t.amount);\n    const signedAmount = t.type === "expense" ? -absAmount : absAmount;\n    return {\n      transactionDate: t.date as string,\n      amount: signedAmount,\n      currency: (meta.currency as string) || "GBP",\n      merchantName: (t.merchant as string) || "",\n      reference: (meta.reference as string) || undefined,\n      externalTransactionId: (meta.external_transaction_id as string) || undefined,\n      accountName: (meta.account_name as string) || undefined,\n      sourceProvider: (meta.source_provider as string) || "unknown",\n      sourceFileId: (meta.source_file_id as string) || undefined,\n    };\n  });\n\n  for (const ex of existingForDedup) {\n    const hash = generateTransactionHash(ex);\n    console.log(`  DB: ${ex.merchantName} | ${ex.transactionDate} | ${ex.amount} | src=${ex.sourceProvider} | hash=${hash}`);\n  }\n\n  // Parse again (duplicate)\n  const parseResult2 = parseUpload(csvText, {\n    companyId: COMPANY_ID,\n    companyCurrency: "GBP",\n    companyCountry: "GB",\n    uploadId: "dup-upload",\n  });\n\n  console.log("\nDuplicate detection:");\n  for (const tx of parseResult2.transactions) {\n    const hash = generateTransactionHash(tx);\n    const dupResult = detectDuplicate(tx, existingForDedup);\n    console.log(`  NEW: ${tx.merchantName} | ${tx.transactionDate} | ${tx.amount} | src=${tx.sourceProvider} | hash=${hash}`);\n    console.log(`       isDuplicate=${dupResult.isDuplicate}, reason=${dupResult.reason}`);\n  }\n}\n\nmain().catch(console.error);\n
+
+main().catch(console.error);
