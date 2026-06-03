@@ -36,6 +36,20 @@ export function detectTransfer(
   const typeLower = transactionType.toLowerCase();
   const refUpper = reference.toUpperCase();
   const merchLower = merchantName.toLowerCase();
+  const combinedLower = `${description} ${reference} ${merchantName} ${transaction.counterpartyName ?? ""}`.toLowerCase();
+
+  const paymentProcessorSignals = [
+    "stripe",
+    "stripe payments",
+    "paypal",
+    "square",
+    "adyen",
+    "shopify payments",
+    "gocardless",
+    "sumup",
+    "worldpay",
+  ];
+  const isPaymentProcessor = paymentProcessorSignals.some((signal) => combinedLower.includes(signal));
 
   // Guard: fees and interest charges are real expenses, never transfers
   const feeOrInterestKeywords = ["fee", "interest charge", "interest"];
@@ -43,8 +57,14 @@ export function detectTransfer(
     return { isTransfer: false, confidence: 0 };
   }
 
+  // Revolut Business TOPUP rows from payment processors are cash receipts from sales.
+  // They must remain KPI-eligible income, not be swallowed by generic top-up/transfer rules.
+  if (typeLower.includes("topup") && transaction.amount > 0 && isPaymentProcessor) {
+    return { isTransfer: false, confidence: 95 };
+  }
+
   // 1. Type-based (confidence 90)
-  const typeKeywords = ["transfer", "payout", "withdrawal", "refund", "topup", "internal"];
+  const typeKeywords = ["transfer", "payout", "withdrawal", "internal"];
   if (typeKeywords.some((kw) => typeLower.includes(kw))) {
     return { isTransfer: true, confidence: 90 };
   }

@@ -308,9 +308,9 @@ function TransactionsTab({ transactions, kpi }: { transactions?: Array<{ date: s
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-[var(--muted-foreground)]">
-        Top {Math.min(filtered.length, 10)} transactions
+        {filtered.length} source transaction{filtered.length !== 1 ? "s" : ""}
       </p>
-      {filtered.slice(0, 10).map((t, i) => (
+      {filtered.map((t, i) => (
         <div
           key={i}
           className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2.5"
@@ -367,12 +367,13 @@ function buildDrilldown(
 ): DrilldownResult {
   const sorted = [...monthlyMetrics].sort((a, b) => a.month.localeCompare(b.month));
   const previous = sorted[sorted.length - 2];
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const base = {
     kpiId: kpi.id,
     title: kpi.label,
     currentValue: formatKPIValue(kpi, metrics, currency),
-    dataSource: `From transactions filtered by ${dateRangeLabel}. Calculated from company-scoped data.`,
+    dataSource: `From ${transactions.length} transaction${transactions.length !== 1 ? "s" : ""} across ${sourceUploadCount} upload${sourceUploadCount !== 1 ? "s" : ""}, filtered by ${dateRangeLabel}. Calculated from company-scoped data.`,
     trendData: sorted.map((m) => ({ label: m.month.slice(5), value: 0 })),
     qualityNotes: [] as string[],
     suggestions: [] as string[],

@@ -147,6 +147,22 @@ export async function getCurrentCompany() {
   // Use admin client to bypass broken RLS on company_members
   const admin = createAdminClient();
   const client = admin ?? supabase;
+  const cookieStore = await cookies();
+  const activeCompanyId = cookieStore.get("active_company_id")?.value;
+
+  if (activeCompanyId) {
+    const { data: activeMembership, error: activeError } = await client
+      .from("company_members")
+      .select("company_id, companies(*)")
+      .eq("user_id", user.id)
+      .eq("company_id", activeCompanyId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!activeError && activeMembership?.companies) {
+      return activeMembership.companies;
+    }
+  }
 
   const { data: membership } = await client
     .from("company_members")

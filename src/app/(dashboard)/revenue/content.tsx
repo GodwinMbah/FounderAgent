@@ -12,7 +12,7 @@ import { isIncome } from "@/lib/reporting/filters";
 import { getDateRange, type DateRangePreset } from "@/lib/date-range";
 import {
   TrendingUp,
-  DollarSign,
+  Banknote,
   Repeat,
   Zap,
   Users,
@@ -58,6 +58,7 @@ export default function RevenueContent({
 }: RevenueContentProps) {
   const { currency } = useCompanyCurrency();
   const incomeTransactions = transactions.filter((t) => isIncome(t));
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const totalRevenue = monthlyMetrics.reduce((s, m) => s + m.revenue, 0);
   const avgMonthlyRevenue = monthlyMetrics.length > 0 ? totalRevenue / monthlyMetrics.length : 0;
@@ -112,7 +113,7 @@ export default function RevenueContent({
       {/* Date range label */}
       <div className="flex items-center justify-end">
         <span className="text-xs text-[var(--muted-foreground)] hidden sm:inline">
-          {getDateRange(initialPreset as DateRangePreset, initialFrom, initialTo).label}
+          {getDateRange(initialPreset as DateRangePreset, initialFrom, initialTo).label} · Source: {incomeTransactions.length} revenue transaction{incomeTransactions.length !== 1 ? "s" : ""} from {sourceUploadCount} upload{sourceUploadCount !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -123,7 +124,7 @@ export default function RevenueContent({
           value={formatCurrency(totalRevenue, 0, currency)}
           change={revGrowth.text}
           changeType={revGrowth.type}
-          icon={<DollarSign className="h-4 w-4" style={{ color: "#22C55E" }} />}
+          icon={<Banknote className="h-4 w-4" style={{ color: "#22C55E" }} />}
           iconColor="#22C55E"
         />
         <MetricCard

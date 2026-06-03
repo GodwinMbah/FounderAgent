@@ -19,9 +19,9 @@ export interface KPIDrilldownData {
   suggestions: string[];
 }
 
-function fmtCurrency(n: number, currency = "USD"): string {
+function fmtCurrency(n: number, currency = "GBP"): string {
   if (!Number.isFinite(n)) return "—";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat(currency === "GBP" ? "en-GB" : "en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
 }
 
 function fmtPercent(n: number): string {

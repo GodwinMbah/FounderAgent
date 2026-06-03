@@ -89,6 +89,7 @@ export async function updateUploadStatus(
   updates: {
     status?: UploadStatus;
     transactionCount?: number;
+    totalRowCount?: number;
     processedRowCount?: number;
     failedRowCount?: number;
     errorMessage?: string | null;
@@ -104,17 +105,12 @@ export async function updateUploadStatus(
   const dbUpdates: Record<string, unknown> = {};
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.transactionCount !== undefined) dbUpdates.transaction_count = updates.transactionCount;
+  if (updates.totalRowCount !== undefined) dbUpdates.total_rows = updates.totalRowCount;
   if (updates.processedRowCount !== undefined) {
-    dbUpdates.metadata = {
-      ...((await getUploadMetadata(uploadId)) ?? {}),
-      processed_row_count: updates.processedRowCount,
-    };
+    dbUpdates.processed_rows = updates.processedRowCount;
   }
   if (updates.failedRowCount !== undefined) {
-    dbUpdates.metadata = {
-      ...((await getUploadMetadata(uploadId)) ?? {}),
-      failed_row_count: updates.failedRowCount,
-    };
+    dbUpdates.failed_rows = updates.failedRowCount;
   }
   if (updates.errorMessage !== undefined) dbUpdates.error_message = updates.errorMessage;
   if (updates.processedAt !== undefined) dbUpdates.processed_at = updates.processedAt;
@@ -124,6 +120,9 @@ export async function updateUploadStatus(
   const mergedMetadata: Record<string, unknown> = {
     ...existingMeta,
     ...(updates.metadata ?? {}),
+    ...(updates.totalRowCount !== undefined && { total_rows: updates.totalRowCount }),
+    ...(updates.processedRowCount !== undefined && { processed_rows: updates.processedRowCount }),
+    ...(updates.failedRowCount !== undefined && { failed_rows: updates.failedRowCount }),
     ...(updates.providerDetected !== undefined && { provider_detected: updates.providerDetected }),
     ...(updates.providerConfidence !== undefined && { provider_confidence: updates.providerConfidence }),
   };
@@ -147,6 +146,9 @@ export async function updateUploadStatus(
       // Retry without dedicated provider columns
       delete dbUpdates.provider_detected;
       delete dbUpdates.provider_confidence;
+      delete dbUpdates.total_rows;
+      delete dbUpdates.processed_rows;
+      delete dbUpdates.failed_rows;
       result = await admin
         .from("uploads")
         .update(dbUpdates)

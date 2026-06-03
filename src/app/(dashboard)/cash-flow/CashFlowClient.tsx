@@ -41,6 +41,7 @@ interface MonthlyMetric {
 }
 
 interface Transaction {
+  uploadId?: string;
   category?: string;
   amount: number;
   type: string;
@@ -75,6 +76,7 @@ export default function CashFlowClient({
   const cashInChange = calculateChangePercent(latest?.cashIn, prev?.cashIn);
   const cashOutChange = calculateChangePercent(latest?.cashOut, prev?.cashOut, true);
   const netChange = calculateChangePercent(latest?.profit, prev?.profit);
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   const monthly = monthlyMetrics.map((m) => ({
     month: m.month.slice(5),
@@ -130,7 +132,7 @@ export default function CashFlowClient({
       {/* Date Range Label */}
       <div className="flex items-center justify-end">
         <span className="text-xs text-[var(--muted-foreground)]">
-          {getDateRange(initialPreset, initialFrom, initialTo).label}
+          {getDateRange(initialPreset, initialFrom, initialTo).label} · Source: {transactions.length} transaction{transactions.length !== 1 ? "s" : ""} from {sourceUploadCount} upload{sourceUploadCount !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -231,7 +233,7 @@ export default function CashFlowClient({
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
           <div className="px-5 py-4 border-b border-[var(--border)]">
             <h3 className="text-sm font-bold text-[var(--foreground)]">Cash Risks & Recommendations</h3>
-            <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Based on your transaction data</p>
+            <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Based on {transactions.length} source transactions</p>
           </div>
           <div className="p-5 space-y-3">
             {risks.length > 0 ? (
@@ -261,7 +263,7 @@ export default function CashFlowClient({
       <AgentInsightCard title="FounderAgent Cash Analysis" orbSize={64}>
         <div className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
           <Lightbulb className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
-          <span>Your net cash flow of {formatCurrency(netCashFlow)} is {netChange.type === "positive" ? "healthy" : netChange.type === "negative" ? "negative" : "stable"} with a {netChange.text} trend.</span>
+          <span>Your net cash flow of {formatCurrency(netCashFlow, 0, currency)} is {netChange.type === "positive" ? "healthy" : netChange.type === "negative" ? "negative" : "stable"} with a {netChange.text} trend.</span>
         </div>
         <div className="flex items-start gap-2 text-sm text-[var(--muted-foreground)]">
           <Lightbulb className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />

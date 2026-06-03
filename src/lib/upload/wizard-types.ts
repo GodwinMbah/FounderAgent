@@ -148,6 +148,7 @@ export interface ImportSummary {
   sourceType: SourceType;
   rowsInFile: number;
   rowsParsed: number;
+  rowsValid: number;
   rowsImported: number;
   rowsSkipped: number;
   rowsFailed: number;
@@ -155,6 +156,10 @@ export interface ImportSummary {
   rowsCategorised: number;
   rowsTransfer: number;
   rowsDuplicate: number;
+  rowsKpiExcluded: number;
+  rowsLinkedToSubscriptions: number;
+  reconciliationBalanced: boolean;
+  reconciliationExplanation?: string;
   incomeTotal: number;
   expenseTotal: number;
   sourceCurrency: string;

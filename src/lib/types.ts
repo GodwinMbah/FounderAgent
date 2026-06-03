@@ -51,6 +51,16 @@ export interface Transaction {
   businessId?: string;
   uploadId?: string;
   accountId?: string;
+  sourceRowNumber?: number;
+  externalTransactionId?: string;
+  currency?: string;
+  sourceProvider?: string;
+  rawRowHash?: string;
+  reference?: string;
+  rowStatus?: string;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  duplicateOfTransactionId?: string;
   date: string | Date;
   merchant?: string;
   description: string;

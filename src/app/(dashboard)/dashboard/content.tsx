@@ -99,6 +99,7 @@ export default function DashboardContent({
 
   const eligibleKPIs = getEligibleKPIs(companyProfile, metrics);
   const dateRangeLabel = getDateRange(initialPreset, initialFrom, initialTo).label;
+  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
 
   return (
     <div className="space-y-8">
@@ -142,6 +143,9 @@ export default function DashboardContent({
             );
           })}
         </div>
+        <p className="text-xs text-[var(--muted-foreground)]">
+          KPI source: {transactions.length} transaction{transactions.length !== 1 ? "s" : ""} from {sourceUploadCount} upload{sourceUploadCount !== 1 ? "s" : ""} in this date range.
+        </p>
       </div>
 
       {/* Middle Section */}

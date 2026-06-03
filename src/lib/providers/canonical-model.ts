@@ -56,6 +56,12 @@ export interface CanonicalTransaction {
   // Source tracking
   sourceProvider: string; // provider adapter id
   sourceFileId?: string; // upload id
+  sourceRowNumber?: number; // 1-based CSV row number, including header row offset
+  rawRowHash?: string; // stable hash of the provider row for lineage/dedup proof
+  rowStatus?: string; // imported | duplicate_skipped | transfer | failed | needs_review
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  duplicateOfTransactionId?: string;
 
   // Intelligence flags
   isTransfer: boolean;
@@ -115,6 +121,16 @@ export function toDbTransaction(
     companyId,
     uploadId,
     accountId: bankAccountId,
+    sourceRowNumber: canonical.sourceRowNumber,
+    externalTransactionId: canonical.externalTransactionId,
+    currency: canonical.currency,
+    sourceProvider: canonical.sourceProvider,
+    rawRowHash: canonical.rawRowHash,
+    reference: canonical.reference,
+    rowStatus: canonical.rowStatus,
+    kpiExcluded: canonical.kpiExcluded ?? canonical.isTransfer,
+    kpiExclusionReason: canonical.kpiExclusionReason ?? (canonical.isTransfer ? "transfer" : undefined),
+    duplicateOfTransactionId: canonical.duplicateOfTransactionId,
     date: canonical.transactionDate,
     merchant: canonical.merchantName,
     description: canonical.description,
@@ -144,10 +160,16 @@ export function toDbTransaction(
       merchant_category_code: canonical.merchantCategoryCode,
       source_provider: canonical.sourceProvider,
       source_file_id: canonical.sourceFileId,
+      source_row_number: canonical.sourceRowNumber,
+      raw_row_hash: canonical.rawRowHash,
+      row_status: canonical.rowStatus,
       currency: canonical.currency,
       is_transfer: canonical.isTransfer,
       is_fee: canonical.isFee,
       is_possible_duplicate: canonical.isPossibleDuplicate,
+      kpi_excluded: canonical.kpiExcluded,
+      kpi_exclusion_reason: canonical.kpiExclusionReason,
+      duplicate_of_transaction_id: canonical.duplicateOfTransactionId,
       is_personal_name: canonical.isPersonalName,
       transfer_pair_id: canonical.transferPairId,
       review_reason: canonical.reviewReason,
@@ -191,6 +213,12 @@ export function fromDbTransaction(tx: Transaction): CanonicalTransaction {
     confidenceScore: tx.confidenceScore ?? 0,
     sourceProvider: (meta.source_provider as string) || "unknown",
     sourceFileId: tx.uploadId || undefined,
+    sourceRowNumber: (tx.sourceRowNumber as number | undefined) ?? (meta.source_row_number as number | undefined),
+    rawRowHash: (tx.rawRowHash as string | undefined) ?? (meta.raw_row_hash as string | undefined),
+    rowStatus: (tx.rowStatus as string | undefined) ?? (meta.row_status as string | undefined),
+    kpiExcluded: (tx.kpiExcluded as boolean | undefined) ?? (meta.kpi_excluded as boolean | undefined),
+    kpiExclusionReason: (tx.kpiExclusionReason as string | undefined) ?? (meta.kpi_exclusion_reason as string | undefined),
+    duplicateOfTransactionId: (tx.duplicateOfTransactionId as string | undefined) ?? (meta.duplicate_of_transaction_id as string | undefined),
     isTransfer: (meta.is_transfer as boolean) ?? false,
     isFee: (meta.is_fee as boolean) ?? false,
     isPossibleDuplicate: (meta.is_possible_duplicate as boolean) ?? false,
@@ -226,6 +254,7 @@ export function createFailedCanonical(
     status: "needs_review",
     confidenceScore: 0,
     sourceProvider,
+    sourceRowNumber: rowNumber,
     isTransfer: false,
     isFee: false,
     isPossibleDuplicate: false,

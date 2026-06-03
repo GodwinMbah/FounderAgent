@@ -10,7 +10,7 @@ import { getCompanySettings } from "@/lib/db/company_settings";
 import { updateUploadStatus } from "@/lib/db/uploads";
 import { createTransactionsChunked } from "@/lib/db/transactions";
 import { createSubscription, findSubscriptionByVendor, updateSubscription } from "@/lib/db/subscriptions";
-import { createAlert, createAlertsBatch } from "@/lib/db/alerts";
+import { createAlertsBatch } from "@/lib/db/alerts";
 import { normalizeAlertCategory } from "@/lib/db/alert-helpers";
 import { createAgentRecommendationsBatch } from "@/lib/db/agent-recommendations";
 import { createAgentTasksBatch } from "@/lib/db/agent-tasks";
@@ -26,6 +26,7 @@ import { detectDuplicate } from "@/lib/intelligence/duplicate-detector-v2";
 import { canonicalListToNormalised } from "@/lib/providers/canonical-adapter";
 import { toDbTransaction } from "@/lib/providers/canonical-model";
 import type { TransactionCategoryType, TransactionStatus } from "@/lib/types";
+import type { ImportReconciliation, ImportRowOutcome } from "@/lib/upload/reconciliation";
 import { detectSubscriptions, detectDuplicateTools } from "@/lib/intelligence/subscription-detector";
 import { detectAnomalies } from "@/lib/intelligence/anomaly-detector";
 import { generateRecommendations, type UploadFindings } from "@/lib/intelligence/recommendation-engine";
@@ -48,6 +49,7 @@ export interface PipelineResult {
   alertsCreated: number;
   recommendationsCreated: number;
   tasksCreated: number;
+  reconciliation?: ImportReconciliation;
   error?: string;
 }
 
@@ -148,6 +150,15 @@ export async function runUploadPipeline(
   let alertsCreated = 0;
   let recommendationsCreated = 0;
   let tasksCreated = 0;
+  let totalRowsInFile = 0;
+  let parsedRowsCount = 0;
+  let parseFailedRowsCount = 0;
+  let duplicateCountSnapshot = 0;
+  let transferCountSnapshot = 0;
+  let needReviewCountSnapshot = 0;
+  let categorisedCountSnapshot = 0;
+  let kpiExcludedCountSnapshot = 0;
+  let detectedCurrencySnapshot: string | undefined;
 
   try {
     // 1. Download file from storage
@@ -168,6 +179,7 @@ export async function runUploadPipeline(
     await setPipelineStage(uploadId, companyId, "mapping", 15);
 
     const parsed = parseCsv(text);
+    totalRowsInFile = parsed.rows.length;
     if (parsed.rows.length === 0) {
       console.error(`[pipeline] No valid data rows`);
       throw new Error("No valid data rows found in CSV");
@@ -201,6 +213,9 @@ export async function runUploadPipeline(
         `Could not parse any valid transactions. Failed rows: ${parseResult.failedRows.length}. Provider: ${parseResult.detectedProvider}`
       );
     }
+    parsedRowsCount = parseResult.transactions.length;
+    parseFailedRowsCount = parseResult.failedRows.length;
+    detectedCurrencySnapshot = parseResult.detectedCurrency;
 
     // Enrich merchants
     for (const tx of parseResult.transactions) {
@@ -239,7 +254,7 @@ export async function runUploadPipeline(
     // Detect duplicates against existing transactions
     const { data: existingTxs } = await adminClient
       .from("transactions")
-      .select("date, amount, type, merchant, metadata")
+      .select("id, date, amount, type, merchant, metadata, currency, reference, external_transaction_id, source_provider, raw_row_hash, bank_account_id")
       .eq("company_id", companyId)
       .limit(1000);
 
@@ -249,14 +264,15 @@ export async function runUploadPipeline(
       const absAmount = Number(t.amount);
       const signedAmount = t.type === "expense" ? -absAmount : absAmount;
       return {
+        id: t.id as string,
         transactionDate: t.date as string,
         amount: signedAmount,
-        currency: (meta.currency as string) || "GBP",
+        currency: (t.currency as string | undefined) || (meta.currency as string) || "GBP",
         merchantName: (t.merchant as string) || "",
-        reference: (meta.reference as string) || undefined,
-        externalTransactionId: (meta.external_transaction_id as string) || undefined,
+        reference: (t.reference as string | undefined) || (meta.reference as string) || undefined,
+        externalTransactionId: (t.external_transaction_id as string | undefined) || (meta.external_transaction_id as string) || undefined,
         accountName: (meta.account_name as string) || undefined,
-        sourceProvider: (meta.source_provider as string) || "unknown",
+        sourceProvider: (t.source_provider as string | undefined) || (meta.source_provider as string) || "unknown",
         sourceFileId: (meta.source_file_id as string) || undefined,
       };
     });
@@ -265,8 +281,12 @@ export async function runUploadPipeline(
       const dupResult = detectDuplicate(tx, existingForDedup);
       if (dupResult.isDuplicate) {
         tx.isPossibleDuplicate = true;
+        tx.duplicateOfTransactionId = dupResult.duplicateTransactionId;
+        tx.rowStatus = "duplicate_skipped";
         tx.status = "possible_duplicate";
         tx.reviewReason = dupResult.reason;
+        tx.kpiExcluded = true;
+        tx.kpiExclusionReason = "duplicate";
       }
     }
 
@@ -312,6 +332,11 @@ export async function runUploadPipeline(
     // Filter out duplicates from insertion
     const deduplicatedRows = categorisedRows.filter((_, i) => !parseResult.transactions[i]?.isPossibleDuplicate);
     categorisedRows = deduplicatedRows;
+    duplicateCountSnapshot = parseResult.transactions.filter((tx) => tx.isPossibleDuplicate).length;
+    transferCountSnapshot = parseResult.transactions.filter((tx) => tx.isTransfer).length;
+    needReviewCountSnapshot = parseResult.transactions.filter((tx) => tx.status === "needs_review" && !tx.isPossibleDuplicate).length;
+    categorisedCountSnapshot = parseResult.transactions.filter((tx) => tx.status === "categorised" && !tx.isPossibleDuplicate).length;
+    kpiExcludedCountSnapshot = parseResult.transactions.filter((tx) => tx.kpiExcluded || tx.isTransfer || tx.isPossibleDuplicate).length;
 
     // 7. Detect anomalies
     await setPipelineStage(uploadId, companyId, "detecting_anomalies", 85);
@@ -334,6 +359,17 @@ export async function runUploadPipeline(
     const transactionInserts = parseResult.transactions
       .filter((tx) => !tx.isPossibleDuplicate)
       .map((tx) => {
+        if (tx.isTransfer) {
+          tx.rowStatus = "transfer";
+          tx.kpiExcluded = true;
+          tx.kpiExclusionReason = "transfer";
+        } else if (tx.status === "needs_review") {
+          tx.rowStatus = "needs_review";
+          tx.kpiExcluded = false;
+        } else {
+          tx.rowStatus = "inserted";
+          tx.kpiExcluded = false;
+        }
         const mapped = toDbTransaction(tx, companyId, uploadId, bankAccount.id);
         return {
           ...mapped,
@@ -353,6 +389,12 @@ export async function runUploadPipeline(
 
     transactionsInserted = insertResult.count;
     transactionsFailed = parseResult.failedRows.length;
+    const insertedByLineage = new Map<string, string>();
+    for (const row of insertResult.rows) {
+      if (row.sourceRowNumber !== undefined) insertedByLineage.set(`row:${row.sourceRowNumber}`, row.id);
+      if (row.rawRowHash) insertedByLineage.set(`hash:${row.rawRowHash}`, row.id);
+      if (row.externalTransactionId) insertedByLineage.set(`external:${row.externalTransactionId}`, row.id);
+    }
 
     // Fetch historical transactions for merged subscription detection
     const vendors = [...new Set(categorisedRows.map((r) => r.merchant))].filter(Boolean);
@@ -402,11 +444,13 @@ export async function runUploadPipeline(
     await setPipelineStage(uploadId, companyId, "generating_recommendations", 92);
 
     subscriptionsCreated = 0;
+    let rowsLinkedToSubscriptions = 0;
     for (const sub of detectedSubs) {
       try {
         const existing = await findSubscriptionByVendor(companyId, sub.vendor);
+        let persistedSubscriptionId: string | undefined;
         if (!existing) {
-          await createSubscription({
+          const created = await createSubscription({
             companyId,
             name: sub.name,
             vendor: sub.vendor,
@@ -421,10 +465,11 @@ export async function runUploadPipeline(
               transaction_count: sub.transactionCount,
             },
           });
+          persistedSubscriptionId = created.id;
           subscriptionsCreated++;
         } else {
           // Update existing subscription with latest data
-          await updateSubscription(existing.id, companyId, {
+          const updated = await updateSubscription(existing.id, companyId, {
             amount: sub.amount,
             nextBillingDate: sub.nextBillingDate,
             metadata: {
@@ -434,6 +479,27 @@ export async function runUploadPipeline(
               updated_at: new Date().toISOString(),
             },
           });
+          persistedSubscriptionId = updated?.id ?? existing.id;
+        }
+
+        if (persistedSubscriptionId) {
+          const { data: linkedRows, error: linkError } = await adminClient
+            .from("transactions")
+            .update({
+              subscription_id: persistedSubscriptionId,
+              is_recurring: true,
+            })
+            .eq("company_id", companyId)
+            .eq("upload_id", uploadId)
+            .eq("type", "expense")
+            .ilike("merchant", `%${sub.vendor}%`)
+            .select("id");
+
+          if (linkError) {
+            console.error("[pipeline] Subscription transaction linking failed:", linkError.message);
+          } else {
+            rowsLinkedToSubscriptions += linkedRows?.length ?? 0;
+          }
         }
       } catch (err) {
         console.error("[pipeline] Subscription creation/update failed:", err);
@@ -566,11 +632,70 @@ export async function runUploadPipeline(
     const totalParsed = parseResult.transactions.length;
     const duplicateCount = parseResult.transactions.filter((tx) => tx.isPossibleDuplicate).length;
     const transferCount = parseResult.transactions.filter((tx) => tx.isTransfer).length;
+    const rowsExcludedFromKpis = parseResult.transactions.filter((tx) => tx.kpiExcluded || tx.isTransfer || tx.isPossibleDuplicate).length;
     const needReviewCount = parseResult.transactions.filter((tx) => tx.status === "needs_review" && !tx.isPossibleDuplicate).length;
     const categorisedCount = parseResult.transactions.filter((tx) => tx.status === "categorised" && !tx.isPossibleDuplicate).length;
-    const hasFatalErrors = transactionsFailed > 0 && transactionsInserted === 0;
+    duplicateCountSnapshot = duplicateCount;
+    transferCountSnapshot = transferCount;
+    needReviewCountSnapshot = needReviewCount;
+    categorisedCountSnapshot = categorisedCount;
+    kpiExcludedCountSnapshot = rowsExcludedFromKpis;
+    const rowOutcomes: ImportRowOutcome[] = [
+      ...parseResult.transactions.map((tx) => {
+        const transactionId =
+          (tx.sourceRowNumber !== undefined ? insertedByLineage.get(`row:${tx.sourceRowNumber}`) : undefined) ??
+          (tx.rawRowHash ? insertedByLineage.get(`hash:${tx.rawRowHash}`) : undefined) ??
+          (tx.externalTransactionId ? insertedByLineage.get(`external:${tx.externalTransactionId}`) : undefined);
+        const status: ImportRowOutcome["status"] = tx.isPossibleDuplicate
+          ? "duplicate_skipped"
+          : tx.isTransfer
+          ? "transfer"
+          : tx.status === "needs_review"
+          ? "needs_review"
+          : "inserted";
+        return {
+          rowNumber: tx.sourceRowNumber ?? 0,
+          status,
+          transactionId,
+          duplicateOfTransactionId: tx.duplicateOfTransactionId,
+          externalTransactionId: tx.externalTransactionId,
+          rawRowHash: tx.rawRowHash,
+          merchant: tx.merchantName,
+          amount: Math.abs(tx.amount),
+          currency: tx.currency,
+          category: tx.category,
+          reason: tx.reviewReason,
+        };
+      }),
+      ...parseResult.failedRows.map((row) => ({
+        rowNumber: row.rowNumber,
+        status: "failed" as const,
+        reason: row.errors.join("; "),
+      })),
+    ].sort((a, b) => a.rowNumber - b.rowNumber);
+    const accountedRows = transactionsInserted + duplicateCount + transactionsFailed;
+    const reconciliationBalanced = totalRowsInFile === accountedRows;
+    const reconciliation: ImportReconciliation = {
+      rowsInFile: totalRowsInFile,
+      rowsParsed: totalParsed,
+      rowsValid: totalParsed,
+      rowsInserted: transactionsInserted,
+      rowsSkippedDuplicate: duplicateCount,
+      rowsMarkedTransfer: transferCount,
+      rowsExcludedFromKpis,
+      rowsFailed: transactionsFailed,
+      rowsNeedingReview: needReviewCount,
+      rowsCategorised: categorisedCount,
+      rowsLinkedToSubscriptions,
+      reconciliationBalanced,
+      explanation: reconciliationBalanced
+        ? `${totalRowsInFile} file rows reconciled: ${transactionsInserted} inserted, ${duplicateCount} duplicate skipped, ${transactionsFailed} failed.`
+        : `Reconciliation mismatch: file rows ${totalRowsInFile}, but inserted + duplicate + failed rows accounted for ${accountedRows}.`,
+      rowOutcomes,
+    };
+    const hasFatalErrors = transactionsFailed > 0 && transactionsInserted === 0 && duplicateCount === 0;
     const allDuplicates = totalParsed > 0 && duplicateCount === totalParsed;
-    const finalStatus = (transactionsInserted === 0 && !allDuplicates) || hasFatalErrors ? "failed" : "completed";
+    const finalStatus = !reconciliationBalanced || (transactionsInserted === 0 && !allDuplicates) || hasFatalErrors ? "failed" : "completed";
 
     // 15. Update upload record
     // Cap provider confidence at 100 to respect DB check constraint
@@ -599,11 +724,15 @@ export async function runUploadPipeline(
       recommendations_created: recommendationsCreated,
       tasks_created: tasksCreated,
       foreign_currency_count: foreignCurrencyRows.length,
+      import_reconciliation: reconciliation,
     };
     try {
       await updateUploadStatus(uploadId, companyId, {
         status: finalStatus,
         transactionCount: transactionsInserted,
+        totalRowCount: totalRowsInFile,
+        processedRowCount: totalParsed + transactionsFailed,
+        failedRowCount: transactionsFailed,
         processedAt: new Date().toISOString(),
         providerDetected: parseResult.detectedProvider,
         providerConfidence: cappedProviderConfidence,
@@ -616,6 +745,9 @@ export async function runUploadPipeline(
         await updateUploadStatus(uploadId, companyId, {
           status: finalStatus,
           transactionCount: transactionsInserted,
+          totalRowCount: totalRowsInFile,
+          processedRowCount: totalParsed + transactionsFailed,
+          failedRowCount: transactionsFailed,
           processedAt: new Date().toISOString(),
           metadata,
         });
@@ -739,6 +871,7 @@ export async function runUploadPipeline(
       alertsCreated,
       recommendationsCreated,
       tasksCreated,
+      reconciliation,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -746,10 +879,41 @@ export async function runUploadPipeline(
 
     // Update upload as failed
     console.error(`[pipeline] Updating upload as failed: ${message}`);
+    const failedReconciliation: ImportReconciliation | undefined = totalRowsInFile > 0
+      ? {
+          rowsInFile: totalRowsInFile,
+          rowsParsed: parsedRowsCount,
+          rowsValid: parsedRowsCount,
+          rowsInserted: transactionsInserted,
+          rowsSkippedDuplicate: duplicateCountSnapshot,
+          rowsMarkedTransfer: transferCountSnapshot,
+          rowsExcludedFromKpis: kpiExcludedCountSnapshot,
+          rowsFailed: Math.max(parseFailedRowsCount, totalRowsInFile - transactionsInserted - duplicateCountSnapshot),
+          rowsNeedingReview: needReviewCountSnapshot,
+          rowsCategorised: categorisedCountSnapshot,
+          rowsLinkedToSubscriptions: 0,
+          reconciliationBalanced: false,
+          explanation: `Import stopped before persistence completed: ${message}`,
+          rowOutcomes: [],
+        }
+      : undefined;
     await updateUploadStatus(uploadId, companyId, {
       status: "failed",
       errorMessage: message,
-      metadata: { pipeline_stage: "failed", pipeline_progress: 0 },
+      totalRowCount: totalRowsInFile || undefined,
+      processedRowCount: parsedRowsCount || undefined,
+      failedRowCount: failedReconciliation?.rowsFailed,
+      metadata: {
+        pipeline_stage: "failed",
+        pipeline_progress: 0,
+        detected_currency: detectedCurrencySnapshot,
+        total_parsed: parsedRowsCount,
+        duplicate_count: duplicateCountSnapshot,
+        transfer_count: transferCountSnapshot,
+        needs_review_count: needReviewCountSnapshot,
+        categorised_count: categorisedCountSnapshot,
+        import_reconciliation: failedReconciliation,
+      },
     });
 
     // Log failure
@@ -767,16 +931,17 @@ export async function runUploadPipeline(
       companyId,
       transactionsInserted,
       transactionsFailed,
-      totalParsed: 0,
-      duplicateCount: 0,
-      transferCount: 0,
-      needReviewCount: 0,
-      categorisedCount: 0,
+      totalParsed: parsedRowsCount,
+      duplicateCount: duplicateCountSnapshot,
+      transferCount: transferCountSnapshot,
+      needReviewCount: needReviewCountSnapshot,
+      categorisedCount: categorisedCountSnapshot,
       subscriptionsDetected: detectedSubs.length,
       subscriptionsCreated,
       alertsCreated,
       recommendationsCreated,
       tasksCreated,
+      reconciliation: failedReconciliation,
       error: message,
     };
   }
