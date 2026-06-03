@@ -6,6 +6,7 @@ import { STATUS_VARIANTS } from "@/lib/utils/constants";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import { Eye, X } from "lucide-react";
 import { MerchantAvatar } from "@/components/features/transaction/MerchantAvatar";
+import { useCompanyCurrency, type CurrencyCode } from "@/lib/hooks/useCompanyCurrency";
 
 interface TransactionRow {
   id: string;
@@ -19,7 +20,15 @@ interface TransactionRow {
   confidenceScore?: number;
 }
 
-function TransactionDetailModal({ txn, onClose }: { txn: TransactionRow; onClose: () => void }) {
+function TransactionDetailModal({
+  txn,
+  currency,
+  onClose,
+}: {
+  txn: TransactionRow;
+  currency: CurrencyCode;
+  onClose: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -45,7 +54,7 @@ function TransactionDetailModal({ txn, onClose }: { txn: TransactionRow; onClose
             <div className="rounded-lg bg-[var(--secondary)]/40 p-3">
               <p className="text-xs text-[var(--muted-foreground)] mb-1">Amount</p>
               <p className={`font-bold ${txn.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-                {txn.type === "income" ? "+" : "-"}{formatCurrency(txn.amount)}
+                {txn.type === "income" ? "+" : "-"}{formatCurrency(txn.amount, 0, currency)}
               </p>
             </div>
             <div className="rounded-lg bg-[var(--secondary)]/40 p-3">
@@ -85,6 +94,7 @@ function TransactionDetailModal({ txn, onClose }: { txn: TransactionRow; onClose
 
 export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
   const [selectedTxn, setSelectedTxn] = useState<TransactionRow | null>(null);
+  const { currency } = useCompanyCurrency();
 
   if (rows.length === 0) {
     return (
@@ -140,7 +150,7 @@ export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
                   <td className="px-5 py-4 text-right font-semibold whitespace-nowrap">
                     <span className={txn.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}>
                       {txn.type === "income" ? "+" : "-"}
-                      {formatCurrency(txn.amount)}
+                      {formatCurrency(txn.amount, 0, currency)}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-center">
@@ -200,7 +210,7 @@ export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
                 </div>
               </div>
               <span className={`text-sm font-semibold whitespace-nowrap ml-2 ${txn.type === "income" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-                {txn.type === "income" ? "+" : "-"}{formatCurrency(txn.amount)}
+                {txn.type === "income" ? "+" : "-"}{formatCurrency(txn.amount, 0, currency)}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-2">
@@ -213,7 +223,13 @@ export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
         ))}
       </div>
 
-      {selectedTxn && <TransactionDetailModal txn={selectedTxn} onClose={() => setSelectedTxn(null)} />}
+      {selectedTxn && (
+        <TransactionDetailModal
+          txn={selectedTxn}
+          currency={currency}
+          onClose={() => setSelectedTxn(null)}
+        />
+      )}
     </>
   );
 }

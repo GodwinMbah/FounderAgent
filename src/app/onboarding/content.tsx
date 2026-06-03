@@ -56,7 +56,7 @@ const COUNTRIES = [
   { value: "Other", label: "Other" },
 ];
 
-const CURRENCIES = ["USD", "GBP", "EUR", "AUD", "CAD", "JPY", "SGD"];
+const CURRENCIES = ["GBP", "USD", "EUR", "AUD", "CAD", "JPY", "SGD"];
 
 const TIMEZONES = [
   { value: "Europe/London", label: "London (GMT/BST)" },

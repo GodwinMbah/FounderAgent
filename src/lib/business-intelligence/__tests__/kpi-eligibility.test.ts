@@ -143,7 +143,7 @@ describe("getEligibleKPIs", () => {
 describe("formatKPIValue", () => {
   it("formats currency KPIs", () => {
     const kpi = findKPI("cash_balance");
-    expect(formatKPIValue(kpi, makeMetrics())).toBe("$100,000");
+    expect(formatKPIValue(kpi, makeMetrics())).toBe("£100,000");
   });
 
   it("formats percent KPIs", () => {

@@ -124,7 +124,7 @@ export async function recalculateCompanyMetrics(
   // 1. Fetch transactions in date range
   const { data: txs, error: txError } = await admin
     .from("transactions")
-    .select("amount, type, status, date, category, tags")
+    .select("amount, type, status, date, category, tags, metadata")
     .eq("company_id", companyId)
     .gte("date", from)
     .lte("date", to);
@@ -132,11 +132,11 @@ export async function recalculateCompanyMetrics(
   if (txError) throw txError;
 
   const revenue = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const expenses = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isExpense(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   const netProfit = revenue - expenses;
@@ -144,7 +144,7 @@ export async function recalculateCompanyMetrics(
 
   // COGS for gross margin
   const cogsTotal = (txs ?? [])
-    .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isCOGS(t))
+    .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isCOGS(t))
     .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
   // 2. Cash balance from bank accounts (REAL, not derived)
@@ -157,7 +157,7 @@ export async function recalculateCompanyMetrics(
 
   const { data: burnTxs, error: burnError } = await admin
     .from("transactions")
-    .select("amount, date, category, tags, type")
+    .select("amount, date, category, tags, type, metadata")
     .eq("company_id", companyId)
     .in("type", ["income", "expense"])
     .gte("date", burnFrom);
@@ -166,10 +166,10 @@ export async function recalculateCompanyMetrics(
   if (!burnError && burnTxs && burnTxs.length > 0) {
     const monthsCount = 3;
     const totalRevenue3M = burnTxs
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
     const totalExpenses3M = burnTxs
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isExpense(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isExpense(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
     const avgMonthlyRevenue = totalRevenue3M / monthsCount;
     const avgMonthlyExpenses = totalExpenses3M / monthsCount;
@@ -202,13 +202,13 @@ export async function recalculateCompanyMetrics(
 
     const { data: priorTxs } = await admin
       .from("transactions")
-      .select("amount, type, status, date, category, tags")
+      .select("amount, type, status, date, category, tags, metadata")
       .eq("company_id", companyId)
       .gte("date", priorFromDate.toISOString().slice(0, 10))
       .lte("date", priorToDate.toISOString().slice(0, 10));
 
     const priorRevenue = (priorTxs ?? [])
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
     // Only compute if we have prior revenue data to compare against
@@ -233,13 +233,13 @@ export async function recalculateCompanyMetrics(
 
     const { data: priorTxs } = await admin
       .from("transactions")
-      .select("amount, type, status, date, category, tags")
+      .select("amount, type, status, date, category, tags, metadata")
       .eq("company_id", companyId)
       .gte("date", priorFrom)
       .lte("date", priorTo);
 
     const priorRevenue = (priorTxs ?? [])
-      .filter((t: { type: string; category?: string; tags?: string[]; amount: number }) => isIncome(t))
+      .filter((t: { type: string; category?: string; tags?: string[]; amount: number; metadata?: Record<string, unknown> | null }) => isIncome(t))
       .reduce((s: number, t: { amount: number }) => s + Number(t.amount), 0);
 
     const yoyGrowth = calculateYoYGrowth(revenue, priorRevenue);

@@ -1,12 +1,18 @@
 import { type CurrencyCode, getCurrencySymbol } from "@/lib/hooks/useCompanyCurrency";
 
+export const DEFAULT_CURRENCY: CurrencyCode = "GBP";
+
+function getCurrencyLocale(currency: CurrencyCode): string {
+  return currency.toUpperCase() === "GBP" ? "en-GB" : "en-US";
+}
+
 export function formatCurrency(
   value: number,
   fractionDigits = 0,
-  currency: CurrencyCode = "USD"
+  currency: CurrencyCode = DEFAULT_CURRENCY
 ): string {
   if (!Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(getCurrencyLocale(currency), {
     style: "currency",
     currency,
     minimumFractionDigits: fractionDigits,
@@ -14,7 +20,7 @@ export function formatCurrency(
   }).format(value);
 }
 
-export function formatCurrencyCompact(value: number, currency: CurrencyCode = "USD"): string {
+export function formatCurrencyCompact(value: number, currency: CurrencyCode = DEFAULT_CURRENCY): string {
   if (!Number.isFinite(value)) return "—";
   const symbol = getCurrencySymbol(currency);
   if (Math.abs(value) >= 1_000_000) {

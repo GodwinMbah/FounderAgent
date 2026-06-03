@@ -6,11 +6,22 @@ import type { Transaction } from "@/lib/types";
 import { isIncome, isExpense } from "@/lib/reporting/filters";
 
 function mapRow(row: Record<string, unknown>): Transaction {
+  const metadata = row.metadata as Record<string, unknown> | undefined;
   return {
     id: row.id as string,
     companyId: row.company_id as string,
     uploadId: row.upload_id as string | undefined,
     accountId: row.bank_account_id as string | undefined,
+    sourceRowNumber: (row.source_row_number as number | undefined) ?? (metadata?.source_row_number as number | undefined),
+    externalTransactionId: (row.external_transaction_id as string | undefined) ?? (metadata?.external_transaction_id as string | undefined),
+    currency: (row.currency as string | undefined) ?? (metadata?.currency as string | undefined),
+    sourceProvider: (row.source_provider as string | undefined) ?? (metadata?.source_provider as string | undefined),
+    rawRowHash: (row.raw_row_hash as string | undefined) ?? (metadata?.raw_row_hash as string | undefined),
+    reference: (row.reference as string | undefined) ?? (metadata?.reference as string | undefined),
+    rowStatus: (row.row_status as string | undefined) ?? (metadata?.row_status as string | undefined),
+    kpiExcluded: (row.kpi_excluded as boolean | undefined) ?? (metadata?.kpi_excluded as boolean | undefined),
+    kpiExclusionReason: (row.kpi_exclusion_reason as string | undefined) ?? (metadata?.kpi_exclusion_reason as string | undefined),
+    duplicateOfTransactionId: (row.duplicate_of_transaction_id as string | undefined) ?? (metadata?.duplicate_of_transaction_id as string | undefined),
     date: row.date as string,
     merchant: row.merchant as string | undefined,
     description: row.description as string,
@@ -23,7 +34,7 @@ function mapRow(row: Record<string, unknown>): Transaction {
     notes: row.notes as string | undefined,
     isRecurring: row.is_recurring as boolean | undefined,
     subscriptionId: row.subscription_id as string | undefined,
-    metadata: row.metadata as Record<string, unknown> | undefined,
+    metadata,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -33,7 +44,14 @@ export interface GetTransactionsOptions {
   startDate?: string;
   endDate?: string;
   accountId?: string;
+  type?: "income" | "expense";
+  uploadId?: string;
+  category?: string;
+  status?: string;
+  duplicateStatus?: "all" | "duplicates" | "not_duplicates";
+  currency?: string;
   limit?: number;
+  offset?: number;
 }
 
 export async function getTransactions(
@@ -57,7 +75,19 @@ export async function getTransactions(
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);
   if (options?.accountId) query = query.eq("bank_account_id", options.accountId);
-  if (options?.limit) query = query.limit(options.limit);
+  if (options?.type) query = query.eq("type", options.type);
+  if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+  if (options?.category) query = query.eq("category", options.category);
+  if (options?.status) query = query.eq("status", options.status);
+  if (options?.currency) query = query.eq("currency", options.currency);
+  if (options?.duplicateStatus === "duplicates") query = query.not("duplicate_of_transaction_id", "is", null);
+  if (options?.duplicateStatus === "not_duplicates") query = query.is("duplicate_of_transaction_id", null);
+  if (options?.offset !== undefined) {
+    const limit = options.limit ?? 100;
+    query = query.range(options.offset, options.offset + limit - 1);
+  } else if (options?.limit) {
+    query = query.limit(options.limit);
+  }
 
   const { data, error } = await query;
 
@@ -66,6 +96,49 @@ export async function getTransactions(
   }
 
   return (data ?? []).map(mapRow);
+}
+
+export async function getTransactionsPage(
+  companyId?: string,
+  options?: GetTransactionsOptions
+): Promise<{ transactions: Transaction[]; total: number }> {
+  const ctx = await getActiveCompanyForUser();
+  if (!ctx) throw new Error("Unauthorized");
+  const effectiveCompanyId = companyId ?? ctx.companyId;
+  if (effectiveCompanyId !== ctx.companyId) throw new Error("Forbidden: company mismatch");
+
+  const supabase = await createServerClient();
+  if (!supabase) throw new Error("Supabase not configured");
+
+  let query = supabase
+    .from("transactions")
+    .select("*", { count: "exact" })
+    .eq("company_id", effectiveCompanyId)
+    .order("date", { ascending: false });
+
+  if (options?.startDate) query = query.gte("date", options.startDate);
+  if (options?.endDate) query = query.lte("date", options.endDate);
+  if (options?.accountId) query = query.eq("bank_account_id", options.accountId);
+  if (options?.type) query = query.eq("type", options.type);
+  if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
+  if (options?.category) query = query.eq("category", options.category);
+  if (options?.status) query = query.eq("status", options.status);
+  if (options?.currency) query = query.eq("currency", options.currency);
+  if (options?.duplicateStatus === "duplicates") query = query.not("duplicate_of_transaction_id", "is", null);
+  if (options?.duplicateStatus === "not_duplicates") query = query.is("duplicate_of_transaction_id", null);
+
+  const limit = options?.limit ?? 500;
+  const offset = options?.offset ?? 0;
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
+
+  if (error) throw error;
+
+  return {
+    transactions: (data ?? []).map(mapRow),
+    total: count ?? data?.length ?? 0,
+  };
 }
 
 export async function getTransactionStats(companyId?: string) {
@@ -85,6 +158,16 @@ export interface TransactionInsert {
   companyId: string;
   uploadId?: string;
   bankAccountId?: string;
+  sourceRowNumber?: number;
+  externalTransactionId?: string;
+  currency?: string;
+  sourceProvider?: string;
+  rawRowHash?: string;
+  reference?: string;
+  rowStatus?: string;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  duplicateOfTransactionId?: string;
   date: string;
   merchant?: string;
   description: string;
@@ -105,6 +188,16 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
     company_id: t.companyId,
     upload_id: t.uploadId,
     bank_account_id: t.bankAccountId,
+    source_row_number: t.sourceRowNumber,
+    external_transaction_id: t.externalTransactionId,
+    currency: t.currency,
+    source_provider: t.sourceProvider,
+    raw_row_hash: t.rawRowHash,
+    reference: t.reference,
+    row_status: t.rowStatus,
+    kpi_excluded: t.kpiExcluded ?? false,
+    kpi_exclusion_reason: t.kpiExclusionReason,
+    duplicate_of_transaction_id: t.duplicateOfTransactionId,
     date: t.date,
     merchant: t.merchant,
     description: t.description,
@@ -131,23 +224,50 @@ async function sleep(ms: number) {
 
 export async function createTransactionsChunked(
   transactions: TransactionInsert[]
-): Promise<{ count: number; error?: string }> {
-  if (transactions.length === 0) return { count: 0 };
+): Promise<{
+  count: number;
+  rows: Array<{
+    id: string;
+    sourceRowNumber?: number;
+    rawRowHash?: string;
+    externalTransactionId?: string;
+  }>;
+  error?: string;
+}> {
+  if (transactions.length === 0) return { count: 0, rows: [] };
 
   const admin = createAdminClient();
   if (!admin) throw new Error("Admin client not available");
 
   let totalInserted = 0;
+  const insertedRows: Array<{
+    id: string;
+    sourceRowNumber?: number;
+    rawRowHash?: string;
+    externalTransactionId?: string;
+  }> = [];
 
   for (let i = 0; i < transactions.length; i += CHUNK_SIZE) {
     const chunk = transactions.slice(i, i + CHUNK_SIZE).map(toDbRow);
     let lastError: string | undefined;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      const { error } = await admin.from("transactions").insert(chunk);
+      const { data, error } = await admin
+        .from("transactions")
+        .insert(chunk)
+        .select("id, source_row_number, raw_row_hash, external_transaction_id");
 
       if (!error) {
-        totalInserted += chunk.length;
+        const rows = data ?? [];
+        totalInserted += rows.length;
+        insertedRows.push(
+          ...rows.map((row) => ({
+            id: row.id as string,
+            sourceRowNumber: row.source_row_number as number | undefined,
+            rawRowHash: row.raw_row_hash as string | undefined,
+            externalTransactionId: row.external_transaction_id as string | undefined,
+          }))
+        );
         lastError = undefined;
         break;
       }
@@ -161,9 +281,9 @@ export async function createTransactionsChunked(
     }
 
     if (lastError) {
-      return { count: totalInserted, error: lastError };
+      return { count: totalInserted, rows: insertedRows, error: lastError };
     }
   }
 
-  return { count: totalInserted };
+  return { count: totalInserted, rows: insertedRows };
 }

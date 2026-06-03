@@ -43,3 +43,26 @@ describe("credit card repayment detection", () => {
     expect(result.isTransfer).toBe(false);
   });
 });
+
+describe("payment processor top-up detection", () => {
+  it("does NOT flag Revolut Stripe TOPUP income as transfer", () => {
+    const result = tx("Money added from STRIPE PAYMENTS UK LTD", 491.76, {
+      transactionType: "TOPUP",
+      reference: "STRIPE",
+      merchantName: "Stripe Payments Uk Ltd",
+      counterpartyName: "Stripe Payments Uk Ltd",
+    });
+
+    expect(result.isTransfer).toBe(false);
+  });
+
+  it("still flags internal Revolut transfers as transfers", () => {
+    const result = tx("From British Pound", 29.5, {
+      transactionType: "TRANSFER",
+      merchantName: "Internal Transfer",
+      counterpartyName: "British Pound",
+    });
+
+    expect(result.isTransfer).toBe(true);
+  });
+});

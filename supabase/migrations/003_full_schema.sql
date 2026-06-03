@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS companies (
   name TEXT NOT NULL,
   slug TEXT UNIQUE,
   industry TEXT,
-  currency currency_code NOT NULL DEFAULT 'USD',
+  currency currency_code NOT NULL DEFAULT 'GBP',
   fiscal_year_start INT NOT NULL DEFAULT 1 CHECK (fiscal_year_start BETWEEN 1 AND 12),
   timezone TEXT NOT NULL DEFAULT 'UTC',
   tax_region TEXT,

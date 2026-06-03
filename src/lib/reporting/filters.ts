@@ -7,18 +7,35 @@ export interface TransactionLike {
   type: string;
   category?: string;
   tags?: string[];
+  rowStatus?: string;
+  kpiExcluded?: boolean;
+  kpiExclusionReason?: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 export function isTransfer(t: TransactionLike): boolean {
-  return t.category === "Transfers" || (Array.isArray(t.tags) && t.tags.includes("transfer"));
+  const metadata = t.metadata ?? {};
+  return (
+    t.category === "Transfers" ||
+    t.rowStatus === "transfer" ||
+    t.kpiExclusionReason === "transfer" ||
+    metadata.row_status === "transfer" ||
+    metadata.kpi_exclusion_reason === "transfer" ||
+    (Array.isArray(t.tags) && t.tags.includes("transfer"))
+  );
+}
+
+export function isKpiExcluded(t: TransactionLike): boolean {
+  const metadata = t.metadata ?? {};
+  return t.kpiExcluded === true || metadata.kpi_excluded === true;
 }
 
 export function isIncome(t: TransactionLike): boolean {
-  return t.type === "income" && !isTransfer(t);
+  return t.type === "income" && !isTransfer(t) && !isKpiExcluded(t);
 }
 
 export function isExpense(t: TransactionLike): boolean {
-  return t.type === "expense" && !isTransfer(t);
+  return t.type === "expense" && !isTransfer(t) && !isKpiExcluded(t);
 }
 
 const COGS_CATEGORIES = new Set([

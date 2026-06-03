@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  UniversalCategorisationEngine,
   categoriseTransaction,
   type TransactionContext,
   type BusinessContext,

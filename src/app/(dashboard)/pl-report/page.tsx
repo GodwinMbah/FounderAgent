@@ -14,7 +14,7 @@ export default async function PLReportPage({ searchParams }: Props) {
 
   const [monthlyMetrics, transactions] = await Promise.all([
     getMonthlyMetrics(companyId, from, to),
-    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
+    getTransactions(companyId, { startDate: from, endDate: to }),
   ]);
 
   return (

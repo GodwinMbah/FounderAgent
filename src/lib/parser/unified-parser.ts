@@ -97,6 +97,16 @@ function cleanMerchantName(raw: string): string {
   return cleaned || "Unknown";
 }
 
+function hashRow(headers: string[], row: string[]): string {
+  const input = headers.map((header, index) => `${header}:${row[index] ?? ""}`).join("|");
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fnv1a:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 function cleanCardPaymentMerchant(raw: string): string {
   let cleaned = raw.replace(/\s+/g, " ").trim();
 
@@ -166,7 +176,7 @@ function extractMerchantFromDescription(
 
   // TOPUP: strip common prefixes and extract source
   if (typeUpper.includes("TOPUP")) {
-    let source = cleaned
+    const source = cleaned
       .replace(/^Money added from\s+/i, "")
       .replace(/^Top\s*up\s+from\s+/i, "")
       .trim();
@@ -185,7 +195,7 @@ function extractMerchantFromDescription(
   // TRANSFER: extract counterparty from description
   if (typeUpper.includes("TRANSFER")) {
     const hasToFromPrefix = /^(To|From)\s+/i.test(cleaned);
-    let counterparty = cleaned.replace(/^(To|From)\s+/i, "").trim();
+    const counterparty = cleaned.replace(/^(To|From)\s+/i, "").trim();
 
     const isInternal = /^British Pound/i.test(counterparty);
     if (isInternal) {
@@ -579,7 +589,7 @@ export function parseUpload(csvText: string, options: ParseOptions): CanonicalPa
       const dir = inferDirectionFromType(transactionType, adapter);
       if (dir?.direction === "transfer") isTransfer = true;
     }
-    if (!isTransfer && description && isTransferDescription(description, adapter)) {
+    if (!isTransfer && description && !typeUpper.includes("TOPUP") && isTransferDescription(description, adapter)) {
       isTransfer = true;
     }
 
@@ -664,6 +674,11 @@ export function parseUpload(csvText: string, options: ParseOptions): CanonicalPa
       confidenceScore: rowConfidence,
       sourceProvider: adapter.id,
       sourceFileId: options.uploadId,
+      sourceRowNumber: rowNumber,
+      rawRowHash: hashRow(headers, row),
+      rowStatus: isTransfer ? "transfer" : status === "completed" ? "valid" : status,
+      kpiExcluded: isTransfer,
+      kpiExclusionReason: isTransfer ? "transfer" : undefined,
       isTransfer,
       isFee,
       isPossibleDuplicate: false,

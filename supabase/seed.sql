@@ -11,7 +11,7 @@ VALUES (
   'Acme Labs',
   'acme-labs',
   'Technology',
-  'USD',
+  'GBP',
   1,
   'America/New_York',
   'US',
@@ -95,12 +95,12 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO alerts (id, company_id, title, description, severity, category, is_read, is_dismissed)
 VALUES
-  ('44444444-4444-4444-4444-444444444001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'HubSpot subscription flagged for review', 'Paying $450/mo but only 2 team members actively use it.', 'critical', 'subscription', false, false),
-  ('44444444-4444-4444-4444-444444444002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Datadog cost exceeded budget threshold', 'Monthly spend reached $520, exceeding the $500 budget.', 'warning', 'spending', false, false),
+  ('44444444-4444-4444-4444-444444444001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'HubSpot subscription flagged for review', 'Paying £450/mo but only 2 team members actively use it.', 'critical', 'subscription', false, false),
+  ('44444444-4444-4444-4444-444444444002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Datadog cost exceeded budget threshold', 'Monthly spend reached £520, exceeding the £500 budget.', 'warning', 'spending', false, false),
   ('44444444-4444-4444-4444-444444444003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Cash runway extended to 14 months', 'Strong revenue growth and controlled expenses.', 'info', 'cash_flow', true, false),
-  ('44444444-4444-4444-4444-444444444004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Contractor costs up 18% this quarter', 'Increased from $1,800 to $2,400/month.', 'warning', 'spending', false, false),
+  ('44444444-4444-4444-4444-444444444004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Contractor costs up 18% this quarter', 'Increased from £1,800 to £2,400/month.', 'warning', 'spending', false, false),
   ('44444444-4444-4444-4444-444444444005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Possible duplicate subscription detected', 'Notion and Confluence both active.', 'warning', 'subscription', false, false),
-  ('44444444-4444-4444-4444-444444444006', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Advertising spend within budget', 'Current spend is $1,250 of $1,500 budget.', 'info', 'budget', true, false)
+  ('44444444-4444-4444-4444-444444444006', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Advertising spend within budget', 'Current spend is £1,250 of £1,500 budget.', 'info', 'budget', true, false)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -124,12 +124,12 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO agent_tasks (id, company_id, title, task_type, status, priority, result_summary, recommended_actions)
 VALUES
-  ('66666666-6666-6666-6666-666666666001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Find cheaper alternatives to Datadog', 'find_cheaper_alternatives', 'completed', 'high', 'Grafana Cloud ($150/mo) and New Relic ($280/mo) are viable alternatives. Potential savings: $240-370/mo.', '["Evaluate Grafana Cloud free trial", "Compare feature parity with Datadog"]'),
+  ('66666666-6666-6666-6666-666666666001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Find cheaper alternatives to Datadog', 'find_cheaper_alternatives', 'completed', 'high', 'Grafana Cloud (£150/mo) and New Relic (£280/mo) are viable alternatives. Potential savings: £240-370/mo.', '["Evaluate Grafana Cloud free trial", "Compare feature parity with Datadog"]'),
   ('66666666-6666-6666-6666-666666666002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Detect duplicate subscriptions', 'detect_duplicate_subscriptions', 'completed', 'medium', 'Found 2 potential duplicates: Notion + Confluence, Slack + Microsoft Teams.', '["Audit team usage of Confluence", "Consolidate to single communication tool"]'),
   ('66666666-6666-6666-6666-666666666003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Forecast runway scenarios', 'forecast_runway', 'running', 'high', null, null),
   ('66666666-6666-6666-6666-666666666004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Flag wasteful spending', 'flag_wasteful_spending', 'pending', 'medium', null, null),
   ('66666666-6666-6666-6666-666666666005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Generate investor summary', 'generate_investor_summary', 'pending', 'high', null, null),
-  ('66666666-6666-6666-6666-666666666006', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Review upcoming renewals', 'review_renewals', 'completed', 'low', '5 subscriptions renew in next 30 days. Total: $1,659. HubSpot and Datadog are candidates for renegotiation.', '["Contact HubSpot for downgrade options", "Request Datadog annual discount"]')
+  ('66666666-6666-6666-6666-666666666006', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Review upcoming renewals', 'review_renewals', 'completed', 'low', '5 subscriptions renew in next 30 days. Total: £1,659. HubSpot and Datadog are candidates for renegotiation.', '["Contact HubSpot for downgrade options", "Request Datadog annual discount"]')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -138,10 +138,10 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO agent_recommendations (id, company_id, title, description, category, potential_savings, impact_score, effort_score, status)
 VALUES
-  ('77777777-7777-7777-7777-777777777001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Switch from Datadog to Grafana Cloud', 'Grafana Cloud provides similar APM features at $150/mo vs Datadog $520/mo.', 'cost_saving', 4440, 85, 40, 'new'),
+  ('77777777-7777-7777-7777-777777777001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Switch from Datadog to Grafana Cloud', 'Grafana Cloud provides similar APM features at £150/mo vs Datadog £520/mo.', 'cost_saving', 4440, 85, 40, 'new'),
   ('77777777-7777-7777-7777-777777777002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Downgrade HubSpot to free tier', 'Only 2 of 12 team members use HubSpot CRM actively.', 'cost_saving', 5400, 90, 20, 'new'),
   ('77777777-7777-7777-7777-777777777003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Negotiate annual billing for AWS', 'Reserved instances could reduce EC2 costs by 30-40%.', 'cost_saving', 3035, 75, 50, 'viewed'),
-  ('77777777-7777-7777-7777-777777777004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Consolidate communication tools', 'Using both Slack ($150/mo) and partial Zoom ($149.90/mo). Teams plan covers both.', 'efficiency', 1798.80, 60, 70, 'new'),
+  ('77777777-7777-7777-7777-777777777004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Consolidate communication tools', 'Using both Slack (£150/mo) and partial Zoom (£149.90/mo). Teams plan covers both.', 'efficiency', 1798.80, 60, 70, 'new'),
   ('77777777-7777-7777-7777-777777777005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Increase ad spend on high-ROAS channels', 'Meta Ads showing 4.2x ROAS. Consider increasing budget by 20%.', 'growth', 0, 80, 30, 'accepted')
 ON CONFLICT (id) DO NOTHING;
 

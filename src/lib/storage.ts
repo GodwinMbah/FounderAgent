@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseUrl, getSupabaseServiceRoleKey } from "@/lib/env";
+import { getSupabaseSecretKey, getSupabaseUrl } from "@/lib/env";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
@@ -22,7 +22,7 @@ export async function uploadFile(
   file: File
 ): Promise<UploadResult> {
   const url = getSupabaseUrl();
-  const key = getSupabaseServiceRoleKey();
+  const key = getSupabaseSecretKey();
 
   if (!url || !key) {
     throw new Error("Supabase storage is not configured");
@@ -61,7 +61,7 @@ export async function uploadFile(
 
 export async function getFileUrl(bucket: string, path: string): Promise<string> {
   const url = getSupabaseUrl();
-  const key = getSupabaseServiceRoleKey();
+  const key = getSupabaseSecretKey();
 
   if (!url || !key) {
     throw new Error("Supabase storage is not configured");
@@ -77,7 +77,7 @@ export async function getFileUrl(bucket: string, path: string): Promise<string> 
 
 export async function deleteFile(bucket: string, path: string): Promise<void> {
   const url = getSupabaseUrl();
-  const key = getSupabaseServiceRoleKey();
+  const key = getSupabaseSecretKey();
 
   if (!url || !key) {
     throw new Error("Supabase storage is not configured");

@@ -137,7 +137,7 @@ export default function SettingsClient({
   const fullName = profile?.full_name ?? "";
   const email = profile?.email ?? "";
   const companyName = company?.name ?? "";
-  const currency = company?.currency ?? "USD";
+  const currency = company?.currency ?? "GBP";
   const fiscalStart = company?.fiscal_year_start ?? 1;
   const timezone = company?.timezone ?? "America/New_York";
   const [notifications, setNotifications] = useState<Record<string, boolean>>({

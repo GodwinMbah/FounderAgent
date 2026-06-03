@@ -10,8 +10,8 @@ interface CompanyCurrencyContextValue {
 }
 
 const CompanyCurrencyContext = createContext<CompanyCurrencyContextValue>({
-  currency: "USD",
-  symbol: "$",
+  currency: "GBP",
+  symbol: "£",
 });
 
 export function CompanyCurrencyProvider({

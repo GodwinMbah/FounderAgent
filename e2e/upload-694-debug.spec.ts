@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test } from "@playwright/test";
 import { existsSync } from "fs";
 import { resolve } from "path";
 
@@ -59,7 +59,7 @@ test("debug upload flow", async ({ page }) => {
     await page.waitForSelector('table tbody tr', { timeout: 30000 });
     console.log("Preview table found!");
     await page.screenshot({ path: 'test-results/debug-04-preview-loaded.png' });
-  } catch (e) {
+  } catch {
     console.log("Preview table NOT found within 30s");
     await page.screenshot({ path: 'test-results/debug-04-no-preview.png' });
   }

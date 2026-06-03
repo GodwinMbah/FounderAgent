@@ -237,11 +237,14 @@ describe("Revolut — Full 694-row file import", () => {
     expect(result.detectedProvider).toContain("revolut");
     expect(result.transactions.length).toBeGreaterThan(600);
     expect(result.failedRows.length).toBe(0);
+    expect(result.detectedCurrency).toBe("GBP");
+    expect(result.transactions.every((t) => t.currency === "GBP")).toBe(true);
 
     // Spot-check a few known rows
     const topup = result.transactions.find((t) => t.transactionType === "TOPUP");
     expect(topup).toBeDefined();
     expect(topup!.merchantName).not.toBe("Account Top-up");
+    expect(topup!.isTransfer).toBe(false);
 
     const fee = result.transactions.find((t) => t.description === "Revolut Business Fee");
     expect(fee).toBeDefined();

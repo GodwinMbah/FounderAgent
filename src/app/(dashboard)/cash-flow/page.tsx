@@ -15,7 +15,7 @@ export default async function CashFlowPage({ searchParams }: Props) {
 
   const [monthlyMetrics, transactions, totalCashBalance] = await Promise.all([
     getMonthlyMetrics(companyId, from, to),
-    getTransactions(companyId, { startDate: from, endDate: to, limit: 500 }),
+    getTransactions(companyId, { startDate: from, endDate: to }),
     getTotalCashBalance(companyId),
   ]);
 

@@ -5,12 +5,20 @@ import {
   formatNumber,
   formatRunwayLabel,
 } from "@/lib/utils/formatters";
+import type { CurrencyCode } from "@/lib/hooks/useCompanyCurrency";
+
+function getResponseCurrency(data: Record<string, unknown>): CurrencyCode {
+  return typeof data.currency === "string" ? data.currency : "GBP";
+}
 
 export function generateResponse(
   intent: IntentType,
   data: Record<string, unknown>,
   _message: string
 ): string {
+  const currency = getResponseCurrency(data);
+  const money = (value: number) => formatCurrency(value, 0, currency);
+
   switch (intent) {
     case "greeting":
       return "Hello! I'm FounderAgent, your AI finance copilot. What would you like to know about your business?";
@@ -22,15 +30,15 @@ export function generateResponse(
       const monthlyBurn = metrics?.monthlyBurn ?? 0;
       const runwayMonths = metrics?.runwayMonths ?? 0;
 
-      let response = `Your current cash balance is ${formatCurrency(cashBalance)}. `;
+      let response = `Your current cash balance is ${money(cashBalance)}. `;
       if (monthlyBurn > 0) {
-        response += `Monthly burn is ${formatCurrency(monthlyBurn)}, giving you a runway of approximately ${formatRunwayLabel(runwayMonths)}. `;
+        response += `Monthly burn is ${money(monthlyBurn)}, giving you a runway of approximately ${formatRunwayLabel(runwayMonths)}. `;
       } else {
         response += `You're operating at or above break-even with no monthly burn. `;
       }
       if (Array.isArray(monthlyMetrics) && monthlyMetrics.length > 0) {
         const latest = monthlyMetrics[monthlyMetrics.length - 1];
-        response += `In ${latest.month}, you had ${formatCurrency(latest.cashIn)} in and ${formatCurrency(latest.cashOut)} out.`;
+        response += `In ${latest.month}, you had ${money(latest.cashIn)} in and ${money(latest.cashOut)} out.`;
       }
       return response.trim();
     }
@@ -43,9 +51,9 @@ export function generateResponse(
       const flaggedSubscriptions = stats?.flagged ?? 0;
       const potentialSavings = stats?.potentialSavings ?? 0;
 
-      let response = `You have ${formatNumber(activeSubscriptions)} active subscriptions with a monthly spend of ${formatCurrency(monthlySpend)}. `;
+      let response = `You have ${formatNumber(activeSubscriptions)} active subscriptions with a monthly spend of ${money(monthlySpend)}. `;
       if (flaggedSubscriptions > 0) {
-        response += `${formatNumber(flaggedSubscriptions)} are flagged for review, with potential savings of ${formatCurrency(potentialSavings)}.`;
+        response += `${formatNumber(flaggedSubscriptions)} are flagged for review, with potential savings of ${money(potentialSavings)}.`;
       } else {
         response += `No subscriptions are currently flagged.`;
       }
@@ -60,7 +68,7 @@ export function generateResponse(
       const percentUsed = stats?.percentUsed ?? 0;
       const overBudgetCount = stats?.overBudgetCount ?? 0;
 
-      let response = `Your total budget is ${formatCurrency(totalBudget)}. You've spent ${formatCurrency(totalSpent)} (${formatPercent(percentUsed)} used). `;
+      let response = `Your total budget is ${money(totalBudget)}. You've spent ${money(totalSpent)} (${formatPercent(percentUsed)} used). `;
       if (overBudgetCount > 0) {
         response += `${formatNumber(overBudgetCount)} categories are over budget.`;
       } else {
@@ -82,7 +90,7 @@ export function generateResponse(
         response += `${formatNumber(categorized)} are categorized and ${formatNumber(needsReview)} need review. `;
       }
       if (totalExpenses > 0) {
-        response += `Total expenses recorded: ${formatCurrency(totalExpenses)}.`;
+        response += `Total expenses recorded: ${money(totalExpenses)}.`;
       }
       return response.trim();
     }
@@ -94,9 +102,9 @@ export function generateResponse(
       const monthlyBurn = metrics?.monthlyBurn ?? 0;
       const runwayMonths = metrics?.runwayMonths ?? 0;
 
-      let response = `Your cash balance is ${formatCurrency(cashBalance)}. `;
+      let response = `Your cash balance is ${money(cashBalance)}. `;
       if (monthlyBurn > 0) {
-        response += `At a monthly burn of ${formatCurrency(monthlyBurn)}, your runway is approximately ${formatRunwayLabel(runwayMonths)}.`;
+        response += `At a monthly burn of ${money(monthlyBurn)}, your runway is approximately ${formatRunwayLabel(runwayMonths)}.`;
       } else {
         response += `With no monthly burn, your runway is effectively infinite.`;
       }
@@ -113,10 +121,10 @@ export function generateResponse(
           .reduce((s: number, t: { amount?: number }) => s + (t.amount ?? 0), 0);
       }
 
-      let response = `Your total recorded revenue is ${formatCurrency(totalRevenue)}. `;
+      let response = `Your total recorded revenue is ${money(totalRevenue)}. `;
       if (Array.isArray(monthlyMetrics) && monthlyMetrics.length > 0) {
         const latest = monthlyMetrics[monthlyMetrics.length - 1];
-        response += `In ${latest.month}, revenue was ${formatCurrency(latest.revenue)} with profit of ${formatCurrency(latest.profit)}.`;
+        response += `In ${latest.month}, revenue was ${money(latest.revenue)} with profit of ${money(latest.profit)}.`;
       }
       return response.trim();
     }

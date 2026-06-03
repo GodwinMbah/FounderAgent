@@ -29,7 +29,7 @@ export const KPI_CATALOG: KPICardConfig[] = [
   { id: "monthly_burn", label: "Monthly Burn", category: "core", dataKey: "monthlyBurn", format: "currency", icon: "Flame", iconColor: "#F43F5E", eligibility: () => true },
   { id: "runway", label: "Runway", category: "core", dataKey: "runwayMonths", format: "runway", icon: "Clock", iconColor: "#22D3EE", eligibility: () => true },
   { id: "monthly_sub_spend", label: "Monthly Sub Spend", category: "saas", dataKey: "monthlySubscriptionSpend", format: "currency", icon: "Repeat", iconColor: "#8B5CF6", eligibility: (profile) => profile.revenueModels.includes("subscription") || profile.businessModel === "saas" || profile.businessModel === "membership" },
-  { id: "arr", label: "ARR", category: "saas", dataKey: "arr", format: "currency", icon: "DollarSign", iconColor: "#22C55E", eligibility: (profile, metrics) => (profile.revenueModels.includes("subscription") || profile.businessModel === "saas" || profile.businessModel === "membership") && (metrics?.arr ?? 0) > 0 },
+  { id: "arr", label: "ARR", category: "saas", dataKey: "arr", format: "currency", icon: "Banknote", iconColor: "#22C55E", eligibility: (profile, metrics) => (profile.revenueModels.includes("subscription") || profile.businessModel === "saas" || profile.businessModel === "membership") && (metrics?.arr ?? 0) > 0 },
   { id: "gross_margin", label: "Gross Margin", category: "efficiency", dataKey: "grossMargin", format: "percent", icon: "Percent", iconColor: "#14B8A6", eligibility: (profile, metrics) => profile.costStructure.includes("cogs") || (metrics?.grossMargin ?? 0) !== 0 },
   { id: "burn_multiple", label: "Burn Multiple", category: "efficiency", dataKey: "burnMultiple", format: "number", icon: "Flame", iconColor: "#F43F5E", eligibility: (profile, metrics) => (metrics?.burnMultiple ?? 0) !== Infinity && (metrics?.burnMultiple ?? 0) > 0 && (metrics?.netNewARR ?? 0) !== 0 },
   { id: "rule_of_40", label: "Rule of 40", category: "efficiency", dataKey: "ruleOf40", format: "number", icon: "Target", iconColor: "#8B5CF6", eligibility: (profile, metrics) => (metrics?.ruleOf40 ?? 0) !== 0 || (metrics?.profitMargin ?? 0) !== 0 },
@@ -50,13 +50,13 @@ export function getEligibleKPIs(profile: CompanyBusinessProfile, metrics: unknow
     .sort((a, b) => (CATEGORY_ORDER[a.category] ?? 99) - (CATEGORY_ORDER[b.category] ?? 99));
 }
 
-export function formatKPIValue(kpi: KPICardConfig, metrics: DashboardMetrics, currency = "USD"): string {
+export function formatKPIValue(kpi: KPICardConfig, metrics: DashboardMetrics, currency = "GBP"): string {
   const raw = (metrics as unknown as Record<string, unknown>)[kpi.dataKey];
   if (raw === undefined || raw === null) return "—";
 
   if (kpi.format === "currency") {
     if (typeof raw === "number") {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(raw);
+      return new Intl.NumberFormat(currency === "GBP" ? "en-GB" : "en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(raw);
     }
     return String(raw);
   }

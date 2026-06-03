@@ -12,7 +12,6 @@
  */
 
 import { detectPersonalName } from "./personal-name-detector";
-import { detectTransfer as detectTransferTransaction } from "./transfer-detector";
 
 export type BusinessModel =
   | "saas"
@@ -1163,7 +1162,7 @@ export class UniversalCategorisationEngine {
 
   private aggregateEvidence(
     evidence: CategoryEvidence[],
-    tx: TransactionContext
+    _tx: TransactionContext
   ): CategorisationResult {
     if (evidence.length === 0) {
       return {
@@ -1191,7 +1190,7 @@ export class UniversalCategorisationEngine {
     }
 
     // Group evidence by category and track max confidence
-    const categoryScores = new Map<string, { maxConfidence: number; count: number; bestReason: string; bestSource: EvidenceSource }>();
+    const categoryScores = new Map<string, { maxConfidence: number; count: number; bestReason: string }>();
 
     for (const e of evidence) {
       const existing = categoryScores.get(e.category);
@@ -1200,14 +1199,12 @@ export class UniversalCategorisationEngine {
           maxConfidence: e.confidence,
           count: 1,
           bestReason: e.reason,
-          bestSource: e.source,
         });
       } else {
         existing.count += 1;
         if (e.confidence > existing.maxConfidence) {
           existing.maxConfidence = e.confidence;
           existing.bestReason = e.reason;
-          existing.bestSource = e.source;
         }
       }
     }
@@ -1216,14 +1213,12 @@ export class UniversalCategorisationEngine {
     let bestCategory = "Uncategorised Review";
     let bestScore = 0;
     let bestReason = "";
-    let bestSource: EvidenceSource = "description_keyword";
 
     for (const [category, data] of categoryScores) {
       if (data.maxConfidence > bestScore) {
         bestScore = data.maxConfidence;
         bestCategory = category;
         bestReason = data.bestReason;
-        bestSource = data.bestSource;
       }
     }
 

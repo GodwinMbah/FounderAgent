@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Calendar, ChevronDown, X } from "lucide-react";
 import {
   type DateRangePreset,
@@ -33,10 +33,10 @@ export default function DateRangePicker({
     if (!isControlled) setInternalOpen(next);
     onOpenChange?.(next);
   };
-  const close = () => {
+  const close = useCallback(() => {
     if (!isControlled) setInternalOpen(false);
     onOpenChange?.(false);
-  };
+  }, [isControlled, onOpenChange]);
 
   const [internalPreset, setInternalPreset] = useState<DateRangePreset>(
     controlledPreset ?? "last30"
@@ -65,7 +65,7 @@ export default function DateRangePicker({
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [close, open]);
 
   function handlePresetClick(p: DateRangePreset) {
     if (onPresetChange) {

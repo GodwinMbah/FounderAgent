@@ -33,7 +33,7 @@ export default async function BudgetsPage({ searchParams }: Props) {
     if (c.percentUsed > 100) {
       alerts.push({
         category: c.category,
-        message: `${c.category} is over budget by ${formatCurrency(c.spent - c.amount, 0, company?.currency || "USD")}`,
+        message: `${c.category} is over budget by ${formatCurrency(c.spent - c.amount, 0, company?.currency || "GBP")}`,
         severity: "warning" as const,
       });
     } else if (c.percentUsed > 80) {

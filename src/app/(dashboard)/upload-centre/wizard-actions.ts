@@ -321,15 +321,20 @@ export async function confirmAndProcess(
       success: pipelineResult.success,
       fileName: session.fileName,
       sourceType: finalPreview.sourceType,
-      rowsInFile: finalPreview.previewRows.length + finalPreview.failedRows.length,
-      rowsParsed: pipelineResult.totalParsed,
-      rowsImported: pipelineResult.transactionsInserted,
-      rowsSkipped: pipelineResult.duplicateCount,
-      rowsFailed: pipelineResult.transactionsFailed,
+      rowsInFile: pipelineResult.reconciliation?.rowsInFile ?? finalPreview.previewRows.length + finalPreview.failedRows.length,
+      rowsParsed: pipelineResult.reconciliation?.rowsParsed ?? pipelineResult.totalParsed,
+      rowsValid: pipelineResult.reconciliation?.rowsValid ?? pipelineResult.totalParsed,
+      rowsImported: pipelineResult.reconciliation?.rowsInserted ?? pipelineResult.transactionsInserted,
+      rowsSkipped: pipelineResult.reconciliation?.rowsSkippedDuplicate ?? pipelineResult.duplicateCount,
+      rowsFailed: pipelineResult.reconciliation?.rowsFailed ?? pipelineResult.transactionsFailed,
       rowsNeedReview: pipelineResult.needReviewCount,
       rowsCategorised: pipelineResult.categorisedCount,
       rowsTransfer: pipelineResult.transferCount,
       rowsDuplicate: pipelineResult.duplicateCount,
+      rowsKpiExcluded: pipelineResult.reconciliation?.rowsExcludedFromKpis ?? pipelineResult.transferCount + pipelineResult.duplicateCount,
+      rowsLinkedToSubscriptions: pipelineResult.reconciliation?.rowsLinkedToSubscriptions ?? 0,
+      reconciliationBalanced: pipelineResult.reconciliation?.reconciliationBalanced ?? pipelineResult.success,
+      reconciliationExplanation: pipelineResult.reconciliation?.explanation,
       incomeTotal: finalPreview.incomeTotal,
       expenseTotal: finalPreview.expenseTotal,
       sourceCurrency: finalPreview.detectedCurrency,
@@ -423,6 +428,8 @@ export async function getUploadStatus(uploadId: string): Promise<{
   pipelineStage?: string;
   pipelineProgress?: number;
   metadata?: Record<string, unknown>;
+  fileName?: string;
+  source?: string;
 }> {
   try {
     const { companyId } = await requireAuthCompany();
@@ -433,7 +440,7 @@ export async function getUploadStatus(uploadId: string): Promise<{
 
     const { data, error } = await admin
       .from("uploads")
-      .select("status, transaction_count, error_message, pipeline_stage, pipeline_progress, metadata")
+      .select("status, transaction_count, error_message, pipeline_stage, pipeline_progress, metadata, file_name, source")
       .eq("id", uploadId)
       .eq("company_id", companyId)
       .single();
@@ -447,6 +454,8 @@ export async function getUploadStatus(uploadId: string): Promise<{
       pipelineStage: data.pipeline_stage,
       pipelineProgress: data.pipeline_progress,
       metadata: data.metadata as Record<string, unknown>,
+      fileName: data.file_name,
+      source: data.source,
     };
   } catch (err) {
     const raw = err instanceof Error ? err.message : "Unknown error";

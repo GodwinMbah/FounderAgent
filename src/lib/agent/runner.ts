@@ -4,7 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { updateAgentTaskStatus } from "@/lib/db/agent-tasks";
 import { createAgentRecommendation } from "@/lib/db/agent-recommendations";
 import { getSubscriptions } from "@/lib/db/subscriptions";
-import { requireAuthCompany } from "@/lib/db/company";
+import { getCompanyById, requireAuthCompany } from "@/lib/db/company";
+import { formatCurrency } from "@/lib/utils/formatters";
 
 export async function runAgentTask(taskId: string): Promise<void> {
   const { companyId: authCompanyId } = await requireAuthCompany();
@@ -28,6 +29,10 @@ export async function runAgentTask(taskId: string): Promise<void> {
   if (companyId !== authCompanyId) {
     throw new Error("Forbidden: task does not belong to your company");
   }
+
+  const company = await getCompanyById(companyId);
+  const currency = company?.currency ?? "GBP";
+  const money = (amount: number) => formatCurrency(amount, 2, currency);
 
   // 2. Update to running
   await updateAgentTaskStatus(taskId, companyId, "running");
@@ -58,12 +63,12 @@ export async function runAgentTask(taskId: string): Promise<void> {
         });
 
         const total = upcoming.reduce((sum, s) => sum + s.amount, 0);
-        resultSummary = `${upcoming.length} subscriptions renew in the next 30 days. Total: $${total.toFixed(2)}.`;
+        resultSummary = `${upcoming.length} subscriptions renew in the next 30 days. Total: ${money(total)}.`;
 
         for (const sub of upcoming) {
           recommendations.push({
             title: `Upcoming renewal: ${sub.name}`,
-            description: `${sub.vendor ?? sub.name} renews on ${typeof sub.nextBillingDate === "string" ? sub.nextBillingDate : sub.nextBillingDate.toISOString().slice(0, 10)} for $${sub.amount.toFixed(2)}/${sub.billingCycle}.`,
+            description: `${sub.vendor ?? sub.name} renews on ${typeof sub.nextBillingDate === "string" ? sub.nextBillingDate : sub.nextBillingDate.toISOString().slice(0, 10)} for ${money(sub.amount)}/${sub.billingCycle}.`,
             category: "subscription",
             potentialSavings: sub.amount,
             impactScore: 50,
@@ -90,7 +95,7 @@ export async function runAgentTask(taskId: string): Promise<void> {
                 : sub.amount;
           recommendations.push({
             title: `Find alternative to ${sub.name}`,
-            description: `${sub.name} ($${sub.amount.toFixed(2)}/${sub.billingCycle}) is flagged: ${sub.flagReason ?? "Review for cheaper alternatives"}. Potential annual savings up to $${(annual * 0.4).toFixed(0)}.`,
+            description: `${sub.name} (${money(sub.amount)}/${sub.billingCycle}) is flagged: ${sub.flagReason ?? "Review for cheaper alternatives"}. Potential annual savings up to ${formatCurrency(annual * 0.4, 0, currency)}.`,
             category: "cost_saving",
             potentialSavings: Math.round(annual * 0.4),
             impactScore: 75,
@@ -130,7 +135,7 @@ export async function runAgentTask(taskId: string): Promise<void> {
         for (const [a, b] of duplicates) {
           recommendations.push({
             title: `Possible duplicate: ${a.name} & ${b.name}`,
-            description: `Both ${a.name} ($${a.amount.toFixed(2)}) and ${b.name} ($${b.amount.toFixed(2)}) may serve the same purpose.`,
+            description: `Both ${a.name} (${money(a.amount)}) and ${b.name} (${money(b.amount)}) may serve the same purpose.`,
             category: "efficiency",
             potentialSavings: Math.round((a.amount + b.amount) * 0.5),
             impactScore: 65,
@@ -151,12 +156,12 @@ export async function runAgentTask(taskId: string): Promise<void> {
           (s) => s.status === "active" && s.amount > avg * 3
         );
 
-        resultSummary = `Identified ${wasteful.length} subscriptions with costs significantly above average ($${avg.toFixed(2)}).`;
+        resultSummary = `Identified ${wasteful.length} subscriptions with costs significantly above average (${money(avg)}).`;
 
         for (const sub of wasteful) {
           recommendations.push({
             title: `High-cost subscription: ${sub.name}`,
-            description: `${sub.name} costs $${sub.amount.toFixed(2)}/${sub.billingCycle}, which is ${Math.round(sub.amount / avg)}x the average subscription cost.`,
+            description: `${sub.name} costs ${money(sub.amount)}/${sub.billingCycle}, which is ${Math.round(sub.amount / avg)}x the average subscription cost.`,
             category: "cost_saving",
             potentialSavings: Math.round(sub.amount * 0.3),
             impactScore: 80,
