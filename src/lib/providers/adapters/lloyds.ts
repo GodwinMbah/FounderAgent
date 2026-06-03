@@ -13,7 +13,7 @@ export const lloydsAdapter: ProviderAdapter = {
       "Transaction Description",
       "Balance",
     ],
-    minRequiredMatches: 2,
+    minRequiredMatches: 3,
     minScore: 30,
   },
   headerAliases: [

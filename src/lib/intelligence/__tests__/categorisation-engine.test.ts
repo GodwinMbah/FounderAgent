@@ -360,6 +360,24 @@ describe("UniversalCategorisationEngine", () => {
       expect(result.category).toBe("Revenue");
     });
 
+    it("Revolut TOPUP from Stripe Payments is KPI-included processor revenue", () => {
+      const result = categoriseTransaction(makeTx({
+        merchant: "Stripe Payments Uk Ltd",
+        description: "Money added from STRIPE PAYMENTS UK LTD",
+        reference: "STRIPE PAYOUT",
+        transactionType: "TOPUP",
+        provider: "revolut_business_csv",
+        amount: 491.76,
+        type: "income",
+      }), ctx);
+
+      expect(result.category).toBe("Revenue");
+      expect(result.subcategory).toBe("Processor Payout");
+      expect(result.isTransfer).toBe(false);
+      expect(result.kpiTreatment).toBe("included");
+      expect(result.confidence).toBeGreaterThanOrEqual(90);
+    });
+
     it("Director Consultancy Fee → Professional Services", () => {
       const result = categoriseTransaction(makeTx({ merchant: "", description: "Director Consultancy Fee", amount: -2500 }), ctx);
       expect(result.category).toBe("Professional Services");
@@ -403,6 +421,19 @@ describe("UniversalCategorisationEngine", () => {
       expect(result.category).toBe("Ambiguous");
       expect(result.status).toBe("needs_review");
       expect(result.kpiTreatment).toBe("excluded");
+    });
+
+    it("uses reference context to classify invoice income from a weak merchant field", () => {
+      const result = categoriseTransaction(makeTx({
+        merchant: "Bank Transfer",
+        description: "Payment",
+        reference: "INV-2026-104 Client retainer",
+        amount: 3200,
+        type: "income",
+      }), ctx);
+
+      expect(result.category).toBe("Revenue");
+      expect(result.reason).toContain("invoice");
     });
   });
 });

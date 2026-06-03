@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { resolveMerchantIdentity } from "@/lib/intelligence/merchant-identity";
+import {
+  getMerchantLogoUrl,
+  resolveMerchantIdentity,
+} from "@/lib/intelligence/merchant-identity";
 
 interface MerchantLogoProps {
   name: string;
@@ -40,7 +43,7 @@ export default function MerchantLogo({
     return null;
   }
 
-  const logoUrl = !imgError ? identity.logoUrl : undefined;
+  const logoUrl = !imgError ? getMerchantLogoUrl(identity) : undefined;
 
   if (logoUrl) {
     return (

@@ -13,7 +13,7 @@ export const genericCsvAdapter: ProviderAdapter = {
   headerAliases: [
     // Very broad aliases to catch almost anything
     { field: "transactionDate", aliases: ["Date", "Transaction Date", "Posted Date", "Posting Date", "Value Date", "Booking Date", "Completed Date", "Date Completed", "TransactionDate", "Trans Date"], required: true },
-    { field: "postedDate", aliases: ["Posted Date", "Posting Date", "Value Date", "Booking Date", "Settlement Date"] },
+    { field: "postedDate", aliases: ["Posted Date", "Posting Date", "Value Date", "Settlement Date"] },
     { field: "description", aliases: ["Description", "Details", "Narrative", "Memo", "Transaction Details", "Payment Details", "Trans Desc", "Detail", "Notes"], required: true },
     { field: "amount", aliases: ["Amount", "Value", "Transaction Amount", "Total", "Sum", "TransactionAmount", "Trans Amount", "Gross"], required: true },
     { field: "debitAmount", aliases: ["Debit", "Money Out", "Paid Out", "Withdrawal", "Outflow", "MoneyOut", "PaidOut", "Dr", "Debit Amount"] },
@@ -37,7 +37,7 @@ export const genericCsvAdapter: ProviderAdapter = {
     { field: "exchangeRate", aliases: ["Exchange Rate", "FX Rate", "Rate", "Conversion Rate"] },
   ],
   signConvention: "unknown",
-  feeHandling: "included_in_amount",
-  hasSplitAmountColumns: false,
+  feeHandling: "separate_column",
+  hasSplitAmountColumns: true,
   detectionWeight: 0.3,
 };

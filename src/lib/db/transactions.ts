@@ -86,7 +86,9 @@ export async function getTransactions(
     .from("transactions")
     .select("*")
     .eq("company_id", effectiveCompanyId)
-    .order("date", { ascending: false });
+    .order("date", { ascending: false })
+    .order("source_row_number", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true });
 
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);
@@ -133,7 +135,9 @@ export async function getTransactionsPage(
     .from("transactions")
     .select("*", { count: "exact" })
     .eq("company_id", effectiveCompanyId)
-    .order("date", { ascending: false });
+    .order("date", { ascending: false })
+    .order("source_row_number", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true });
 
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);
