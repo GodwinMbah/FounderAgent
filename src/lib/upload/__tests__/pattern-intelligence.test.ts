@@ -14,6 +14,8 @@ describe("buildPatternSuggestions", () => {
     expect(merchantSug).toBeDefined();
     expect(merchantSug!.suggestedCategory).toBe("Revenue");
     expect(merchantSug!.confidence).toBe(95);
+    expect(merchantSug!.groupingConfidence).toBe(95);
+    expect(merchantSug!.categoryConfidence).toBeGreaterThanOrEqual(90);
     expect(merchantSug!.affectedRows).toContain(1);
     expect(merchantSug!.affectedRows).toContain(2);
     expect(merchantSug!.affectedRows).toContain(3);
@@ -30,6 +32,8 @@ describe("buildPatternSuggestions", () => {
     expect(processorSug).toBeDefined();
     expect(processorSug!.suggestedCategory).toBe("Credit Card Payment");
     expect(processorSug!.confidence).toBe(90);
+    expect(processorSug!.groupingConfidence).toBe(90);
+    expect(processorSug!.categoryConfidence).toBe(90);
   });
 
   it("deduplicates rows to highest-confidence suggestion", () => {
@@ -62,7 +66,22 @@ describe("buildPatternSuggestions", () => {
     const autoApply = getAutoApplyCandidates(suggestions);
     expect(autoApply.length).toBeGreaterThanOrEqual(1);
     expect(autoApply[0].confidence).toBeGreaterThanOrEqual(90);
+    expect(autoApply[0].groupingConfidence).toBeGreaterThanOrEqual(90);
+    expect(autoApply[0].categoryConfidence).toBeGreaterThanOrEqual(90);
     expect(autoApply[0].affectedRows.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("treats Klarna Amazon as Amazon context, not payment processor fees", () => {
+    const rows = [
+      { rowNumber: 1, merchant: "Klarna*Amazon", description: "Klarna Amazon", amount: -20, type: "expense" as const },
+      { rowNumber: 2, merchant: "Klarna*Amazon", description: "Klarna Amazon", amount: -30, type: "expense" as const },
+      { rowNumber: 3, merchant: "Klarna*Amazon", description: "Klarna Amazon", amount: -40, type: "expense" as const },
+    ];
+    const suggestions = buildPatternSuggestions(rows);
+    const klarnaSug = suggestions.find((s) => s.reason.includes("Klarna"));
+    expect(klarnaSug).toBeDefined();
+    expect(klarnaSug!.suggestedCategory).toBe("Office Costs");
+    expect(klarnaSug!.suggestedCategory).not.toBe("Payment Processor Fees");
   });
 
   it("groups by reference prefix", () => {

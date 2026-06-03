@@ -307,6 +307,27 @@ export async function runUploadPipeline(
         if (!parseResult.transactions[i].isTransfer) {
           parseResult.transactions[i].category = categorisedRows[i].category;
         }
+        parseResult.transactions[i].subcategory = categorisedRows[i].subcategory;
+        parseResult.transactions[i].originalMerchantName = parseResult.transactions[i].originalMerchantName ?? parseResult.transactions[i].merchantName;
+        parseResult.transactions[i].normalisedMerchantName = categorisedRows[i].normalisedMerchant;
+        parseResult.transactions[i].displayMerchantName = categorisedRows[i].displayMerchant ?? categorisedRows[i].merchant;
+        parseResult.transactions[i].merchantName = categorisedRows[i].displayMerchant ?? categorisedRows[i].merchant ?? parseResult.transactions[i].merchantName;
+        parseResult.transactions[i].categoryReason = categorisedRows[i].categoryReason;
+        parseResult.transactions[i].categoryConfidence = categorisedRows[i].categoryConfidence;
+        parseResult.transactions[i].groupingConfidence = categorisedRows[i].groupingConfidence;
+        parseResult.transactions[i].categoryEvidence = categorisedRows[i].categoryEvidence;
+        parseResult.transactions[i].businessMeaning = categorisedRows[i].businessMeaning;
+        parseResult.transactions[i].kpiTreatment = categorisedRows[i].kpiTreatment;
+        parseResult.transactions[i].incomeExpenseStatus = categorisedRows[i].type;
+        parseResult.transactions[i].isCreditCardRepayment = categorisedRows[i].isCreditCardRepayment;
+        parseResult.transactions[i].isSubscriptionCandidate = categorisedRows[i].isSubscriptionCandidate;
+        parseResult.transactions[i].isRecurringCandidate = categorisedRows[i].isRecurringCandidate;
+        if (categorisedRows[i].kpiTreatment === "excluded" && !parseResult.transactions[i].isPossibleDuplicate) {
+          parseResult.transactions[i].kpiExcluded = true;
+          parseResult.transactions[i].kpiExclusionReason = categorisedRows[i].category === "Ambiguous" || categorisedRows[i].category === "Uncategorised Review"
+            ? "needs_review"
+            : categorisedRows[i].category.toLowerCase().replace(/\s+/g, "_");
+        }
         parseResult.transactions[i].confidenceScore = categorisedRows[i].confidenceScore ?? parseResult.transactions[i].confidenceScore;
         if (!parseResult.transactions[i].isTransfer && !parseResult.transactions[i].isPossibleDuplicate) {
           parseResult.transactions[i].status = categorisedRows[i].status ?? parseResult.transactions[i].status;
@@ -323,6 +344,11 @@ export async function runUploadPipeline(
         if (overrideCategory) {
           parseResult.transactions[i].category = overrideCategory;
           parseResult.transactions[i].confidenceScore = 100; // User-confirmed
+          parseResult.transactions[i].categoryConfidence = 100;
+          parseResult.transactions[i].categoryReason = `User override selected ${overrideCategory} in upload preview.`;
+          parseResult.transactions[i].kpiExcluded = false;
+          parseResult.transactions[i].kpiExclusionReason = undefined;
+          parseResult.transactions[i].kpiTreatment = "included";
           parseResult.transactions[i].status = "categorised";
         }
       }
@@ -420,10 +446,21 @@ export async function runUploadPipeline(
             amount: Number(row.amount),
             type: row.type as "income" | "expense",
             currency: (row.metadata as Record<string, unknown> | null)?.currency as string | undefined,
-            category: row.category as TransactionCategoryType,
+            category: (row.category as TransactionCategoryType | null) ?? "Uncategorised Review",
             status: row.status as TransactionStatus,
             confidenceScore: row.confidence_score as number,
             categoryReason: (row.metadata as Record<string, unknown> | null)?.category_reason as string || "historical",
+            categoryConfidence: ((row.metadata as Record<string, unknown> | null)?.category_confidence as number | undefined) ?? (row.confidence_score as number) ?? 0,
+            groupingConfidence: ((row.metadata as Record<string, unknown> | null)?.grouping_confidence as number | undefined) ?? 0,
+            normalisedMerchant: (row.metadata as Record<string, unknown> | null)?.normalised_merchant as string | undefined,
+            displayMerchant: (row.metadata as Record<string, unknown> | null)?.display_merchant as string | undefined,
+            subcategory: (row.metadata as Record<string, unknown> | null)?.detected_subcategory as string | undefined,
+            kpiTreatment: ((row.metadata as Record<string, unknown> | null)?.kpi_treatment as "included" | "excluded" | undefined) ?? "included",
+            businessMeaning: (row.metadata as Record<string, unknown> | null)?.business_meaning as string | undefined,
+            isCreditCardRepayment: Boolean((row.metadata as Record<string, unknown> | null)?.is_credit_card_repayment),
+            isSubscriptionCandidate: Boolean((row.metadata as Record<string, unknown> | null)?.is_subscription_candidate),
+            isRecurringCandidate: Boolean((row.metadata as Record<string, unknown> | null)?.is_recurring_candidate),
+            categoryEvidence: ((row.metadata as Record<string, unknown> | null)?.category_evidence as []) ?? [],
             rawData: (row.metadata as Record<string, unknown> | null)?.raw_data as Record<string, string> || {},
             parseErrors: [],
           }));
@@ -664,7 +701,7 @@ export async function runUploadPipeline(
           amount: Math.abs(tx.amount),
           currency: tx.currency,
           category: tx.category,
-          reason: tx.reviewReason,
+          reason: tx.reviewReason ?? tx.categoryReason,
         };
       }),
       ...parseResult.failedRows.map((row) => ({

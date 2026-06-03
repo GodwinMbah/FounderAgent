@@ -21,7 +21,7 @@ test.describe("694-row Revolut import", () => {
 
     // For 694 rows, processing may take up to 90 seconds
     // Wait for actual content (mapping or preview step), not just step indicator
-    await page.waitForSelector('text=/Column Mapping|Rows Detected|Preview Import/', { timeout: 90000 });
+    await page.getByText(/Column Mapping|Rows Detected|Preview Import/).first().waitFor({ timeout: 90000 });
 
     // If on mapping step, scroll to and click Preview Import
     const previewBtn = page.locator('button:has-text("Preview Import")');

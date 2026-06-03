@@ -147,6 +147,27 @@ describe("categoriseWithV3", () => {
     expect(results[0].reference).toBeUndefined();
     expect(results[0].metadata).toEqual({ reference: "META-REF-67890" });
   });
+
+  it("returns explainable merchant and KPI fields", () => {
+    const rows = [
+      makeRow({
+        merchant: "Klarna*Amazon",
+        description: "Klarna Amazon marketplace",
+        amount: 48.2,
+        type: "expense",
+      }),
+    ];
+    const results = categoriseWithV3(rows, null);
+
+    expect(results[0].merchant).toBe("Amazon");
+    expect(results[0].normalisedMerchant).toBe("Amazon");
+    expect(results[0].category).toBe("Office Costs");
+    expect(results[0].categoryReason).toContain("Office Costs");
+    expect(results[0].categoryConfidence).toBeGreaterThan(0);
+    expect(results[0].groupingConfidence).toBe(0);
+    expect(results[0].kpiTreatment).toBe("included");
+    expect(results[0].categoryEvidence.length).toBeGreaterThan(0);
+  });
 });
 
 describe("categoriseWithV3AndV1Fallback", () => {
@@ -174,6 +195,18 @@ describe("categoriseWithV3AndV1Fallback", () => {
     expect(results[0].confidenceScore).toBe(80);
     expect(results[0].status).toBe("ai_suggested");
     expect(results[0].categoryReason).toBe("v1 fallback reason");
+  });
+
+  it("does not let v1 fallback erase a useful lower-confidence v3 category", () => {
+    const mock = vi.mocked(suggestTransactionCategory);
+    mock.mockClear();
+
+    const rows = [makeRow({ merchant: "Ades Ltd Charlton", description: "Ades Ltd Charlton", amount: 40.47 })];
+    const results = categoriseWithV3AndV1Fallback(rows, null);
+
+    expect(mock).not.toHaveBeenCalled();
+    expect(results[0].category).toBe("Food and Meals");
+    expect(results[0].confidenceScore).toBeGreaterThanOrEqual(60);
   });
 
   it("falls back to needs_review when v1 also returns low confidence", () => {
