@@ -228,6 +228,7 @@ export default function UploadWizard() {
         behavior: "smooth",
         block: "center",
       });
+      document.getElementById("financial-upload-input")?.focus({ preventScroll: true });
     });
   }, []);
 
@@ -842,7 +843,9 @@ function UploadStep({
           onDrop={onDrop}
         >
           <label
+            htmlFor="financial-upload-input"
             id="upload-file-dropzone"
+            data-testid="financial-upload-dropzone"
             className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-12 text-center transition-colors ${
               dragActive ? "border-[#14B8A6]/60" : ""
             } hover:border-[#14B8A6]/40`}
@@ -873,9 +876,12 @@ function UploadStep({
               Supports CSV, TXT, TSV, XLSX up to 20MB
             </p>
             <input
+              id="financial-upload-input"
+              data-testid="financial-upload-input"
               type="file"
-              className="hidden"
+              className="sr-only"
               accept=".csv,.txt,.tsv,.xlsx,.xls"
+              aria-label="Upload financial statement"
               onChange={onFileChange}
               disabled={isLoading}
             />

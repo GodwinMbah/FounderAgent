@@ -22,7 +22,7 @@ const EXPECTED_PROVIDERS: Record<string, string> = {
   "gocardless_sample.csv": "gocardless_csv",
   "shopify_payouts_sample.csv": "shopify_payouts_csv",
   "generic_money_in_out.csv": "tide",
-  "generic_debit_credit.csv": "wise",
+  "generic_debit_credit.csv": "generic_bank",
 };
 
 async function run() {

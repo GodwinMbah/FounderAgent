@@ -87,6 +87,24 @@ describe("derived record active-source filters", () => {
         activeUploads
       )
     ).toBe(false);
+    expect(
+      hasActiveSubscriptionSource(
+        {
+          id: "refreshed",
+          metadata: {
+            detected_from_upload: "upload-deleted",
+            last_detected_from_upload: "upload-live",
+          },
+        } as Subscription,
+        activeUploads
+      )
+    ).toBe(true);
+    expect(
+      hasActiveSubscriptionSource(
+        { id: "stale-generated", metadata: { legacy_cleanup: { status: "stale" } } } as Subscription,
+        activeUploads
+      )
+    ).toBe(false);
   });
 
   it("keeps explicitly manual alerts and hides unbacked or deleted-upload alerts", () => {

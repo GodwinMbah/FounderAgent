@@ -22,7 +22,7 @@ export function ConnectDataSourceState({
       <h2 className="mt-5 text-lg font-bold text-[var(--foreground)]">{title}</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">{description}</p>
       <Link
-        href="/upload-centre?setup=true&focus=upload"
+        href="/upload-centre?focus=upload"
         className="mt-6 inline-flex items-center justify-center rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent)]/90"
       >
         Upload Statement

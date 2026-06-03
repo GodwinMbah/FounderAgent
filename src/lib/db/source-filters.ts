@@ -1,21 +1,27 @@
 import type { AgentRecommendation, AgentTask, Alert, Subscription } from "@/lib/types";
 
+function stringUploadIds(...values: unknown[]): string[] {
+  return values.filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
 export function hasActiveSubscriptionSource(subscription: Subscription, activeUploadIds: string[]): boolean {
   const metadata = subscription.metadata ?? {};
-  const detectedFromUpload = metadata.detected_from_upload;
-  const sourceUploadId = metadata.source_upload_id;
-  const uploadId = metadata.upload_id;
-  const generatedUploadId =
-    typeof detectedFromUpload === "string"
-      ? detectedFromUpload
-      : typeof sourceUploadId === "string"
-      ? sourceUploadId
-      : typeof uploadId === "string"
-      ? uploadId
-      : undefined;
+  if (metadata.source === "manual" || metadata.created_by === "user" || metadata.user_created === true || metadata.manual === true) {
+    return true;
+  }
 
-  if (!generatedUploadId) return true;
-  return activeUploadIds.includes(generatedUploadId);
+  const generatedUploadIds = stringUploadIds(
+    metadata.detected_from_upload,
+    metadata.last_detected_from_upload,
+    metadata.source_upload_id,
+    metadata.upload_id
+  );
+
+  if (generatedUploadIds.length === 0) {
+    return (metadata.legacy_cleanup as { status?: string } | undefined)?.status !== "stale";
+  }
+
+  return generatedUploadIds.some((uploadId) => activeUploadIds.includes(uploadId));
 }
 
 export function hasActiveAlertSource(alert: Alert, activeUploadIds: string[]): boolean {
