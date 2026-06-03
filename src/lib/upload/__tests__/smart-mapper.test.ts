@@ -62,6 +62,9 @@ describe("smartMapCsv categorisation preview", () => {
     expect(parsed.transactions).toHaveLength(694);
     expect(preview.failedRows).toHaveLength(0);
     expect(preview.detectedCurrency).toBe("GBP");
+    expect(preview.intelligenceSummary?.kpiExcludedRows).toBeGreaterThanOrEqual(40);
+    expect(preview.intelligenceSummary?.intelligenceGroups).toBeGreaterThan(0);
+    expect(preview.intelligenceGroups?.length).toBeGreaterThan(0);
 
     preview.previewRows.forEach((row, index) => {
       const canonical = parsed.transactions[index];
@@ -70,6 +73,7 @@ describe("smartMapCsv categorisation preview", () => {
       expect(row.kpiTreatment).toBe(canonical.kpiTreatment);
       expect(row.categoryConfidence).toBe(canonical.categoryConfidence);
       expect(row.categoryReason).toBe(canonical.categoryReason);
+      expect(row.intelligenceGroupId).toBe(canonical.intelligenceGroupId);
     });
   });
 
@@ -118,9 +122,15 @@ describe("smartMapCsv categorisation preview", () => {
     expect(commission!.merchant).toBe("Emmanuel Nnamdi Umunnakwe");
     expect(commission!.description).toBe("Marketing Commission");
     expect(commission!.bankDescription).toBe("To Emmanuel Nnamdi Umunnakwe");
+    expect(commission!.externalTransactionId).toBeDefined();
+    expect(commission!.externalTransactionId).not.toBe(commission!.reference);
     expect(commission!.reference).toBe("Marketing Commission");
     expect(commission!.category).toBe("Sales Commission");
     expect(commission!.categoryReason).toContain("Commission");
+
+    const mccRow = preview.previewRows.find((row) => row.merchantCategoryCode);
+    expect(mccRow).toBeDefined();
+    expect(mccRow!.merchantCategoryCode).not.toBe(mccRow!.reference);
   });
 
   it("categorises the visible problem examples with explanation and KPI treatment", async () => {

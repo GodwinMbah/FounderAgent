@@ -13,6 +13,7 @@ import MerchantLogo from "@/components/features/transaction/MerchantLogo";
 import { getDateRange, type DateRangePreset } from "@/lib/date-range";
 import { updateTransactionCategory } from "@/lib/actions/transactions";
 import { ALL_CATEGORIES } from "@/lib/categories";
+import { formatKpiExclusionReason, getKpiExclusionReasonForCategory, isKpiExcludedCategory } from "@/lib/kpi-treatment";
 import { Search, ListFilter, Tag, ArrowUpDown, CreditCard, CheckCircle2, Brain, AlertCircle, Check } from "lucide-react";
 import { loadTransactionsPage } from "./actions";
 
@@ -185,9 +186,23 @@ export default function TransactionsContent({ transactions: initialTransactions,
     setSavingId(null);
     if (result.success) {
       setSaveMessage(result.message);
+      const kpiExcluded = isKpiExcludedCategory(newCategory);
+      const kpiExclusionReason = kpiExcluded ? getKpiExclusionReasonForCategory(newCategory) : undefined;
       // Optimistically update local data
       setTransactions((prev) =>
-        prev.map((t) => (t.id === transactionId ? { ...t, category: newCategory } : t))
+        prev.map((t) =>
+          t.id === transactionId
+            ? {
+                ...t,
+                category: newCategory,
+                status: "user_confirmed",
+                confidenceScore: 100,
+                kpiExcluded,
+                kpiExclusionReason,
+                kpiTreatment: kpiExcluded ? "excluded" : "included",
+              }
+            : t
+        )
       );
     } else {
       setSaveMessage(result.message);
@@ -503,7 +518,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
                     </StatusBadge>
                     {row.kpiExcluded && (
                       <p className="mt-1 text-[10px] text-violet-300">
-                        KPI excluded{row.kpiExclusionReason ? `: ${row.kpiExclusionReason}` : ""}
+                        KPI excluded: {formatKpiExclusionReason(row.kpiExclusionReason, row.category)}
                       </p>
                     )}
                   </div>
@@ -575,7 +590,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
                 </select>
                 <StatusBadge variant={getStatusVariant(t.status)}>{formatStatusLabel(t.status)}</StatusBadge>
                 {t.kpiExcluded && (
-                  <StatusBadge variant="highlight">KPI excluded</StatusBadge>
+                  <StatusBadge variant="highlight">{formatKpiExclusionReason(t.kpiExclusionReason, t.category)}</StatusBadge>
                 )}
               </div>
               <div className="flex items-center gap-2 mt-2">

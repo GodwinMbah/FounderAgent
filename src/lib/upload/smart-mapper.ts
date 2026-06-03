@@ -10,6 +10,7 @@ import { detectProvider, buildColumnMapping, getAdapter, scoreHeaderMatch } from
 
 import { detectSubscriptions } from "@/lib/intelligence/subscription-detector";
 import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions, isKpiExcludedCategory } from "@/lib/upload/categorisation-runner";
+import { buildPreviewIntelligenceSummary } from "@/lib/upload/intelligence-groups";
 import type {
   SourceType,
   ColumnMapping,
@@ -174,7 +175,7 @@ export async function smartMapCsv(
   );
 
   applyMerchantAndTransferSignals(parseResult.transactions);
-  const { categorisedRows } = categoriseCanonicalTransactions(
+  const { categorisedRows, intelligenceGroups } = categoriseCanonicalTransactions(
     parseResult.transactions,
     context.companySettings ?? null
   );
@@ -192,6 +193,8 @@ export async function smartMapCsv(
     transactionType: parseResult.transactions[i]?.transactionType,
     sourceProvider: parseResult.transactions[i]?.sourceProvider,
     accountName: parseResult.transactions[i]?.accountName,
+    externalTransactionId: parseResult.transactions[i]?.externalTransactionId,
+    merchantCategoryCode: parseResult.transactions[i]?.merchantCategoryCode,
     feeAmount: parseResult.transactions[i]?.feeAmount,
     runningBalance: parseResult.transactions[i]?.runningBalance,
     amount: row.amount,
@@ -207,7 +210,13 @@ export async function smartMapCsv(
     normalisedMerchant: row.normalisedMerchant,
     displayMerchant: row.displayMerchant,
     kpiTreatment: row.kpiTreatment,
+    kpiExclusionReason: parseResult.transactions[i]?.kpiExclusionReason,
     businessMeaning: row.businessMeaning,
+    intelligenceGroupId: parseResult.transactions[i]?.intelligenceGroupId,
+    intelligenceGroupLabel: parseResult.transactions[i]?.intelligenceGroupLabel,
+    intelligenceGroupReason: parseResult.transactions[i]?.intelligenceGroupReason,
+    intelligenceGroupSignals: parseResult.transactions[i]?.intelligenceGroupSignals,
+    categorySource: parseResult.transactions[i]?.categorySource,
     isCreditCardRepayment: row.isCreditCardRepayment,
     isSubscriptionCandidate: row.isSubscriptionCandidate,
     isRecurringCandidate: row.isRecurringCandidate,
@@ -236,6 +245,7 @@ export async function smartMapCsv(
     .reduce((s, r) => s + r.amount, 0);
   const duplicatesToSkip = previewRows.filter((r) => r.isPossibleDuplicate).length;
   const detectedSubs = detectSubscriptions(categorisedRows);
+  const intelligenceSummary = buildPreviewIntelligenceSummary(previewRows);
 
   const estimatedImpact = {
     incomeToAdd,
@@ -244,6 +254,9 @@ export async function smartMapCsv(
     duplicatesToSkip,
     failedRows: parseResult.failedRows.length,
     subscriptionsDetected: detectedSubs.length,
+    kpiExcludedRows: intelligenceSummary.kpiExcludedRows,
+    creditCardPaymentsDetected: intelligenceSummary.creditCardPaymentsDetected,
+    recurringGroupsDetected: intelligenceSummary.recurringGroupsDetected,
     latestBalanceDetected: parseResult.latestBalance,
   };
 
@@ -275,6 +288,8 @@ export async function smartMapCsv(
     latestBalance: parseResult.latestBalance,
     matchedHeaders: bestMatch?.matchedHeaders,
     missingHeaders: bestMatch?.missingRequired.map((f) => f.replace(/([A-Z])/g, " $1").trim()),
+    intelligenceSummary,
+    intelligenceGroups,
     estimatedImpact,
   };
 }

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthCompany } from "@/lib/db/company";
 import { recordCategoryCorrection } from "@/lib/intelligence/user-corrections";
+import { getKpiExclusionReasonForCategory, isKpiExcludedCategory } from "@/lib/kpi-treatment";
 import { revalidatePath } from "next/cache";
 
 export async function updateTransactionCategory(
@@ -23,7 +24,7 @@ export async function updateTransactionCategory(
   // 1. Fetch the transaction to verify ownership and get current data
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
-    .select("id, company_id, category, merchant, description, reference, type")
+    .select("id, company_id, category, merchant, description, reference, type, metadata")
     .eq("id", transactionId)
     .single();
 
@@ -35,11 +36,33 @@ export async function updateTransactionCategory(
   }
 
   const previousCategory = tx.category;
+  const kpiExcluded = isKpiExcludedCategory(newCategory);
+  const kpiExclusionReason = kpiExcluded ? getKpiExclusionReasonForCategory(newCategory) ?? "non_operating_movement" : null;
+  const metadata = {
+    ...((tx.metadata as Record<string, unknown> | null) ?? {}),
+    previous_category_before_user_correction: previousCategory,
+    category_source: "user",
+    user_confirmed_category: true,
+    user_category_locked: true,
+    category_reason: `User confirmed category ${newCategory}.`,
+    category_confidence: 100,
+    kpi_treatment: kpiExcluded ? "excluded" : "included",
+    kpi_excluded: kpiExcluded,
+    kpi_exclusion_reason: kpiExclusionReason,
+    user_corrected_at: new Date().toISOString(),
+  };
 
   // 2. Update the transaction category
   const { error: updateError } = await supabase
     .from("transactions")
-    .update({ category: newCategory })
+    .update({
+      category: newCategory,
+      status: "user_confirmed",
+      confidence_score: 100,
+      kpi_excluded: kpiExcluded,
+      kpi_exclusion_reason: kpiExclusionReason,
+      metadata,
+    })
     .eq("id", transactionId);
 
   if (updateError) {

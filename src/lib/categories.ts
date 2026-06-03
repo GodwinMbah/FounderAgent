@@ -1,5 +1,6 @@
 export const ALL_CATEGORIES = [
   "Revenue",
+  "Recurring Revenue",
   "Payment Processor Payout",
   "Refunds",
   "Refund",
@@ -24,6 +25,7 @@ export const ALL_CATEGORIES = [
   "Payroll",
   "Professional Services",
   "Consultancy",
+  "Director Fees",
   "Rent",
   "Travel",
   "Accommodation",
@@ -59,6 +61,7 @@ export type CategoryType = typeof ALL_CATEGORIES[number];
 
 export const CATEGORY_COLORS: Record<string, string> = {
   Revenue: "var(--success)",
+  "Recurring Revenue": "var(--success)",
   "Payment Processor Payout": "var(--success)",
   Refunds: "var(--danger)",
   Refund: "var(--danger)",
@@ -83,6 +86,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Payroll: "var(--warning)",
   "Professional Services": "var(--neon-cyan)",
   Consultancy: "var(--neon-cyan)",
+  "Director Fees": "var(--neon-cyan)",
   Rent: "var(--sky-blue)",
   Travel: "var(--accent)",
   Accommodation: "var(--accent)",
@@ -116,6 +120,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
 
 export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = {
   Revenue: ["Sales", "Services", "Subscriptions", "Marketplace", "Processor Payout"],
+  "Recurring Revenue": ["Subscriptions", "Retainers", "Memberships"],
   "Revenue Adjustment": ["Refund", "Chargeback", "Reversal"],
   "Payment Processor Payout": ["Stripe", "PayPal", "Square", "GoCardless", "Marketplace"],
   Software: ["SaaS", "Dev Tools", "CRM", "Accounting", "Design Tool", "Marketing Automation"],
@@ -128,6 +133,7 @@ export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = {
   "Contractor Payments": ["Freelancer", "Agency Support", "Project Delivery"],
   "Professional Services": ["Legal", "Accounting", "Consulting", "Advisory"],
   Consultancy: ["Director Fee", "Consultant", "Advisory"],
+  "Director Fees": ["Director Fee", "Board", "Advisory"],
   "Internal Transfer": ["Account Movement", "Currency Movement"],
   "International Transfer": ["Remittance", "Cross-border"],
   "Money Transfer": ["Remittance", "Wallet Movement"],

@@ -22,6 +22,7 @@ import { getCategoryBreakdown } from "@/lib/intelligence/categoriser";
 import { detectDuplicate } from "@/lib/intelligence/duplicate-detector-v2";
 import { toDbTransaction, type CanonicalTransaction } from "@/lib/providers/canonical-model";
 import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
+import { getKpiExclusionReasonForCategory, isKpiExcludedCategory } from "@/lib/kpi-treatment";
 import type { TransactionCategoryType, TransactionStatus } from "@/lib/types";
 import type { ImportReconciliation, ImportRowOutcome } from "@/lib/upload/reconciliation";
 import { detectSubscriptions, detectDuplicateTools } from "@/lib/intelligence/subscription-detector";
@@ -312,14 +313,17 @@ export async function runUploadPipeline(
         const rowNumber = i + 2; // 1-based CSV row, skipping header
         const overrideCategory = categoryOverrides[rowNumber];
         if (overrideCategory) {
+          const kpiExcluded = isKpiExcludedCategory(overrideCategory);
           parseResult.transactions[i].category = overrideCategory;
           parseResult.transactions[i].confidenceScore = 100; // User-confirmed
           parseResult.transactions[i].categoryConfidence = 100;
           parseResult.transactions[i].categoryReason = `User override selected ${overrideCategory} in upload preview.`;
-          parseResult.transactions[i].kpiExcluded = false;
-          parseResult.transactions[i].kpiExclusionReason = undefined;
-          parseResult.transactions[i].kpiTreatment = "included";
-          parseResult.transactions[i].status = "categorised";
+          parseResult.transactions[i].kpiExcluded = kpiExcluded;
+          parseResult.transactions[i].kpiExclusionReason = kpiExcluded ? getKpiExclusionReasonForCategory(overrideCategory) : undefined;
+          parseResult.transactions[i].kpiTreatment = kpiExcluded ? "excluded" : "included";
+          parseResult.transactions[i].status = "user_confirmed";
+          parseResult.transactions[i].categorySource = "user";
+          parseResult.transactions[i].userConfirmedCategory = true;
         }
       }
     }
@@ -358,7 +362,7 @@ export async function runUploadPipeline(
         if (tx.isTransfer) {
           tx.rowStatus = "transfer";
           tx.kpiExcluded = true;
-          tx.kpiExclusionReason = "transfer";
+          tx.kpiExclusionReason = tx.kpiExclusionReason ?? getKpiExclusionReasonForCategory(tx.category) ?? "transfer";
         } else if (tx.status === "needs_review") {
           tx.rowStatus = "needs_review";
           tx.kpiExcluded = tx.kpiExcluded ?? false;
@@ -714,6 +718,8 @@ export async function runUploadPipeline(
             ? tx.kpiExclusionReason ?? (tx.isPossibleDuplicate ? "duplicate" : tx.isTransfer ? "transfer" : "kpi_excluded")
             : undefined,
           categoryReason: tx.categoryReason,
+          intelligenceGroupId: tx.intelligenceGroupId,
+          intelligenceGroupReason: tx.intelligenceGroupReason,
           signalsUsed,
           reason: tx.reviewReason ?? tx.categoryReason ?? tx.kpiExclusionReason,
         };

@@ -72,7 +72,8 @@ export function FullScreenReview({
     const transfers = previewRows.filter((r) => TRANSFER_CATEGORIES.has(r.category) || r.status === "transfer").length;
     const creditCards = previewRows.filter((r) => r.category === "Credit Card Payment" || r.isCreditCardRepayment).length;
     const ambiguous = previewRows.filter((r) => r.category === "Ambiguous").length;
-    return { total, autoApplied, pending, needsReview, recurring, transfers, creditCards, ambiguous };
+    const kpiExcluded = previewRows.filter((r) => r.kpiTreatment === "excluded").length;
+    return { total, autoApplied, pending, needsReview, recurring, transfers, creditCards, ambiguous, kpiExcluded };
   }, [previewRows]);
 
   const filteredSuggestions = useMemo(() => {
@@ -142,9 +143,9 @@ export function FullScreenReview({
       {/* Header */}
       <header className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 sm:px-6">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">Smart Suggestions Review</h2>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Intelligence Review</h2>
           <p className="text-xs text-[var(--muted-foreground)]">
-            Review and approve category suggestions before importing
+            Inspect category evidence, unresolved rows, grouping, and KPI treatment before importing
           </p>
         </div>
         <button
@@ -156,7 +157,7 @@ export function FullScreenReview({
       </header>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 gap-2 border-b border-[var(--border)] bg-[var(--secondary)]/30 px-4 py-3 sm:grid-cols-4 sm:px-6 lg:grid-cols-8">
+      <div className="grid grid-cols-2 gap-2 border-b border-[var(--border)] bg-[var(--secondary)]/30 px-4 py-3 sm:grid-cols-4 sm:px-6 lg:grid-cols-9">
         <StatItem label="Total rows" value={stats.total} icon={<Filter className="h-3.5 w-3.5" />} />
         <StatItem label="Auto-categorised" value={stats.autoApplied} icon={<CheckCircle2 className="h-3.5 w-3.5 text-[var(--success)]" />} />
         <StatItem label="Suggested" value={stats.pending} icon={<Zap className="h-3.5 w-3.5 text-[var(--warning)]" />} />
@@ -165,6 +166,7 @@ export function FullScreenReview({
         <StatItem label="Transfers" value={stats.transfers} icon={<Shuffle className="h-3.5 w-3.5" />} />
         <StatItem label="Credit card" value={stats.creditCards} icon={<CreditCard className="h-3.5 w-3.5" />} />
         <StatItem label="Ambiguous" value={stats.ambiguous} icon={<HelpCircle className="h-3.5 w-3.5" />} />
+        <StatItem label="KPI excluded" value={stats.kpiExcluded} icon={<HelpCircle className="h-3.5 w-3.5" />} />
       </div>
 
       {/* Toolbar */}
