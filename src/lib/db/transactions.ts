@@ -19,6 +19,10 @@ function mapRow(row: Record<string, unknown>): Transaction {
     postedDate: (row.posted_date as string | undefined) ?? (metadata?.posted_date as string | undefined),
     currency: (row.currency as string | undefined) ?? (metadata?.currency as string | undefined),
     sourceProvider: (row.source_provider as string | undefined) ?? (metadata?.source_provider as string | undefined),
+    sourceConnectionId: (row.source_connection_id as string | undefined) ?? (metadata?.source_connection_id as string | undefined),
+    sourceInstitutionId: (row.source_institution_id as string | undefined) ?? (metadata?.source_institution_id as string | undefined),
+    sourceSyncJobId: (row.source_sync_job_id as string | undefined) ?? (metadata?.source_sync_job_id as string | undefined),
+    sourceAccountProviderId: (row.source_account_provider_id as string | undefined) ?? (metadata?.source_account_provider_id as string | undefined),
     rawRowHash: (row.raw_row_hash as string | undefined) ?? (metadata?.raw_row_hash as string | undefined),
     reference: (row.reference as string | undefined) ?? (metadata?.reference as string | undefined),
     rowStatus: (row.row_status as string | undefined) ?? (metadata?.row_status as string | undefined),
@@ -204,6 +208,10 @@ export interface TransactionInsert {
   postedDate?: string;
   currency?: string;
   sourceProvider?: string;
+  sourceConnectionId?: string;
+  sourceInstitutionId?: string;
+  sourceSyncJobId?: string;
+  sourceAccountProviderId?: string;
   rawRowHash?: string;
   reference?: string;
   rowStatus?: string;
@@ -237,6 +245,10 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
     posted_date: t.postedDate,
     currency: t.currency,
     source_provider: t.sourceProvider,
+    source_connection_id: t.sourceConnectionId,
+    source_institution_id: t.sourceInstitutionId,
+    source_sync_job_id: t.sourceSyncJobId,
+    source_account_provider_id: t.sourceAccountProviderId,
     raw_row_hash: t.rawRowHash,
     reference: t.reference,
     row_status: t.rowStatus,
@@ -264,7 +276,18 @@ function toDbRow(t: TransactionInsert): Record<string, unknown> {
 const CHUNK_SIZE = 300;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
-const OPTIONAL_PROOF_COLUMNS = ["posted_date", "fee_amount", "running_balance"];
+const OPTIONAL_PROOF_COLUMNS = [
+  "posted_date",
+  "fee_amount",
+  "running_balance",
+];
+const OPTIONAL_CONNECTED_LINEAGE_COLUMNS = [
+  "source_connection_id",
+  "source_institution_id",
+  "source_sync_job_id",
+  "source_account_provider_id",
+];
+const OPTIONAL_INSERT_COLUMNS = [...OPTIONAL_PROOF_COLUMNS, ...OPTIONAL_CONNECTED_LINEAGE_COLUMNS];
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -272,13 +295,24 @@ async function sleep(ms: number) {
 
 function isOptionalProofColumnError(message: string): boolean {
   const lower = message.toLowerCase();
-  return OPTIONAL_PROOF_COLUMNS.some((column) => lower.includes(column)) &&
+  return OPTIONAL_INSERT_COLUMNS.some((column) => lower.includes(column)) &&
     (lower.includes("column") || lower.includes("schema cache"));
 }
 
-function stripOptionalProofColumns(row: Record<string, unknown>): Record<string, unknown> {
+function optionalColumnsToStrip(message: string): string[] {
+  const lower = message.toLowerCase();
+  if (OPTIONAL_CONNECTED_LINEAGE_COLUMNS.some((column) => lower.includes(column))) {
+    return OPTIONAL_CONNECTED_LINEAGE_COLUMNS;
+  }
+  if (OPTIONAL_PROOF_COLUMNS.some((column) => lower.includes(column))) {
+    return OPTIONAL_PROOF_COLUMNS;
+  }
+  return OPTIONAL_INSERT_COLUMNS;
+}
+
+function stripOptionalColumns(row: Record<string, unknown>, columns: string[]): Record<string, unknown> {
   const next = { ...row };
-  for (const column of OPTIONAL_PROOF_COLUMNS) delete next[column];
+  for (const column of columns) delete next[column];
   return next;
 }
 
@@ -336,8 +370,9 @@ export async function createTransactionsChunked(
 
       lastError = error.message;
       if (!strippedOptionalProofColumns && isOptionalProofColumnError(error.message)) {
-        console.warn("[createTransactionsChunked] Optional proof columns missing in live schema; falling back to metadata-only for posted_date, fee_amount, running_balance.");
-        chunkForAttempt = chunk.map(stripOptionalProofColumns);
+        const columnsToStrip = optionalColumnsToStrip(error.message);
+        console.warn(`[createTransactionsChunked] Optional insert columns missing in live schema; falling back to metadata-only for ${columnsToStrip.join(", ")}.`);
+        chunkForAttempt = chunk.map((row) => stripOptionalColumns(row, columnsToStrip));
         strippedOptionalProofColumns = true;
         continue;
       }

@@ -177,7 +177,7 @@ interface WizardError {
   message: string;
 }
 
-export default function UploadWizard() {
+export default function UploadWizard({ showHeader = true }: { showHeader?: boolean }) {
   const [isSetupMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return new URLSearchParams(window.location.search).get("setup") === "true";
@@ -596,10 +596,12 @@ export default function UploadWizard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Upload Centre"
-        subtitle="Upload financial documents and let FounderAgent intelligently map, preview, and import everything."
-      />
+      {showHeader && (
+        <PageHeader
+          title="Data Sources"
+          subtitle="Connect bank accounts first, or upload statements as a fallback and historical import path."
+        />
+      )}
 
       {/* Progress Steps */}
       <StepIndicator step={step} />
@@ -647,8 +649,7 @@ export default function UploadWizard() {
           </div>
           <h2 className="text-2xl font-bold">Connect your first financial data source</h2>
           <p className="text-[var(--muted-foreground)] max-w-md">
-            Upload your bank statement so FounderAgent can build your dashboard,
-            categorise your spending, calculate your runway, and generate insights.
+            Connect your bank account or upload a statement to begin.
           </p>
           <button
             onClick={() => {

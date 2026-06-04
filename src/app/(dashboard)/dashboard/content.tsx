@@ -14,7 +14,7 @@ import type { CompanyBusinessProfile } from "@/lib/business-intelligence/types";
 import type { KPICardConfig } from "@/lib/business-intelligence/types";
 import KPIDrilldownDrawer from "@/components/features/dashboard/KPIDrilldownDrawer";
 import { DataCoverageBanner } from "@/components/features/shared/DataCoverageBanner";
-import type { FinancialDataSourceStatus } from "@/lib/db/data-source-shared";
+import { getSourceBreakdown, type FinancialDataSourceStatus } from "@/lib/db/data-source-shared";
 import { isExpense, isIncome } from "@/lib/reporting/filters";
 import { Sun, Sunrise, Moon } from "lucide-react";
 import * as Icons from "lucide-react";
@@ -236,7 +236,8 @@ export default function DashboardContent({
   const mainKPIs = eligibleKPIs.slice(0, 8);
   const advancedKPIs = eligibleKPIs.slice(8);
   const dateRangeLabel = getDateRange(initialPreset, initialFrom, initialTo).label;
-  const sourceUploadCount = new Set(transactions.map((t) => t.uploadId).filter(Boolean)).size;
+  const dataSourceBreakdown = getSourceBreakdown(dataSourceStatus);
+  const selectedSourceCount = dataSourceStatus.selectedTransactionCount ?? dataSourceStatus.activeTransactionCount ?? transactions.length;
   const incomeTransactions = transactions.filter((t) => isIncome(t));
   const expenseTransactions = transactions.filter((t) => isExpense(t));
   const activeSubscriptions = subscriptions.filter((s) => s.status === "active");
@@ -261,7 +262,7 @@ export default function DashboardContent({
         metric: formatCurrency(metrics.cashBalance, 0, currency),
         meaning: "Cash balance is the latest balance available from active financial source data in this company.",
         change: latestMetric && previousMetric ? `Latest period context is ${monthChange}.` : monthChange,
-        poweredBy: `${transactions.length} active transaction${transactions.length !== 1 ? "s" : ""} from ${sourceUploadCount} upload${sourceUploadCount !== 1 ? "s" : ""}.`,
+        poweredBy: `${selectedSourceCount} source transaction${selectedSourceCount !== 1 ? "s" : ""} across ${dataSourceBreakdown}.`,
         watch: "Watch for old source coverage dates because cash balance becomes stale when no newer rows are uploaded.",
         action: "Upload the latest statement when the coverage period no longer matches the period you want to manage.",
         rows: sortTransactionsNewestFirst(transactions),
@@ -395,7 +396,7 @@ export default function DashboardContent({
           })}
         </div>
         <p className="text-xs text-[var(--muted-foreground)]">
-          KPI source: {transactions.length} transaction{transactions.length !== 1 ? "s" : ""} from {sourceUploadCount} upload{sourceUploadCount !== 1 ? "s" : ""} in this date range.
+          KPI source: {selectedSourceCount} source transaction{selectedSourceCount !== 1 ? "s" : ""} across {dataSourceBreakdown} in this date range.
         </p>
         {advancedKPIs.length > 0 && (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/60 p-4">

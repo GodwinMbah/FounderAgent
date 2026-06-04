@@ -3,6 +3,7 @@ import {
   applyActiveSourceFilter,
   formatCoverageDate,
   getCoverageSummary,
+  getSourceBreakdown,
   type FinancialDataSourceStatus,
 } from "../data-source-shared";
 import {
@@ -64,7 +65,26 @@ describe("financial data source helpers", () => {
         manualTransactionCount: 0,
         activeUploadTransactionCount: 0,
       })
-    ).toBe("No active financial data source connected.");
+    ).toBe("Connect your bank account or upload a statement to begin.");
+  });
+
+  it("describes connected account transactions separately from uploads and manual rows", () => {
+    const status: FinancialDataSourceStatus = {
+      hasActiveDataSource: true,
+      activeUploadCount: 1,
+      activeTransactionCount: 705,
+      manualTransactionCount: 5,
+      activeUploadTransactionCount: 694,
+      connectedTransactionCount: 6,
+      connectedAccountCount: 3,
+      earliestTransactionDate: "2026-01-01",
+      latestTransactionDate: "2026-05-24",
+    };
+
+    expect(getCoverageSummary(status)).toBe(
+      "Data available: 01 Jan 2026 to 24 May 2026. Source: 694 transactions from 1 upload, 6 connected account transactions, 5 manual transactions."
+    );
+    expect(getSourceBreakdown(status)).toBe("694 transactions from 1 upload, 6 connected account transactions, 5 manual transactions");
   });
 });
 

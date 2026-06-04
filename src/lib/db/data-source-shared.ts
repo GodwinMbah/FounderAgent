@@ -4,6 +4,8 @@ export interface FinancialDataSourceStatus {
   activeTransactionCount: number;
   manualTransactionCount: number;
   activeUploadTransactionCount: number;
+  connectedAccountCount?: number;
+  connectedTransactionCount?: number;
   selectedTransactionCount?: number;
   earliestTransactionDate?: string;
   latestTransactionDate?: string;
@@ -23,7 +25,7 @@ export function formatCoverageDate(date?: string): string {
 
 export function getCoverageSummary(status: FinancialDataSourceStatus): string {
   if (!status.hasActiveDataSource) {
-    return "No active financial data source connected.";
+    return "Connect your bank account or upload a statement to begin.";
   }
 
   const range =
@@ -31,9 +33,36 @@ export function getCoverageSummary(status: FinancialDataSourceStatus): string {
       ? `${formatCoverageDate(status.earliestTransactionDate)} to ${formatCoverageDate(status.latestTransactionDate)}`
       : "No dated transactions";
 
-  return `Data available: ${range}. Source: ${status.activeTransactionCount} transaction${
-    status.activeTransactionCount === 1 ? "" : "s"
-  } from ${status.activeUploadCount} upload${status.activeUploadCount === 1 ? "" : "s"}.`;
+  const sourceParts = getSourceBreakdownParts(status);
+
+  return `Data available: ${range}. Source: ${sourceParts.join(", ")}.`;
+}
+
+export function getSourceBreakdownParts(status: FinancialDataSourceStatus): string[] {
+  const sourceParts: string[] = [];
+  if (status.activeUploadTransactionCount > 0 || status.activeUploadCount > 0) {
+    sourceParts.push(`${status.activeUploadTransactionCount} transaction${
+      status.activeUploadTransactionCount === 1 ? "" : "s"
+    } from ${status.activeUploadCount} upload${status.activeUploadCount === 1 ? "" : "s"}`);
+  }
+  if ((status.connectedTransactionCount ?? 0) > 0) {
+    sourceParts.push(`${status.connectedTransactionCount} connected account transaction${
+      status.connectedTransactionCount === 1 ? "" : "s"
+    }`);
+  }
+  if (status.manualTransactionCount > 0) {
+    sourceParts.push(`${status.manualTransactionCount} manual transaction${status.manualTransactionCount === 1 ? "" : "s"}`);
+  }
+  if (sourceParts.length === 0 && (status.connectedAccountCount ?? 0) > 0) {
+    sourceParts.push(`${status.connectedAccountCount} connected account${status.connectedAccountCount === 1 ? "" : "s"} awaiting transactions`);
+  }
+
+  return sourceParts;
+}
+
+export function getSourceBreakdown(status: FinancialDataSourceStatus): string {
+  const parts = getSourceBreakdownParts(status);
+  return parts.length > 0 ? parts.join(", ") : "no active source rows";
 }
 
 export function applyActiveSourceFilter<T extends { or: (query: string) => T; is: (column: string, value: null) => T }>(

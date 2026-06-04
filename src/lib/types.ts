@@ -58,6 +58,10 @@ export interface Transaction {
   postedDate?: string;
   currency?: string;
   sourceProvider?: string;
+  sourceConnectionId?: string;
+  sourceInstitutionId?: string;
+  sourceSyncJobId?: string;
+  sourceAccountProviderId?: string;
   rawRowHash?: string;
   reference?: string;
   rowStatus?: string;
