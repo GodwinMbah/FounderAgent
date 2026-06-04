@@ -13,7 +13,7 @@ import {
   FileBarChart,
   Sparkles,
   Bell,
-  Upload,
+  DatabaseZap,
   Settings,
   X,
   ChevronRight,
@@ -44,7 +44,7 @@ const intelNav = [
 ];
 
 const systemNav = [
-  { href: "/upload-centre", label: "Upload Centre", icon: Upload },
+  { href: "/upload-centre", label: "Data Sources", icon: DatabaseZap },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

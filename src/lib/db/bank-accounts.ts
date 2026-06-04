@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompanyForUser } from "./company";
+import { isCashBalanceSourceAccount } from "./bank-account-routing";
 
 export interface BankAccount {
   id: string;
@@ -113,10 +114,13 @@ export async function getTotalCashBalanceForCompany(companyId: string): Promise<
 
   const { data, error } = await admin
     .from("bank_accounts")
-    .select("current_balance")
+    .select("current_balance, type, metadata")
     .eq("company_id", companyId)
     .eq("is_active", true);
 
   if (error || !data) return 0;
-  return data.reduce((sum: number, row: { current_balance: number }) => sum + Number(row.current_balance), 0);
+  return data.reduce((sum: number, row: { current_balance: number; type?: string; metadata?: Record<string, unknown> | null }) => {
+    if (!isCashBalanceSourceAccount(row)) return sum;
+    return sum + Number(row.current_balance);
+  }, 0);
 }

@@ -1,5 +1,5 @@
 import type { FinancialDataSourceStatus } from "@/lib/db/data-source-shared";
-import { formatCoverageDate } from "@/lib/db/data-source-shared";
+import { formatCoverageDate, getSourceBreakdown } from "@/lib/db/data-source-shared";
 
 interface DataCoverageBannerProps {
   status: FinancialDataSourceStatus;
@@ -15,6 +15,7 @@ export function DataCoverageBanner({ status, selectedLabel, compact = false }: D
       ? `${formatCoverageDate(status.earliestTransactionDate)} to ${formatCoverageDate(status.latestTransactionDate)}`
       : "No dated transactions";
   const selectedCount = status.selectedTransactionCount ?? status.activeTransactionCount;
+  const sourceBreakdown = getSourceBreakdown(status);
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 px-4 py-3">
@@ -24,14 +25,13 @@ export function DataCoverageBanner({ status, selectedLabel, compact = false }: D
         </p>
         <p className="text-xs text-[var(--muted-foreground)]">
           <span className="font-semibold text-[var(--foreground)]">Selected:</span> {selectedLabel}.{" "}
-          <span className="font-semibold text-[var(--foreground)]">Source:</span> {selectedCount} transaction
-          {selectedCount === 1 ? "" : "s"} from {status.activeUploadCount} upload
-          {status.activeUploadCount === 1 ? "" : "s"}.
+          <span className="font-semibold text-[var(--foreground)]">Source:</span> {selectedCount} selected transaction
+          {selectedCount === 1 ? "" : "s"} across {sourceBreakdown}.
         </p>
       </div>
       {selectedCount === 0 && (
         <p className="mt-2 text-xs font-medium text-[var(--warning)]">
-          No transactions found in selected range. Upload new data to see latest results.
+          No transactions found in selected range. Connect your bank account or upload a statement to begin.
         </p>
       )}
     </div>

@@ -8,7 +8,9 @@ export async function loadTransactionsPage(input: {
   to: string;
   limit: number;
   offset: number;
+  sourceType?: string;
   type?: string;
+  accountId?: string;
   uploadId?: string;
   category?: string;
   status?: string;
@@ -24,7 +26,9 @@ export async function loadTransactionsPage(input: {
       endDate: input.to,
       limit: input.limit,
       offset: input.offset,
+      sourceType: input.sourceType === "open_banking" || input.sourceType === "csv_upload" || input.sourceType === "manual" ? input.sourceType : undefined,
       type: input.type === "income" || input.type === "expense" ? input.type : undefined,
+      accountId: input.accountId && input.accountId !== "all" ? input.accountId : undefined,
       uploadId: input.uploadId && input.uploadId !== "all" ? input.uploadId : undefined,
       category: input.category && input.category !== "all" ? input.category : undefined,
       status: input.status && input.status !== "all" ? input.status : undefined,

@@ -27,7 +27,8 @@ const EXPECTED_COLUMNS: Record<string, TableExpectations> = {
       "created_at", "updated_at", "bank_account_id", "currency", "reference",
       "external_transaction_id", "source_provider", "source_row_number",
       "raw_row_hash", "row_status", "kpi_excluded", "kpi_exclusion_reason",
-      "duplicate_of_transaction_id",
+      "duplicate_of_transaction_id", "source_connection_id", "source_institution_id",
+      "source_sync_job_id", "source_account_provider_id",
     ],
     should: [
       "posted_date", "fee_amount", "running_balance",
@@ -48,7 +49,11 @@ const EXPECTED_COLUMNS: Record<string, TableExpectations> = {
   bank_accounts: {
     must: [
       "id", "company_id", "name", "currency", "current_balance",
-      "metadata", "created_at", "updated_at",
+      "metadata", "created_at", "updated_at", "provider", "provider_account_id",
+      "connected_institution_id", "provider_consent_id", "account_subtype",
+      "available_balance", "credit_limit", "connection_status",
+      "consent_expires_at", "last_synced_at", "last_successful_sync_at",
+      "sync_status", "sync_error", "kpi_routing",
     ],
     should: [
       "account_number", "sort_code",
@@ -101,9 +106,54 @@ const EXPECTED_COLUMNS: Record<string, TableExpectations> = {
       "name", "start_date", "end_date", "notes", "is_flagged", "flag_reason",
     ],
   },
+  connected_institutions: {
+    must: [
+      "id", "company_id", "provider", "provider_institution_id",
+      "institution_name", "country_codes", "status", "connected_at",
+      "disconnected_at", "metadata", "created_at", "updated_at",
+    ],
+    should: [],
+  },
+  provider_consents: {
+    must: [
+      "id", "company_id", "connected_institution_id", "provider",
+      "provider_item_id", "provider_consent_id", "token_reference", "scopes",
+      "status", "consent_expires_at", "last_synced_at",
+      "last_successful_sync_at", "reconnect_url", "metadata", "created_at",
+      "updated_at",
+    ],
+    should: [],
+  },
+  bank_account_balances: {
+    must: [
+      "id", "company_id", "bank_account_id", "provider", "provider_account_id",
+      "current_balance", "available_balance", "credit_limit", "currency",
+      "balance_as_of", "raw_payload", "created_at",
+    ],
+    should: [],
+  },
+  open_banking_sync_jobs: {
+    must: [
+      "id", "company_id", "provider", "provider_consent_id",
+      "connected_institution_id", "bank_account_id", "sync_type", "status",
+      "started_at", "completed_at", "cursor_before", "cursor_after",
+      "accounts_synced", "balances_synced", "transactions_seen",
+      "transactions_inserted", "duplicates_skipped", "errors_count",
+      "error_message", "metadata", "created_at", "updated_at",
+    ],
+    should: [],
+  },
+  open_banking_sync_logs: {
+    must: [
+      "id", "company_id", "sync_job_id", "provider", "level", "event",
+      "message", "provider_error_code", "provider_error_type", "raw_payload",
+      "created_at",
+    ],
+    should: [],
+  },
 };
 
-async function getActualColumns(table: string): Promise<string[] | null> {
+async function getActualColumns(table: string, expectedColumns: string[]): Promise<string[] | null> {
   const { data, error } = await supabase
     .from(table)
     .select("*")
@@ -129,11 +179,30 @@ async function getActualColumns(table: string): Promise<string[] | null> {
   }
 
   if (!data || data.length === 0) {
-    // Empty table — try to get column info via SQL
-    return [];
+    const present = await probeExpectedColumns(table, expectedColumns);
+    return present;
   }
 
   return Object.keys(data[0]);
+}
+
+async function probeExpectedColumns(table: string, expectedColumns: string[]): Promise<string[] | null> {
+  const present: string[] = [];
+  for (const column of expectedColumns) {
+    const { error } = await supabase
+      .from(table)
+      .select(column)
+      .limit(1);
+
+    if (!error) {
+      present.push(column);
+      continue;
+    }
+    if (error.message && error.message.includes("does not exist")) {
+      return null;
+    }
+  }
+  return present;
 }
 
 async function getColumnsViaSql(table: string): Promise<string[] | null> {
@@ -178,7 +247,8 @@ async function verifySchema() {
   for (const [table, expectations] of Object.entries(EXPECTED_COLUMNS)) {
     console.log(`📋 Table: ${table}`);
 
-    let actualColumns = await getActualColumns(table);
+    const expectedColumnSet = [...expectations.must, ...expectations.should];
+    let actualColumns = await getActualColumns(table, expectedColumnSet);
 
     // Fallback to SQL if table is empty
     if (actualColumns !== null && actualColumns.length === 0) {
@@ -327,6 +397,41 @@ async function verifySchema() {
         console.log(`${hasMetadata ? "⚠️" : "❌"} ${table}.${col} missing${hasMetadata ? " (metadata fallback available)" : ""}`);
       }
     }
+  }
+
+  console.log("");
+
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("  Migration 022 Open Banking Audit");
+  console.log("═══════════════════════════════════════════════════════════");
+
+  const migration022Columns = [
+    { table: "connected_institutions", col: "provider_institution_id" },
+    { table: "connected_institutions", col: "institution_name" },
+    { table: "provider_consents", col: "token_reference" },
+    { table: "provider_consents", col: "consent_expires_at" },
+    { table: "bank_accounts", col: "provider_account_id" },
+    { table: "bank_accounts", col: "connected_institution_id" },
+    { table: "bank_accounts", col: "provider_consent_id" },
+    { table: "bank_accounts", col: "account_subtype" },
+    { table: "bank_accounts", col: "available_balance" },
+    { table: "bank_accounts", col: "connection_status" },
+    { table: "bank_accounts", col: "last_successful_sync_at" },
+    { table: "bank_account_balances", col: "balance_as_of" },
+    { table: "open_banking_sync_jobs", col: "transactions_inserted" },
+    { table: "open_banking_sync_jobs", col: "duplicates_skipped" },
+    { table: "open_banking_sync_logs", col: "event" },
+    { table: "transactions", col: "source_connection_id" },
+    { table: "transactions", col: "source_institution_id" },
+    { table: "transactions", col: "source_sync_job_id" },
+    { table: "transactions", col: "source_account_provider_id" },
+  ];
+
+  for (const { table, col } of migration022Columns) {
+    const r = results.find((x) => x.table === table);
+    const exists = r?.actual.includes(col) ?? false;
+    console.log(`${exists ? "✅" : "❌"} ${table}.${col}`);
+    if (!exists) hasCriticalMissing = true;
   }
 
   console.log("");
