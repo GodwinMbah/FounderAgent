@@ -72,6 +72,7 @@ export interface GetTransactionsOptions {
   endDate?: string;
   accountId?: string;
   type?: "income" | "expense";
+  sourceType?: "open_banking" | "csv_upload" | "manual";
   uploadId?: string;
   category?: string;
   status?: string;
@@ -109,6 +110,11 @@ export async function getTransactions(
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);
   if (options?.accountId) query = query.eq("bank_account_id", options.accountId);
+  if (options?.sourceType === "open_banking") {
+    query = query.is("upload_id", null).in("source_provider", ["plaid", "truelayer", "yapily", "tink", "gocardless_bank_account_data", "enable_banking", "sandbox"]);
+  }
+  if (options?.sourceType === "csv_upload") query = query.not("upload_id", "is", null);
+  if (options?.sourceType === "manual") query = query.is("upload_id", null).not("source_provider", "in", "(plaid,truelayer,yapily,tink,gocardless_bank_account_data,enable_banking,sandbox)");
   if (options?.type) query = query.eq("type", options.type);
   if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
   if (options?.category) query = query.eq("category", options.category);
@@ -161,6 +167,11 @@ export async function getTransactionsPage(
   if (options?.startDate) query = query.gte("date", options.startDate);
   if (options?.endDate) query = query.lte("date", options.endDate);
   if (options?.accountId) query = query.eq("bank_account_id", options.accountId);
+  if (options?.sourceType === "open_banking") {
+    query = query.is("upload_id", null).in("source_provider", ["plaid", "truelayer", "yapily", "tink", "gocardless_bank_account_data", "enable_banking", "sandbox"]);
+  }
+  if (options?.sourceType === "csv_upload") query = query.not("upload_id", "is", null);
+  if (options?.sourceType === "manual") query = query.is("upload_id", null).not("source_provider", "in", "(plaid,truelayer,yapily,tink,gocardless_bank_account_data,enable_banking,sandbox)");
   if (options?.type) query = query.eq("type", options.type);
   if (options?.uploadId) query = query.eq("upload_id", options.uploadId);
   if (options?.category) query = query.eq("category", options.category);

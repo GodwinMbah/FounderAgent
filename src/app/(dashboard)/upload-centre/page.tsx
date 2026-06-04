@@ -4,7 +4,7 @@ import UploadHistoryList from "@/components/features/upload/UploadHistoryList";
 import { getFinancialDataSourceStatus } from "@/lib/db/data-source";
 import { DataCoverageBanner } from "@/components/features/shared/DataCoverageBanner";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { DatabaseZap, Landmark, UploadCloud, Clock3, ShieldCheck } from "lucide-react";
+import { DatabaseZap, Landmark, UploadCloud, Clock3, ShieldCheck, RefreshCw, Unplug } from "lucide-react";
 import type { ElementType } from "react";
 import OpenBankingSandboxClient from "./OpenBankingSandboxClient";
 import { getConnectedAccountSummaries, type ConnectedAccountSummary } from "@/lib/open-banking/connected-accounts";
@@ -85,7 +85,7 @@ function ConnectedAccountsPanel({ accounts }: { accounts: ConnectedAccountSummar
       <div className="border-b border-[var(--border)] px-5 py-4">
         <h2 className="text-base font-bold text-[var(--foreground)]">Connected Accounts</h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          Provider account records that can power balances, sync status, KPI routing, and source trace.
+          First-class connected account records that power balances, sync status, KPI routing, and source trace.
         </p>
       </div>
       <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
@@ -95,18 +95,51 @@ function ConnectedAccountsPanel({ accounts }: { accounts: ConnectedAccountSummar
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-[var(--foreground)]">{account.accountName}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
-                  {account.provider} · {account.accountType ?? "connected account"}
+                  {formatProvider(account.provider)} · {account.institutionName ?? "Institution"}
                 </p>
               </div>
-              <span className="rounded-full border border-[var(--accent)]/25 px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--accent)]">
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${account.connectionStatus === "connected" ? "border-[var(--accent)]/25 text-[var(--accent)]" : "border-[#F43F5E]/30 text-[#FDA4AF]"}`}>
                 {account.connectionStatus}
               </span>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+              <SourceFact label="Provider" value={formatProvider(account.provider)} />
+              <SourceFact label="Institution" value={account.institutionName ?? "Unknown"} />
+              <SourceFact label="Account Type" value={formatLabel(account.accountType ?? "connected account")} />
+              <SourceFact label="Subtype" value={formatLabel(account.accountSubtype ?? "unknown")} />
               <SourceFact label="Currency" value={account.currency} />
+              <SourceFact label="Current" value={formatMoney(account.currentBalance, account.currency)} />
+              <SourceFact label="Available" value={formatMoney(account.availableBalance, account.currency)} />
+              <SourceFact label="Credit Limit" value={formatMoney(account.creditLimit, account.currency)} />
               <SourceFact label="Cash Balance" value={account.cashBalanceSource ? "Included" : "Excluded"} />
               <SourceFact label="Sync" value={account.syncStatus ?? "unknown"} />
               <SourceFact label="Last Sync" value={formatSyncDate(account.lastSuccessfulSyncAt)} />
+              <SourceFact label="Consent Expiry" value={formatDateTime(account.consentExpiresAt, "Not available")} />
+              <SourceFact label="Transactions" value={String(account.transactionsSynced)} />
+              <SourceFact label="Duplicates" value={String(account.duplicatesSkipped)} />
+            </div>
+            {account.syncError && (
+              <div className="mt-3 rounded-lg border border-[#F43F5E]/25 bg-[#F43F5E]/10 px-3 py-2 text-xs text-[#FDA4AF]">
+                {account.syncError}
+              </div>
+            )}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] opacity-70"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Reconnect
+              </button>
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-2 rounded-lg border border-[#F43F5E]/30 px-3 py-2 text-xs font-semibold text-[#FDA4AF] opacity-70"
+              >
+                <Unplug className="h-3.5 w-3.5" />
+                Disconnect
+              </button>
             </div>
           </div>
         ))}
@@ -125,13 +158,48 @@ function SourceFact({ label, value }: { label: string; value: string }) {
 }
 
 function formatSyncDate(value?: string): string {
-  if (!value) return "Not synced";
+  return formatDateTime(value, "Not synced");
+}
+
+function formatDateTime(value: string | undefined, fallback: string): string {
+  if (!value) return fallback;
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function formatProvider(value?: string): string {
+  if (!value) return "Unknown";
+  const labels: Record<string, string> = {
+    plaid: "Plaid",
+    truelayer: "TrueLayer",
+    yapily: "Yapily",
+    tink: "Tink",
+    gocardless_bank_account_data: "GoCardless",
+    enable_banking: "Enable Banking",
+  };
+  return labels[value.toLowerCase()] ?? formatLabel(value);
+}
+
+function formatLabel(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatMoney(value: number | undefined, currency: string): string {
+  if (value === undefined || Number.isNaN(value)) return "Not available";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function SourceSignal({

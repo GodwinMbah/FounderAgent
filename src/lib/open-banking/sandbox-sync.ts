@@ -109,6 +109,7 @@ function bankAccountMetadata(
     last_successful_sync_at: account.lastSuccessfulSyncAt,
     sync_status: account.syncStatus,
     connection_status: account.status,
+    consent_expires_at: account.consentExpiresAt,
     kpi_routing: account.kpiRouting,
     cash_balance_source: account.kpiRouting.cashBalanceSource,
     last_balance_payload: balance?.raw,
@@ -177,27 +178,56 @@ async function insertProviderConsent(
   consent: ProviderConsent,
   institutionId?: string
 ): Promise<OptionalWriteResult> {
+  const { data: existing, error: existingError } = await admin
+    .from("provider_consents")
+    .select("id")
+    .eq("company_id", consent.companyId)
+    .eq("provider", consent.provider)
+    .eq("provider_consent_id", consent.providerConsentId)
+    .maybeSingle();
+
+  if (existingError && isMissingSchemaError(existingError.message)) {
+    return { warning: optionalWarning("provider_consents", existingError.message) };
+  }
+  if (existingError) throw new Error(`Provider consent lookup failed: ${existingError.message}`);
+
+  const payload = {
+    company_id: consent.companyId,
+    connected_institution_id: institutionId,
+    provider: consent.provider,
+    provider_item_id: consent.providerItemId,
+    provider_consent_id: consent.providerConsentId,
+    token_reference: consent.tokenReference,
+    scopes: consent.scopes,
+    status: consent.status,
+    consent_expires_at: consent.consentExpiresAt,
+    last_synced_at: consent.lastSyncedAt,
+    last_successful_sync_at: consent.lastSuccessfulSyncAt,
+    reconnect_url: consent.reconnectUrl,
+    metadata: {
+      ...(consent.metadata ?? {}),
+      token_storage: "reference_only",
+      sandbox_fixture: true,
+    },
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing?.id) {
+    const { error } = await admin
+      .from("provider_consents")
+      .update(payload)
+      .eq("id", existing.id);
+
+    if (error && isMissingSchemaError(error.message)) {
+      return { id: existing.id as string, warning: optionalWarning("provider_consents update", error.message) };
+    }
+    if (error) throw new Error(`Provider consent update failed: ${error.message}`);
+    return { id: existing.id as string };
+  }
+
   const { data, error } = await admin
     .from("provider_consents")
-    .insert({
-      company_id: consent.companyId,
-      connected_institution_id: institutionId,
-      provider: consent.provider,
-      provider_item_id: consent.providerItemId,
-      provider_consent_id: consent.providerConsentId,
-      token_reference: consent.tokenReference,
-      scopes: consent.scopes,
-      status: consent.status,
-      consent_expires_at: consent.consentExpiresAt,
-      last_synced_at: consent.lastSyncedAt,
-      last_successful_sync_at: consent.lastSuccessfulSyncAt,
-      reconnect_url: consent.reconnectUrl,
-      metadata: {
-        ...(consent.metadata ?? {}),
-        token_storage: "reference_only",
-        sandbox_fixture: true,
-      },
-    })
+    .insert(payload)
     .select("id")
     .single();
 
@@ -264,6 +294,7 @@ async function upsertBankAccount(
     available_balance: account.availableBalance,
     credit_limit: account.limit,
     connection_status: account.status,
+    consent_expires_at: account.consentExpiresAt,
     last_synced_at: account.lastSyncedAt,
     last_successful_sync_at: account.lastSuccessfulSyncAt,
     sync_status: account.syncStatus,
@@ -577,6 +608,7 @@ export async function runPlaidSandboxSyncForCompany(companyId: string): Promise<
     ...account,
     institutionId: institution.providerInstitutionId,
     consentId: consent.providerConsentId,
+    consentExpiresAt: consent.consentExpiresAt,
   }));
   const balances = await connector.syncBalances(consent, accounts);
   const balanceByProviderId = new Map(balances.map((balance) => [balance.providerAccountId, balance]));

@@ -98,6 +98,7 @@ export interface ConnectedBankAccount {
   limit?: number;
   accountMask?: string;
   status: ConnectedAccountStatus;
+  consentExpiresAt?: string;
   lastSyncedAt?: string;
   lastSuccessfulSyncAt?: string;
   syncStatus?: OpenBankingSyncStatus;
@@ -171,4 +172,3 @@ export interface OpenBankingConnector {
     account: ConnectedBankAccount
   ): CanonicalTransaction;
 }
-

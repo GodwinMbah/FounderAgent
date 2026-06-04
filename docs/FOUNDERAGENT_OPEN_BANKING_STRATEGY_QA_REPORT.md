@@ -117,6 +117,22 @@ It extends `transactions` with:
 
 Raw provider access tokens must not be stored in browser-accessible data. `provider_consents.token_reference` is a reference to a server-side encrypted token store or vault, not the token itself.
 
+## Migration 022 Application Result
+
+Migration `022_open_banking_connected_sources.sql` was applied in the Supabase SQL editor on 2026-06-04 and returned success with no rows.
+
+`npx tsx scripts/verify-schema.ts` now verifies the Open Banking first-class schema directly. Result:
+
+- `connected_institutions`: present
+- `provider_consents`: present
+- `bank_account_balances`: present
+- `open_banking_sync_jobs`: present
+- `open_banking_sync_logs`: present
+- `bank_accounts` provider, provider account ID, connected institution, consent, account subtype, available balance, credit limit, connection status, consent expiry, last sync, sync status, sync error, and KPI routing columns: present
+- `transactions` source connection ID, source institution ID, source sync job ID, and source account provider ID columns: present
+
+Schema verification result: all MUST columns present. Remaining warnings are older SHOULD columns with known metadata fallback (`bank_accounts.account_number`, `bank_accounts.sort_code`, `company_metrics.mrr`) and older `agent_tasks` SHOULD columns not part of this Open Banking scope.
+
 ## Security Plan
 
 - Sandbox only in this phase.
@@ -186,48 +202,78 @@ Implemented local Plaid-shaped sandbox fixture:
 Proof command:
 
 ```bash
-npx tsx scripts/prove-open-banking-sandbox.ts
+npx tsx scripts/prove-open-banking-sandbox.ts --persist
 ```
 
 Result:
 
 - Accounts synced: 3
 - Balances synced: 3
-- Transactions synced: 6
+- Provider transactions: 6
+- Canonical transactions: 6
 - GBP rows: 6
 - Revenue rows: 2
 - Expense rows: 2
 - Transfer rows: 1
 - Debt rows: 1
-- Data quality rows: 0
+- Duplicate replay result: 0 inserted, 6 duplicates skipped
+
+First-class Supabase proof after migration 022:
+
+- Connected institution rows: 1
+- Provider consent rows: 1
+- Connected bank account rows: 3
+- Balance snapshot rows: 9 after three sandbox sync runs
+- Sync job rows: 3
+- Sync log rows: 3
+- Transaction rows: 6
+- Transaction rows with first-class source lineage columns populated: 6
+- GBP rows: 6
+- Latest sync job status: `succeeded`, `accounts_synced = 3`, `balances_synced = 3`, `transactions_seen = 6`, `transactions_inserted = 0`, `duplicates_skipped = 6`
 
 This does not connect to a live bank account. It does not call Plaid production. It does not require or commit real Plaid secrets.
 
 ## Dashboard And Transactions Proof
 
-Sandbox persistence is implemented and proved against Supabase with a Plaid-shaped fixture. Because migration 022 has not been applied to the live database, the sync service uses metadata fallback for connected institution/consent/balance/sync-job records and writes the durable proof into existing `bank_accounts` metadata and `transactions` rows.
+Sandbox persistence is implemented and proved against Supabase with a Plaid-shaped fixture. After migration 022, connected institution, consent, balance snapshot, sync job, sync log, connected bank account, and transaction source-lineage data persists into first-class tables/columns. Metadata remains only a compatibility fallback, not the primary proof path.
 
 Browser proof, signed-in account, 2026-06-04:
 
 - Data Sources page renders with `Connect Bank Account` as primary and `Upload Statement` as fallback.
-- First sandbox browser sync inserted 6 Plaid-shaped GBP transactions and displayed 3 connected accounts.
-- Rerunning the same sandbox source after duplicate-fix verification showed: `3 accounts, 3 balances, 0 inserted, 6 duplicate skipped`.
-- Transactions page showed the Plaid Stripe row in GBP with `External plaid-tx-stripe-001` and KPI treatment `Payment processor payout: KPI included`.
+- Connected Accounts displays provider, institution, account name, account type, account subtype, currency, current balance, available balance, credit limit, cash-balance inclusion, sync status, last sync, consent expiry, transaction count, duplicate count, and reconnect/disconnect placeholders.
+- Rerunning the sandbox source showed duplicate prevention in browser: `3 accounts, 3 balances, 0 inserted, 6 duplicate skipped`.
+- Transactions page with `?sourceType=open_banking` showed 6 rows and rendered a compact source badge per row: `Open Banking`, `Plaid`, `Plaid Sandbox Bank`, and the connected account name.
+- Transactions filters now include source type, provider, connected account, upload file, and CSV versus Open Banking separation.
 - Dashboard showed GBP KPIs and source text including connected rows: `1006 source transactions across 1000 transactions from 3 uploads, 6 connected account transactions`.
 
 Supabase proof for signed-in company `925fc8e0-2d08-4422-a878-14c3872195a7`:
 
-- Plaid rows: 6
+- Connected institution rows: 1
+- Provider consent rows: 1
+- Connected bank account rows: 3
+- Balance snapshots after browser and CLI duplicate reruns: 6
+- Sync jobs: 2
+- Sync logs: 2
+- Plaid transaction rows: 6
+- Plaid transaction rows with first-class source lineage: 6
 - Currencies: GBP only
 - External transaction IDs: `plaid-tx-canva-card-001`, `plaid-tx-card-repayment-001`, `plaid-tx-google-001`, `plaid-tx-interest-001`, `plaid-tx-saving-transfer-001`, `plaid-tx-stripe-001`
 
 Screenshot evidence:
 
-- `/tmp/founderagent-data-sources-duplicate-skip-proof.png`
-- `/tmp/founderagent-transactions-open-banking-proof.png`
-- `/tmp/founderagent-dashboard-connected-source-proof.png`
+- `/tmp/founderagent-data-sources-migration022-proof.png`
+- `/tmp/founderagent-transactions-source-badge-proof.png`
+- `/tmp/founderagent-dashboard-migration022-source-proof.png`
 
-Important limitation: Transactions currently proves source lineage through DB/external ID text, but it does not yet render a friendly row-level `Open Banking / Plaid` badge.
+KPI routing proof:
+
+- Current account rows feed operating revenue, operating expenses, cash movement, profit and loss, and cash balance according to `getAccountKpiRouting("business_current")`.
+- Savings transfers are classified as internal transfers and do not inflate revenue; genuine savings interest can feed revenue.
+- Credit card purchases feed expenses, while credit card repayments are debt movement and not operating expenses.
+- Loan repayments are debt movement and not operating expenses.
+- Payment processor payouts are protected from double counting when a processor feed is the sales source.
+- CSV and Open Banking overlap detection skips duplicates instead of inserting another KPI-impacting row.
+- Tests covering this are in `src/lib/open-banking/__tests__/kpi-routing.test.ts`, `src/lib/open-banking/__tests__/plaid-sandbox.test.ts`, `src/lib/open-banking/__tests__/sandbox-sync.test.ts`, `src/lib/db/__tests__/bank-accounts.test.ts`, and `src/lib/reporting/__tests__/treatment-engine.test.ts`.
 
 ## CSV Fallback Regression Proof
 
@@ -239,7 +285,7 @@ CSV remains intact as fallback. The real 694-row Revolut Business file was rerun
 - Currency: GBP
 - KPI proof: revenue `78356.69`, expenses `76088.90`, net profit `2267.79`
 - Promoted CSV proof columns present for all 694 rows: posted date, fee amount, running balance
-- Optional migration-022 Open Banking source columns are not live yet, so insert fallback strips only those missing connected-lineage columns and preserves CSV proof columns.
+- Duplicate replay preserved KPI integrity: 0 rows inserted, 694 duplicate row outcomes, no KPI corruption.
 
 ## Performance Foundation
 
@@ -282,9 +328,10 @@ npx tsx scripts/prove-open-banking-sandbox.ts --persist --company-id aaaaaaaa-aa
 npm run lint
 npm test
 npm run build
-npx tsx scripts/prove-reconciliation-694.ts --reset
 npx tsx scripts/verify-schema.ts
 npx tsx scripts/audit-secrets.ts
+npx tsx scripts/prove-open-banking-sandbox.ts --persist
+npx tsx scripts/prove-reconciliation-694.ts --reset
 npx tsx scripts/test-provider-detection.ts
 npx tsx scripts/test-unified-parser.ts
 git diff --check
@@ -297,8 +344,9 @@ Results:
 - Lint: passed
 - Build: passed, with existing Next.js `middleware` deprecation warning
 - 694-row CSV proof: passed
-- Open Banking sandbox persistence proof: passed with migration-022 warnings
-- Schema verification: all MUST columns present; migration 022 connected-account tables/columns not yet live
+- Open Banking sandbox persistence proof: passed with first-class migration-022 tables/columns
+- Duplicate Open Banking sync proof: passed, 0 inserted and 6 skipped
+- Schema verification: all MUST columns present, including migration 022 Open Banking tables and lineage columns
 - Secret audit: passed
 
 ## Known Limitations
@@ -306,22 +354,23 @@ Results:
 - No live Open Banking connection is enabled.
 - No production provider approval has been requested.
 - No real Plaid/TrueLayer/Yapily credentials are committed.
-- Migration 022 must be run before first-class connected institution, consent, balance snapshot, sync job, sync log, and transaction source-lineage columns exist in Supabase. Until then, fallback metadata is used.
-- The UI exposes Data Sources direction but the Connect Bank Account button is not a live production bank connection.
-- Transactions rows do not yet show a polished Open Banking provider badge; source proof is visible through DB/external IDs and metadata.
+- `Connect Bank Account` is still a sandbox foundation control, not a live production bank connection.
+- Reconnect and disconnect controls are placeholders only.
+- Token storage still needs encrypted provider token references or Supabase Vault before production.
+- Provider webhooks and real cursor refresh are not enabled.
 - Dashboard KPI source counts now include connected rows, but full KPI drilldown row loading still needs a paginated source-backed loader beyond the current 1,000-row select ceiling.
 - Route performance is measured and documented but not fully remediated in this branch.
+- Stripe, PayPal, Shopify, and other future integrations are represented as source model targets only; live integrations are not implemented here.
 - P4 AI reasoning and P5 agentic actions are intentionally not included.
 
 ## Next Steps
 
-1. Apply migration 022 in Supabase.
-2. Replace the fixture button with server-only Plaid sandbox token exchange endpoints.
-3. Store token references using encrypted storage or Supabase Vault.
-4. Persist connected institution, consent, balances, sync jobs, sync logs, and source-lineage columns through migration 022 instead of metadata fallback.
-5. Add a row-level `Open Banking / Provider / Account` badge and filters on Transactions.
-6. Add paginated KPI drilldown loaders so Dashboard explanations can show every source row behind each KPI without a 1,000-row ceiling.
-7. Evaluate TrueLayer and Yapily with UK business-bank sandbox/production criteria before live launch.
-8. Continue performance remediation against the documented route targets.
+1. Replace the fixture button with server-only Plaid sandbox token exchange endpoints.
+2. Store token references using encrypted storage or Supabase Vault.
+3. Add provider webhooks and cursor refresh jobs for sandbox.
+4. Implement reconnect and disconnect status flows.
+5. Add paginated KPI drilldown loaders so Dashboard explanations can show every source row behind each KPI without a 1,000-row ceiling.
+6. Evaluate TrueLayer and Yapily with UK business-bank sandbox/production criteria before live launch.
+7. Continue performance remediation against the documented route targets.
 
 Do not claim production readiness from this phase.

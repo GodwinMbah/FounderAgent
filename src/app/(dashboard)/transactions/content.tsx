@@ -17,6 +17,7 @@ import { formatKpiExclusionReason } from "@/lib/kpi-treatment";
 import { classifyReportingTreatment, formatReportingTreatment } from "@/lib/reporting/treatment-engine";
 import { Search, ListFilter, Tag, ArrowUpDown, CreditCard, CheckCircle2, Brain, AlertCircle, Check } from "lucide-react";
 import { loadTransactionsPage } from "./actions";
+import type { ConnectedAccountSummary } from "@/lib/open-banking/connected-accounts";
 
 function formatStatusLabel(status: string) {
   return status
@@ -42,10 +43,13 @@ interface TransactionsContentProps {
   transactions: Transaction[];
   totalTransactions: number;
   uploads: UploadSummary[];
+  connectedAccounts: ConnectedAccountSummary[];
   initialPreset: string;
   initialFrom: string;
   initialTo: string;
   initialFilters?: {
+    sourceType?: string;
+    accountId?: string;
     type?: string;
     uploadId?: string;
     category?: string;
@@ -58,6 +62,7 @@ interface TransactionsContentProps {
 }
 
 const PAGE_SIZE = 100;
+const OPEN_BANKING_PROVIDERS = new Set(["plaid", "truelayer", "yapily", "tink", "gocardless_bank_account_data", "enable_banking", "sandbox"]);
 
 type DuplicateFilter = "all" | "duplicates" | "not_duplicates";
 
@@ -72,9 +77,95 @@ function mergeUniqueTransactions(current: Transaction[], nextPage: Transaction[]
   return [...current, ...uniqueNextPage];
 }
 
-export default function TransactionsContent({ transactions: initialTransactions, totalTransactions: initialTotalTransactions, uploads, initialPreset, initialFrom, initialTo, initialFilters }: TransactionsContentProps) {
+function formatProvider(value?: string): string {
+  if (!value) return "Unknown";
+  const labels: Record<string, string> = {
+    plaid: "Plaid",
+    truelayer: "TrueLayer",
+    yapily: "Yapily",
+    tink: "Tink",
+    gocardless_bank_account_data: "GoCardless",
+    enable_banking: "Enable Banking",
+    revolut_business_csv: "Revolut Business CSV",
+    stripe_csv: "Stripe CSV",
+    paypal_csv: "PayPal CSV",
+    shopify_payouts_csv: "Shopify CSV",
+  };
+  return labels[value.toLowerCase()] ?? value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getTransactionSourceInfo(
+  transaction: Transaction,
+  uploads: UploadSummary[],
+  connectedAccountById: Map<string, ConnectedAccountSummary>,
+  connectedAccountByProviderId: Map<string, ConnectedAccountSummary>
+) {
+  const provider = transaction.sourceProvider?.toLowerCase();
+  const connectedAccount =
+    (transaction.accountId ? connectedAccountById.get(transaction.accountId) : undefined) ??
+    (transaction.sourceAccountProviderId ? connectedAccountByProviderId.get(transaction.sourceAccountProviderId) : undefined);
+  const isOpenBanking =
+    Boolean(transaction.sourceConnectionId || transaction.sourceAccountProviderId || connectedAccount) ||
+    Boolean(provider && OPEN_BANKING_PROVIDERS.has(provider));
+
+  if (isOpenBanking) {
+    return {
+      tone: "accent" as const,
+      label: "Open Banking",
+      provider: formatProvider(transaction.sourceProvider ?? connectedAccount?.provider),
+      detail: [
+        connectedAccount?.institutionName,
+        connectedAccount?.accountName ?? transaction.sourceAccountProviderId,
+      ].filter(Boolean).join(" · "),
+    };
+  }
+
+  if (transaction.uploadId) {
+    const upload = uploads.find((item) => item.id === transaction.uploadId);
+    return {
+      tone: "muted" as const,
+      label: "CSV Upload",
+      provider: formatProvider(transaction.sourceProvider),
+      detail: upload?.fileName ?? transaction.uploadId,
+    };
+  }
+
+  return {
+    tone: "muted" as const,
+    label: transaction.sourceProvider ? "Integration" : "Manual / Other",
+    provider: formatProvider(transaction.sourceProvider),
+    detail: transaction.accountId ?? "No connected source",
+  };
+}
+
+function SourceBadge({
+  source,
+}: {
+  source: ReturnType<typeof getTransactionSourceInfo>;
+}) {
+  const toneClass = source.tone === "accent"
+    ? "border-[var(--accent)]/25 bg-[var(--accent)]/10 text-[var(--accent)]"
+    : "border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)]";
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+      <span className={`rounded-full border px-2 py-0.5 font-semibold uppercase tracking-wide ${toneClass}`}>
+        {source.label}
+      </span>
+      <span className="rounded-full border border-[var(--border)] bg-[#09090B] px-2 py-0.5 text-[var(--foreground)]">
+        {source.provider}
+      </span>
+      {source.detail && (
+        <span className="max-w-[300px] truncate text-[var(--muted-foreground)]">{source.detail}</span>
+      )}
+    </div>
+  );
+}
+
+export default function TransactionsContent({ transactions: initialTransactions, totalTransactions: initialTotalTransactions, uploads, connectedAccounts, initialPreset, initialFrom, initialTo, initialFilters }: TransactionsContentProps) {
   const { currency } = useCompanyCurrency();
   const [search, setSearch] = useState("");
+  const [sourceTypeFilter, setSourceTypeFilter] = useState(initialFilters?.sourceType ?? "all");
+  const [accountFilter, setAccountFilter] = useState(initialFilters?.accountId ?? "all");
   const [typeFilter, setTypeFilter] = useState(initialFilters?.type ?? "all");
   const [categoryFilter, setCategoryFilter] = useState(initialFilters?.category ?? "all");
   const [uploadFilter, setUploadFilter] = useState(initialFilters?.uploadId ?? "all");
@@ -106,8 +197,22 @@ export default function TransactionsContent({ transactions: initialTransactions,
     [transactions]
   );
   const selectedUpload = uploads.find((u) => u.id === uploadFilter);
+  const connectedAccountById = useMemo(
+    () => new Map(connectedAccounts.map((account) => [account.id, account])),
+    [connectedAccounts]
+  );
+  const connectedAccountByProviderId = useMemo(
+    () => new Map(connectedAccounts.map((account) => [account.providerAccountId, account]).filter((entry): entry is [string, ConnectedAccountSummary] => Boolean(entry[0]))),
+    [connectedAccounts]
+  );
+  const providerOptions = useMemo(
+    () => Array.from(new Set([...sourceProviders, ...connectedAccounts.map((account) => account.provider).filter(Boolean)])),
+    [connectedAccounts, sourceProviders]
+  );
 
   const serverFilters = useMemo(() => ({
+    sourceType: sourceTypeFilter,
+    accountId: accountFilter,
     type: typeFilter,
     uploadId: uploadFilter,
     category: categoryFilter,
@@ -116,7 +221,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
     kpiTreatment: kpiTreatmentFilter,
     currency: currencyFilter,
     sourceProvider: sourceProviderFilter,
-  }), [typeFilter, uploadFilter, categoryFilter, statusFilter, duplicateFilter, kpiTreatmentFilter, currencyFilter, sourceProviderFilter]);
+  }), [sourceTypeFilter, accountFilter, typeFilter, uploadFilter, categoryFilter, statusFilter, duplicateFilter, kpiTreatmentFilter, currencyFilter, sourceProviderFilter]);
 
   async function fetchTransactions(
     nextFilters: typeof serverFilters,
@@ -143,6 +248,8 @@ export default function TransactionsContent({ transactions: initialTransactions,
 
   function applyServerFilter(next: Partial<typeof serverFilters>) {
     const merged = { ...serverFilters, ...next };
+    if (next.sourceType !== undefined) setSourceTypeFilter(next.sourceType);
+    if (next.accountId !== undefined) setAccountFilter(next.accountId);
     if (next.type !== undefined) setTypeFilter(next.type);
     if (next.uploadId !== undefined) setUploadFilter(next.uploadId);
     if (next.category !== undefined) setCategoryFilter(next.category);
@@ -305,6 +412,38 @@ export default function TransactionsContent({ transactions: initialTransactions,
             <div className="relative">
               <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
               <select
+                value={sourceTypeFilter}
+                onChange={(e) => applyServerFilter({ sourceType: e.target.value })}
+                className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
+                style={{ borderColor: "rgba(148,163,184,0.16)" }}
+              >
+                <option value="all">All Sources</option>
+                <option value="open_banking">Open Banking</option>
+                <option value="csv_upload">CSV Uploads</option>
+                <option value="manual">Manual / Other</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <select
+                value={accountFilter}
+                onChange={(e) => applyServerFilter({ accountId: e.target.value })}
+                className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
+                style={{ borderColor: "rgba(148,163,184,0.16)" }}
+              >
+                <option value="all">All Connected Accounts</option>
+                {connectedAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.accountName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
+              <ListFilter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <select
                 value={typeFilter}
                 onChange={(e) => applyServerFilter({ type: e.target.value })}
                 className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
@@ -341,7 +480,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
                 className="rounded-lg border bg-[#09090B] py-2 pl-9 pr-8 text-sm text-[#F1F5F9] outline-none focus:border-[#14B8A6]/50 appearance-none"
                 style={{ borderColor: "rgba(148,163,184,0.16)" }}
               >
-                <option value="all">All Uploads</option>
+                <option value="all">All Upload Files</option>
                 {uploads.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.fileName}
@@ -419,8 +558,8 @@ export default function TransactionsContent({ transactions: initialTransactions,
                 style={{ borderColor: "rgba(148,163,184,0.16)" }}
               >
                 <option value="all">All Providers</option>
-                {sourceProviders.map((provider) => (
-                  <option key={provider} value={provider}>{provider}</option>
+                {providerOptions.map((provider) => (
+                  <option key={provider} value={provider}>{formatProvider(provider)}</option>
                 ))}
               </select>
             </div>
@@ -480,6 +619,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
                         {row.uploadId ? ` · Upload ${row.uploadId}` : ""}
                         {row.externalTransactionId ? ` · External ${row.externalTransactionId}` : ""}
                       </p>
+                      <SourceBadge source={getTransactionSourceInfo(row, uploads, connectedAccountById, connectedAccountByProviderId)} />
                     </div>
                   </div>
                 ),
@@ -580,6 +720,7 @@ export default function TransactionsContent({ transactions: initialTransactions,
                       {formatDate(t.date)}{t.sourceRowNumber ? ` · Row ${t.sourceRowNumber}` : ""} · {t.currency ?? currency}
                     </p>
                     <p className="text-[10px] text-[var(--muted-foreground)] truncate">DB {t.id}</p>
+                    <SourceBadge source={getTransactionSourceInfo(t, uploads, connectedAccountById, connectedAccountByProviderId)} />
                   </div>
                 </div>
                 <span className={`text-sm font-semibold whitespace-nowrap ml-2 ${t.type === "income" ? "text-[#22C55E]" : "text-[var(--foreground)]"}`}>
