@@ -56,6 +56,9 @@ async function getFirstClassProof(supabase: SupabaseClient, companyId: string) {
 }
 
 async function main() {
+  if (process.argv.includes("--api")) {
+    process.env.OPEN_BANKING_SANDBOX_MODE = "plaid_api";
+  }
   const companyId = process.argv.includes("--company-id")
     ? process.argv[process.argv.indexOf("--company-id") + 1]
     : process.argv.includes("--persist")
@@ -76,7 +79,9 @@ async function main() {
       ...persisted,
       resetSandboxRows: reset,
       firstClassProof,
-      note: "Persisted Plaid-shaped sandbox fixtures through the Open Banking sync service. No live bank account and no production credential is used.",
+      note: persisted.sourceMode === "plaid_api"
+        ? "Persisted real Plaid Sandbox API data through the Open Banking sync service. No live bank account and no production credential is used."
+        : "Persisted Plaid-shaped sandbox fixtures through the Open Banking sync service. No live bank account and no production credential is used.",
     }, null, 2));
     return;
   }

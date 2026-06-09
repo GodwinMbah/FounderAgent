@@ -233,6 +233,49 @@ First-class Supabase proof after migration 022:
 
 This does not connect to a live bank account. It does not call Plaid production. It does not require or commit real Plaid secrets.
 
+## Real Plaid Sandbox API Adapter
+
+The branch now includes a server-only Plaid Sandbox API connector alongside the deterministic fixture connector.
+
+Implemented API path:
+
+- `/sandbox/public_token/create` to create a Plaid Sandbox public token without launching live banking.
+- `/item/public_token/exchange` to exchange the sandbox public token for an access token in server memory.
+- `/accounts/get` to retrieve connected accounts.
+- `/accounts/balance/get` to retrieve current and available balances.
+- `/transactions/sync` to retrieve added and modified transaction updates with cursor-style pagination.
+
+Configuration:
+
+```bash
+OPEN_BANKING_SANDBOX_MODE=plaid_api
+PLAID_ENV=sandbox
+OPEN_BANKING_ENV=sandbox
+PLAID_CLIENT_ID=...
+PLAID_SECRET=...
+PLAID_SANDBOX_INSTITUTION_ID=ins_117650
+PLAID_SANDBOX_INITIAL_PRODUCTS=transactions
+```
+
+Security result:
+
+- Raw Plaid access tokens are not exposed to the browser.
+- Raw Plaid access tokens are not persisted to first-class connected tables.
+- `provider_consents.token_reference` stores a sandbox memory reference such as `sandbox-memory://plaid/...`.
+- The access token is carried as `runtimeAccessToken` only inside the server-side sync process.
+- Production provider environments are blocked by `assertSandboxOnly`.
+
+Credential status on this machine:
+
+- `PLAID_CLIENT_ID`: missing
+- `PLAID_SECRET`: missing
+- `npx tsx scripts/prove-plaid-sandbox-api.ts`: skipped honestly with `Plaid sandbox API credentials are not configured`
+
+Validated without network credentials:
+
+- Mocked Plaid API adapter tests prove public-token creation, token exchange, account mapping, balance mapping, transaction sync mapping, GBP preservation, Plaid sign normalisation, and production-environment refusal.
+- Full test suite passed with 37 files and 463 tests after adding the adapter.
+
 ## Dashboard And Transactions Proof
 
 Sandbox persistence is implemented and proved against Supabase with a Plaid-shaped fixture. After migration 022, connected institution, consent, balance snapshot, sync job, sync log, connected bank account, and transaction source-lineage data persists into first-class tables/columns. Metadata remains only a compatibility fallback, not the primary proof path.
@@ -245,6 +288,13 @@ Browser proof, signed-in account, 2026-06-04:
 - Transactions page with `?sourceType=open_banking` showed 6 rows and rendered a compact source badge per row: `Open Banking`, `Plaid`, `Plaid Sandbox Bank`, and the connected account name.
 - Transactions filters now include source type, provider, connected account, upload file, and CSV versus Open Banking separation.
 - Dashboard showed GBP KPIs and source text including connected rows: `1006 source transactions across 1000 transactions from 3 uploads, 6 connected account transactions`.
+
+Browser proof, local dev server, 2026-06-09:
+
+- Upload Centre sandbox sync still runs after the Plaid API adapter changes.
+- Result panel now exposes the sync source mode.
+- Fixture-mode duplicate proof displayed: `Source: FounderAgent fixture` and `3 accounts, 3 balances, 0 inserted, 6 duplicate skipped`.
+- Screenshot: `/tmp/founderagent-plaid-sandbox-mode-ui-proof.png`
 
 Supabase proof for signed-in company `925fc8e0-2d08-4422-a878-14c3872195a7`:
 
@@ -330,6 +380,7 @@ npm test
 npm run build
 npx tsx scripts/verify-schema.ts
 npx tsx scripts/audit-secrets.ts
+npx tsx scripts/prove-plaid-sandbox-api.ts
 npx tsx scripts/prove-open-banking-sandbox.ts --persist
 npx tsx scripts/prove-reconciliation-694.ts --reset
 npx tsx scripts/test-provider-detection.ts
@@ -339,13 +390,14 @@ git diff --check
 
 Results:
 
-- Focused tests: 7 files passed, 30 tests passed
-- Full tests: 36 files passed, 461 tests passed
+- Focused tests: 6 Open Banking files passed, 20 Open Banking tests passed
+- Full tests: 37 files passed, 463 tests passed
 - Lint: passed
 - Build: passed, with existing Next.js `middleware` deprecation warning
 - 694-row CSV proof: passed
 - Open Banking sandbox persistence proof: passed with first-class migration-022 tables/columns
 - Duplicate Open Banking sync proof: passed, 0 inserted and 6 skipped
+- Real Plaid Sandbox API proof script: skipped because Plaid sandbox credentials are not configured locally
 - Schema verification: all MUST columns present, including migration 022 Open Banking tables and lineage columns
 - Secret audit: passed
 
@@ -356,7 +408,8 @@ Results:
 - No real Plaid/TrueLayer/Yapily credentials are committed.
 - `Connect Bank Account` is still a sandbox foundation control, not a live production bank connection.
 - Reconnect and disconnect controls are placeholders only.
-- Token storage still needs encrypted provider token references or Supabase Vault before production.
+- Real Plaid Sandbox API mode exists, but it has not been run against Plaid from this machine because Plaid sandbox credentials are not configured.
+- Persistent token storage still needs encrypted provider token references or Supabase Vault before production.
 - Provider webhooks and real cursor refresh are not enabled.
 - Dashboard KPI source counts now include connected rows, but full KPI drilldown row loading still needs a paginated source-backed loader beyond the current 1,000-row select ceiling.
 - Route performance is measured and documented but not fully remediated in this branch.
@@ -365,12 +418,13 @@ Results:
 
 ## Next Steps
 
-1. Replace the fixture button with server-only Plaid sandbox token exchange endpoints.
-2. Store token references using encrypted storage or Supabase Vault.
-3. Add provider webhooks and cursor refresh jobs for sandbox.
-4. Implement reconnect and disconnect status flows.
-5. Add paginated KPI drilldown loaders so Dashboard explanations can show every source row behind each KPI without a 1,000-row ceiling.
-6. Evaluate TrueLayer and Yapily with UK business-bank sandbox/production criteria before live launch.
-7. Continue performance remediation against the documented route targets.
+1. Add Plaid sandbox credentials to `.env.local`, set `OPEN_BANKING_SANDBOX_MODE=plaid_api`, and run `npx tsx scripts/prove-plaid-sandbox-api.ts`.
+2. Add a browser proof for Plaid API mode after the credentialed script succeeds.
+3. Store token references using encrypted storage or Supabase Vault before any durable refresh flow.
+4. Add provider webhooks and cursor refresh jobs for sandbox.
+5. Implement reconnect and disconnect status flows.
+6. Add paginated KPI drilldown loaders so Dashboard explanations can show every source row behind each KPI without a 1,000-row select ceiling.
+7. Evaluate TrueLayer and Yapily with UK business-bank sandbox/production criteria before live launch.
+8. Continue performance remediation against the documented route targets.
 
 Do not claim production readiness from this phase.

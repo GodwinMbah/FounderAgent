@@ -6,8 +6,9 @@ import { toDbTransaction, type CanonicalTransaction } from "@/lib/providers/cano
 import { applyReportingTreatment } from "@/lib/reporting/treatment-engine";
 import { applyMerchantAndTransferSignals, categoriseCanonicalTransactions } from "@/lib/upload/categorisation-runner";
 import { classifyConnectedAccountTreatment } from "./kpi-routing";
+import { hasPlaidSandboxApiCredentials, PlaidSandboxApiConnector } from "./plaid-sandbox-api";
 import { PlaidSandboxFixtureConnector } from "./sandbox-provider";
-import type { ConnectedBankAccount, ConnectedInstitution, ProviderBalance, ProviderConsent } from "./types";
+import type { ConnectedBankAccount, ConnectedInstitution, OpenBankingConnector, ProviderBalance, ProviderConsent } from "./types";
 
 type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -23,10 +24,13 @@ interface BankAccountPersistResult {
   warning?: string;
 }
 
+export type OpenBankingSandboxSourceMode = "fixture" | "plaid_api";
+
 export interface OpenBankingSandboxSyncResult {
   success: boolean;
   provider: "plaid";
   environment: "sandbox";
+  sourceMode: OpenBankingSandboxSourceMode;
   institutionId?: string;
   consentId?: string;
   syncJobId?: string;
@@ -85,6 +89,37 @@ function accountCashBalance(account: ConnectedBankAccount): number {
   return account.currentBalance ?? 0;
 }
 
+function resolveSandboxSourceMode(): OpenBankingSandboxSourceMode {
+  const mode = (process.env.OPEN_BANKING_SANDBOX_MODE ?? "fixture").toLowerCase();
+  if (mode === "plaid_api") {
+    if (!hasPlaidSandboxApiCredentials()) {
+      throw new Error("OPEN_BANKING_SANDBOX_MODE=plaid_api requires PLAID_CLIENT_ID and PLAID_SECRET in .env.local.");
+    }
+    return "plaid_api";
+  }
+  return "fixture";
+}
+
+function buildSandboxConnector(sourceMode: OpenBankingSandboxSourceMode): OpenBankingConnector {
+  if (sourceMode === "plaid_api") return new PlaidSandboxApiConnector();
+  return new PlaidSandboxFixtureConnector();
+}
+
+async function createSandboxPublicToken(connector: OpenBankingConnector, sourceMode: OpenBankingSandboxSourceMode): Promise<string> {
+  if (sourceMode === "plaid_api" && connector instanceof PlaidSandboxApiConnector) {
+    return connector.createSandboxPublicToken();
+  }
+  return "public-sandbox-token-founderagent";
+}
+
+function safeConsentMetadata(consent: ProviderConsent): Record<string, unknown> {
+  const metadata = { ...(consent.metadata ?? {}) };
+  delete metadata.access_token;
+  delete metadata.runtimeAccessToken;
+  delete metadata.plaid_access_token;
+  return metadata;
+}
+
 function bankAccountMetadata(
   account: ConnectedBankAccount,
   balance: ProviderBalance | undefined,
@@ -112,6 +147,7 @@ function bankAccountMetadata(
     consent_expires_at: account.consentExpiresAt,
     kpi_routing: account.kpiRouting,
     cash_balance_source: account.kpiRouting.cashBalanceSource,
+    provider_metadata: account.metadata,
     last_balance_payload: balance?.raw,
   };
 }
@@ -205,9 +241,10 @@ async function insertProviderConsent(
     last_successful_sync_at: consent.lastSuccessfulSyncAt,
     reconnect_url: consent.reconnectUrl,
     metadata: {
-      ...(consent.metadata ?? {}),
+      ...safeConsentMetadata(consent),
       token_storage: "reference_only",
-      sandbox_fixture: true,
+      sandbox_fixture: consent.metadata?.sandbox_fixture ?? false,
+      sandbox_api: consent.metadata?.sandbox_api ?? false,
     },
     updated_at: new Date().toISOString(),
   };
@@ -340,6 +377,7 @@ async function createSyncJob(
     companyId: string;
     institutionId?: string;
     consentId?: string;
+    sourceMode: OpenBankingSandboxSourceMode;
   }
 ): Promise<OptionalWriteResult> {
   if (!input.institutionId) return { warning: "open_banking_sync_jobs skipped because no connected institution row was available." };
@@ -354,7 +392,7 @@ async function createSyncJob(
       sync_type: "transactions",
       status: "running",
       started_at: new Date().toISOString(),
-      metadata: { sandbox_fixture: true },
+      metadata: { sandbox_source_mode: input.sourceMode, sandbox_fixture: input.sourceMode === "fixture", sandbox_api: input.sourceMode === "plaid_api" },
     })
     .select("id")
     .single();
@@ -395,6 +433,7 @@ async function writeSyncLog(
   admin: AdminClient,
   companyId: string,
   syncJobId: string | undefined,
+  sourceMode: OpenBankingSandboxSourceMode,
   message: string
 ): Promise<string | undefined> {
   if (!syncJobId) return undefined;
@@ -405,7 +444,7 @@ async function writeSyncLog(
     level: "info",
     event: "sandbox_sync_completed",
     message,
-    raw_payload: { sandbox_fixture: true },
+    raw_payload: { sandbox_source_mode: sourceMode, sandbox_fixture: sourceMode === "fixture", sandbox_api: sourceMode === "plaid_api" },
   });
   if (error && isMissingSchemaError(error.message)) return optionalWarning("open_banking_sync_logs", error.message);
   if (error) throw new Error(`Open Banking sync log insert failed: ${error.message}`);
@@ -468,6 +507,7 @@ export function buildOpenBankingTransactionInserts(input: {
   institutionId?: string;
   consentId?: string;
   syncJobId?: string;
+  sourceMode?: OpenBankingSandboxSourceMode;
 }): { inserts: TransactionInsert[]; duplicatesSkipped: number } {
   const inserts: TransactionInsert[] = [];
   let duplicatesSkipped = 0;
@@ -515,7 +555,8 @@ export function buildOpenBankingTransactionInserts(input: {
         source_sync_job_id: input.syncJobId,
         source_account_provider_id: providerAccountId,
         provider_account_id: providerAccountId,
-        open_banking_sandbox_fixture: true,
+        open_banking_sandbox_fixture: input.sourceMode !== "plaid_api",
+        open_banking_sandbox_api: input.sourceMode === "plaid_api",
       },
     });
   }
@@ -578,25 +619,34 @@ export async function runPlaidSandboxSyncForCompany(companyId: string): Promise<
   const admin = createAdminClient();
   if (!admin) throw new Error("Admin client not available");
 
-  const connector = new PlaidSandboxFixtureConnector();
+  const sourceMode = resolveSandboxSourceMode();
+  const connector = buildSandboxConnector(sourceMode);
   const warnings: string[] = [];
   const now = new Date().toISOString();
+  const publicToken = await createSandboxPublicToken(connector, sourceMode);
+  const consent = await connector.exchangeConnectionToken({ companyId, publicToken });
+  const consentMetadata = safeConsentMetadata(consent);
+  const providerInstitutionId = (consentMetadata.institution_id as string | undefined) ?? "plaid-sandbox-bank-founderagent";
+  const institutionName = (consentMetadata.institution_name as string | undefined) ?? "Plaid Sandbox Bank";
 
   const institution: ConnectedInstitution = {
     companyId,
     provider: "plaid",
-    providerInstitutionId: "plaid-sandbox-bank-founderagent",
-    institutionName: "Plaid Sandbox Bank",
+    providerInstitutionId,
+    institutionName,
     countryCodes: ["GB"],
     status: "connected",
     connectedAt: now,
-    metadata: { sandbox_fixture: true },
+    metadata: {
+      sandbox_source_mode: sourceMode,
+      sandbox_fixture: sourceMode === "fixture",
+      sandbox_api: sourceMode === "plaid_api",
+    },
   };
 
   const institutionWrite = await upsertConnectedInstitution(admin, institution);
   if (institutionWrite.warning) warnings.push(institutionWrite.warning);
 
-  const consent = await connector.exchangeConnectionToken({ companyId, publicToken: "public-sandbox-token-founderagent" });
   const consentWrite = await insertProviderConsent(admin, consent, institutionWrite.id);
   if (consentWrite.warning) warnings.push(consentWrite.warning);
 
@@ -629,7 +679,7 @@ export async function runPlaidSandboxSyncForCompany(companyId: string): Promise<
     if (warning && !warnings.includes(warning)) warnings.push(warning);
   }
 
-  const syncJob = await createSyncJob(admin, { companyId, institutionId: institutionWrite.id, consentId: consentWrite.id });
+  const syncJob = await createSyncJob(admin, { companyId, institutionId: institutionWrite.id, consentId: consentWrite.id, sourceMode });
   if (syncJob.warning) warnings.push(syncJob.warning);
 
   const synced = await connector.syncTransactions(consent, accounts);
@@ -668,6 +718,7 @@ export async function runPlaidSandboxSyncForCompany(companyId: string): Promise<
     institutionId: institutionWrite.id,
     consentId: consentWrite.id,
     syncJobId: syncJob.id,
+    sourceMode,
   });
 
   const insertResult = await createTransactionsChunked(inserts);
@@ -677,6 +728,7 @@ export async function runPlaidSandboxSyncForCompany(companyId: string): Promise<
     success: true,
     provider: "plaid",
     environment: "sandbox",
+    sourceMode,
     institutionId: institutionWrite.id,
     consentId: consentWrite.id,
     syncJobId: syncJob.id,
@@ -700,6 +752,7 @@ export async function runPlaidSandboxSyncForCompany(companyId: string): Promise<
     admin,
     companyId,
     syncJob.id,
+    sourceMode,
     `Sandbox sync inserted ${result.transactionsInserted} transactions and skipped ${result.duplicatesSkipped} duplicates.`
   );
   if (logWarning && !result.warnings.includes(logWarning)) result.warnings.push(logWarning);

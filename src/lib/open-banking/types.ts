@@ -78,6 +78,7 @@ export interface ProviderConsent {
   lastSyncedAt?: string;
   lastSuccessfulSyncAt?: string;
   reconnectUrl?: string;
+  runtimeAccessToken?: string;
   metadata?: Record<string, unknown>;
 }
 
