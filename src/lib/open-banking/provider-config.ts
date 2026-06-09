@@ -14,6 +14,8 @@ export interface OpenBankingProviderConfig {
     products: string[];
     countryCodes: string[];
     redirectUri?: string;
+    sandboxInstitutionId: string;
+    sandboxInitialProducts: string[];
   };
 }
 
@@ -30,6 +32,11 @@ export function getOpenBankingProviderConfig(): OpenBankingProviderConfig {
       products: (env("PLAID_PRODUCTS") ?? "transactions,balance").split(",").map((value) => value.trim()).filter(Boolean),
       countryCodes: (env("PLAID_COUNTRY_CODES") ?? "GB").split(",").map((value) => value.trim()).filter(Boolean),
       redirectUri: env("PLAID_REDIRECT_URI"),
+      sandboxInstitutionId: env("PLAID_SANDBOX_INSTITUTION_ID") ?? "ins_117650",
+      sandboxInitialProducts: (env("PLAID_SANDBOX_INITIAL_PRODUCTS") ?? env("PLAID_PRODUCTS") ?? "transactions")
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value) => value && value !== "balance"),
     },
   };
 }
@@ -39,4 +46,3 @@ export function assertSandboxOnly(environment: OpenBankingEnvironment): void {
     throw new Error("Open Banking production access is not enabled in this phase. Use sandbox only.");
   }
 }
-

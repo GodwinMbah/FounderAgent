@@ -47,6 +47,9 @@ export default function OpenBankingSandboxClient({ enabled }: { enabled: boolean
             <CheckCircle2 className="h-4 w-4" />
             Sandbox sync completed
           </div>
+          <p className="mt-2 text-[#D1FAE5]">
+            Source: {result.sourceMode === "plaid_api" ? "Plaid Sandbox API" : "FounderAgent fixture"}
+          </p>
           <p className="mt-2">
             {result.accountsSynced} accounts, {result.balancesSynced} balances, {result.transactionsInserted} inserted,
             {" "}

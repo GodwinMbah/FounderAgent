@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./kpi-routing";
 export * from "./plaid-normaliser";
+export * from "./plaid-sandbox-api";
 export * from "./sandbox-provider";
 export * from "./sandbox-sync";
 export * from "./connected-accounts";
